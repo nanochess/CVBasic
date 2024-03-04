@@ -28,6 +28,8 @@
 #define LABEL_PREFIX    "cvb_"
 #define INTERNAL_PREFIX "cv"
 
+char path[4096];
+
 char current_file[MAX_LINE_SIZE];
 int current_line;
 FILE *input;
@@ -3385,48 +3387,14 @@ void compile_statement(int check_for_else)
 }
 
 /*
- ** Main program
+ ** Compile a source code file.
  */
-int main(int argc, char *argv[])
+void compile_basic(void)
 {
     struct label *label;
     int label_exists;
-    FILE *prologue;
-    int c;
-    int size;
     char *p;
-    
-    fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
-    fprintf(stderr, "(c) 2024 Oscar Toledo G. https://nanochess.org/\n\n");
-    
-    if (argc < 3) {
-        fprintf(stderr, "Usage:\n");
-        fprintf(stderr, "\n");
-        fprintf(stderr, "    cvbasic input.bas output.asm\n");
-        exit(1);
-    }
-    strcpy(current_file, argv[1]);
-    input = fopen(current_file, "r");
-    if (input == NULL) {
-        fprintf(stderr, "Couldn't open '%s' source file.\n", current_file);
-        exit(1);
-    }
-    output = fopen(argv[2], "w");
-    if (output == NULL) {
-        fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
-        exit(1);
-    }
-    prologue = fopen("cvbasic_prologue.asm", "r");
-    if (prologue == NULL) {
-        fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
-        exit(1);
-    }
-    while (fgets(line, sizeof(line) - 1, prologue)) {
-        fputs(line, output);
-    }
-    fclose(prologue);
-    inside_proc = NULL;
-    frame_drive = NULL;
+
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
@@ -3475,6 +3443,48 @@ int main(int argc, char *argv[])
                 get_lex();
                 z80_noop("RET");
                 inside_proc = NULL;
+            } else if (strcmp(name, "INCLUDE") == 0) {
+                int quotes;
+                FILE *old_input = input;
+                int old_line = current_line;
+                
+                while (line_pos < line_size && isspace(line[line_pos]))
+                    line_pos++;
+                
+                // Separate filename, admit use of quotes
+                if (line_pos < line_size && line[line_pos] == '"') {
+                    quotes = 1;
+                    line_pos++;
+                } else {
+                    quotes = 0;
+                }
+                p = &path[0];
+                while (p < &path[4095] && line_pos < line_size) {
+                    if (quotes && line[line_pos] == '"')
+                        break;
+                    *p++ = line[line_pos++];
+                }
+                if (quotes) {
+                    if (line_pos >= line_size || line[line_pos] != '"')
+                        emit_error("missing quotes in INCLUDE");
+                    else
+                        line_pos++;
+                } else {
+                    while (p > &path[0] && isspace(*(p - 1)))
+                        p--;
+                }
+                *p = '\0';
+                
+                input = fopen(path, "r");
+                if (input == NULL) {
+                    emit_error("INCLUDE not successful");
+                } else {
+                    compile_basic();
+                    fclose(input);
+                }
+                input = old_input;
+                current_line = old_line;
+                lex = C_END;
             } else {
                 compile_statement(FALSE);
             }
@@ -3482,6 +3492,54 @@ int main(int argc, char *argv[])
         if (lex != C_END)
             emit_error("Extra characters");
     }
+}
+
+/*
+ ** Main program
+ */
+int main(int argc, char *argv[])
+{
+    struct label *label;
+    FILE *prologue;
+    int c;
+    int size;
+    char *p;
+    
+    fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
+    fprintf(stderr, "(c) 2024 Oscar Toledo G. https://nanochess.org/\n\n");
+    
+    if (argc < 3) {
+        fprintf(stderr, "Usage:\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "    cvbasic input.bas output.asm\n");
+        exit(1);
+    }
+    strcpy(current_file, argv[1]);
+    input = fopen(current_file, "r");
+    if (input == NULL) {
+        fprintf(stderr, "Couldn't open '%s' source file.\n", current_file);
+        exit(1);
+    }
+    output = fopen(argv[2], "w");
+    if (output == NULL) {
+        fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
+        exit(1);
+    }
+    prologue = fopen("cvbasic_prologue.asm", "r");
+    if (prologue == NULL) {
+        fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
+        exit(1);
+    }
+    while (fgets(line, sizeof(line) - 1, prologue)) {
+        fputs(line, output);
+    }
+    fclose(prologue);
+    inside_proc = NULL;
+    frame_drive = NULL;
+   
+    compile_basic();
+    fclose(input);
+
     prologue = fopen("cvbasic_epilogue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_epilogue.asm.\n");
@@ -3529,7 +3587,6 @@ int main(int argc, char *argv[])
         }
     }
     fclose(output);
-    fclose(input);
     exit(0);
 }
 
