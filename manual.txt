@@ -1,0 +1,547 @@
+>>>>>>>>>>>>>>>>  CVBasic user's manual  <<<<<<<<<<<<<<<<
+
+                     by Oscar Toledo G.
+              (c) Copyright 2024 Oscar Toledo G.
+                    http://nanochess.org/
+
+First developed: Feb/27/2024
+Last revision: Feb/29/2024.
+
+
+>>>>>>>>>>>>>>  Legal notice
+
+This software is provided 'as-is', without any express or implied warranty. 
+In no event will the author be held liable for any damages or loss arising 
+from the use of this software.
+
+It is prohibited to modify, decompile, disassemble or reverse engineer this 
+software.
+
+All trademarks are property of their respective owners.
+
+
+>>>>>>>>>>>>>>  Description
+
+CVBasic is an integer BASIC compiler for Colecovision. It works as a cross compiler over a PC and generates assembler code that can be processed by tniASM v0.45.
+
+Platforms requirements:
+  o PC with Windows XP or better.
+
+The current limitations are:
+  o CVBasic won't warn you if you exceed the 1K of RAM of Colecovision.
+  o CVBasic hard codes the output ROM file as "game.rom"
+  o All comparisons are unsigned.
+  o The expression compiler isn't optimized (for example, decisions use extra instructions at this moment).
+
+Usage:
+  
+  cvbasic in.bas output.asm
+
+The following modules are automatically included as prologue and epilogue of your generated code and these set important variables and helper code:
+
+  cvbasic_prologue.asm
+  cvbasic_epilogue.asm
+
+Afterwards you should assemble your program using tniASM v0.45 available from http://www.tni.nl/products/tniasm.html
+
+  tniasm output.asm
+
+And finally you can test the generated game.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
+
+
+>>>>>>>>>>>>>>  Supporting the developer
+
+If you find CVBasic useful, please show your appreciation making a donation via Paypal ($9 USD suggested) to b-i+y-u+b-i (at) gmail.com
+
+If you find a bug, please report to same email and I'll try to look into it. Because lack of time I cannot guarantee it will be corrected.
+
+
+>>>>>>>>>>>>>>  CVBasic language specification
+  
+Execution starts at the first line of the BASIC program.
+
+Syntax per line:
+  [label:] statement[:statement] [' comment]
+
+  MAIN:    PRINT "HELLO"  ' Prints hello
+  
+Multiple statements are allowed, but these must be separated by colons.
+
+Variables are created simply by being used.
+
+Labels are created simply by being used.
+
+You can use a period before a label name to mark a local label. The local label's real name is based on the most recent global label (any label that doesn't start with a period) concatenated with the local label.
+
+A variable name starts with a letter or # and is followed by letters, numbers, or the underscore character.
+
+Variables and arrays can be 8-bit or 16-bit. Variables and arrays are 8-bit by default. To define a 16-bit variable or array use # as the initial character of the variable's name.
+
+    x
+    y
+    #score
+    
+Note that if you use the # prefix you should use it everywhere in your program. Variables with the same name but without the # prefix are treated as different 8-bit variables.
+    
+All variables are initialized with the value 0 (zero) when they are created.
+
+The following statements are available:
+
+  REM comment      
+  ' comment
+  
+     Everything between REM and the end of the line is treated by the compiler
+     as a comment.
+
+  GOTO label        
+  
+     Go to label.
+
+     It's erroneous to jump from inside a PROCEDURE to outside of the same
+     PROCEDURE. 
+'
+  GOSUB label       
+  
+     Go to a subroutine located at label (must be a PROCEDURE).
+  
+  label: PROCEDURE
+  [code for subroutine]
+  END
+  
+     Create a PROCEDURE callable by GOSUB.
+
+     It's important that PROCEDURE is on the same line as the label.
+
+     END implies an automatic RETURN.
+
+  RETURN            
+  
+     Return from subroutine (PROCEDURE). Also can be used to return early from a
+     PROCEDURE.
+
+  FOR A=start TO end [STEP increment]
+  NEXT     ' Also supported NEXT A
+  
+  FOR A=1 TO 5 ' Loop
+    [Variable A will contain 1,2,3,4,5]
+  NEXT A
+  
+  FOR A=1 TO 5 STEP 2
+    [Variable A will contain 1, 3, 5]
+  NEXT A
+  
+  FOR A=5 TO 1 STEP -2
+    [Variable A will contain 5, 3, 1]
+  NEXT A
+  
+     Looping statement.
+     
+     The start, end and step expressions can be complex expressions, instead of
+     only constants or variables.
+
+     Notice that you can only use regular variables for the loop variable, not
+     array variables. There is a small quirk if you're using an 8-bit variable
+     and the TO expression is pretty complex and reaches 0 or 255, the loop can
+     be infinite.
+     
+  WHILE expr:[statement]:WEND
+  WHILE expr
+  [statement]
+  WEND
+  
+     Looping statement that keeps looping as long as the expression evaluates
+     to non-zero.
+     
+  DO WHILE expr:[statement]:LOOP
+  DO WHILE expr
+    [statement]
+  LOOP
+
+  DO UNTIL expr:[statement]:LOOP
+  DO UNTIL expr
+    [statement]
+  LOOP
+  
+  DO:[statement]:LOOP WHILE expr
+  DO
+    [statement]
+  LOOP WHILE expr
+  
+  DO:[statement]:LOOP UNTIL expr
+  DO
+    [statement]
+  LOOP UNTIL expr
+  
+     Looping statements that keep looping WHILE expression evaluates to
+     non-zero, or UNTIL expression evaluates to non-zero.
+
+  EXIT FOR
+    
+     Exits current FOR loop, jumps directly to the line that follows NEXT.
+
+  EXIT WHILE
+  
+     Exits current WHILE loop, jumps directly to the line that follows WEND.
+     
+  EXIT DO
+     
+     Exits current DO loop, jumps directly to the line that follows LOOP.
+
+  IF expr GOTO [label]
+  IF expr THEN [statement]
+  IF expr THEN [statement] ELSE [statement]
+
+  IF expr THEN
+    [statement]
+  END IF
+  
+  IF expr THEN
+    [statement]
+  ELSE
+    [statement]
+  END IF
+  
+  IF expr THEN
+    [statement]
+  ELSEIF expr THEN
+    [statement]
+  END IF
+
+  IF expr THEN
+    [statement]
+  ELSEIF expr THEN
+    [statement]
+  ELSE
+    [statement]
+  END IF
+
+     Decision statement
+
+  POKE address,data
+  
+     Poke memory with data.
+
+  VPOKE address,data
+
+     Poke VRAM with data.
+
+  WAIT
+  
+     Waits for the next frame interruption (1/60 of a second for NTSC or 1/50
+     of a second for PAL)
+
+  DIM var(size)
+  
+     Creates an array of data called 'var' of size 'size' elements.
+     Counting starts on zero, so DIM A(10) creates an array of 0 to 9.
+     
+     Also you can create arrays of 16-bits numbers, using DIM #BIG(10)
+
+     The array can be accessed as follows:
+     
+         A(1)=A(1)+5
+         A(X)=A(Y)-2
+         
+     The DIM statement is like a directive, meaning it doesn't generate code
+     and it can appear anywhere in the program. The definition will start
+     from the line of the DIM statement.
+
+  RESTORE label
+
+     Restores the READ pointer to start at the provided label.
+
+  READ var
+  READ BYTE var
+
+     Reads a 16-bit value and puts it into the variable var.
+
+     It can also read an 8-bit value and put it into the variable var.
+
+     Make sure you pair correctly READ/DATA and READ BYTE/DATA BYTE.
+
+  DATA value[,value]
+  DATA BYTE value[,value]
+  DATA BYTE string
+
+     Defines 16-bit data to be stored in program memory, or also 8-bit data.
+
+     DATA statements should be referred with a label starting with the # sign,
+     and DATA BYTE statements should be referred to with a label not starting
+     with the # sign.
+
+     All data contained in DATA can also be accessed using the familiar
+     array-indexing syntax, like this:
+    
+       FOR A=0 TO 4
+       PRINT AT #TABLE(A),"Z"
+       NEXT A
+      
+       #TABLE:
+       DATA 21,42,63,84,105
+
+  DEFINE CHAR char_num,total,label
+
+     Loads graphics into VRAM.
+
+     "char_num" valid values are between 0 and 255.
+
+     "total" valid values are between 1 and 256.
+
+     It replaces the definitions for "char_num", "total" means the total number
+     of characters to load, and "label" should point to a label containing
+     BITMAP statements or DATA BYTE statements.
+
+     Each character is a 8x8 pixel bitmap (represented as 8 BITMAP statements or
+     8 constants in a DATA BYTE statement).
+
+     Internally, CVBasic will replicate the date along the 3 display areas so
+     the defined characters will appear on the whole screen when required.
+
+  DEFINE COLOR char_num,total,label
+
+     Loads color into VRAM.
+
+     "char_num" valid values are between 0 and 255.
+
+     "total" valid values are between 1 and 256.
+
+     It replaces the colors for "char_num", "total" means the total number
+     of characters to load, and "label" should point to a label containing
+     DATA BYTE statements.
+
+     The color format is the standard one of the TMS9118 Video Display processor.
+     Each character is composed of 8 rows, and each row can have a foreground
+     color (upper nibble), and a background color (lower nibble).
+
+     Internally, CVBasic will replicate the date along the 3 display areas so
+     the defined characters will appear on the whole screen when required.
+
+  DEFINE SPRITE sprite_num,total,label
+
+     Loads sprites into VRAM
+
+     "sprite_num" valid values are between 0 and 63.
+
+     "total" valid values are between 1 and 64.
+
+     It replaces the definitions for "sprite_num", "total" means the total number
+     of sprites to load, and "label" should point to a label containing
+     BITMAP statements with the sprite or sprites representation.
+
+     Each sprite is 16x16 pixels.
+
+  SOUND 0,[value 10 bits],[vol 0-15]
+  SOUND 1,[value 10 bits],[vol 0-15]
+  SOUND 2,[value 10 bits],[vol 0-15]
+  SOUND 3,[control 4 bits],[vol 0-15]
+
+     Allows to generate tones on the SN76489 sound processor.
+
+     The desired frequency value can be calculated this way:
+   
+         value = 3579545 / 32 / frequency
+
+     Only a constant (0-3) can be used as the first parameter of SOUND.
+
+     The SN76489 allows four independent tones to be played at the same time.
+
+     The first three channels are pure tones, and the fourth channel can be
+     white noise (4<= control <= 7) or a tone with a special shape
+     (0<= control <= 3)
+
+     The frequency for the fourth channel is fixed (control is 0,1,2,4,5,6)
+     or related to the frequency of the third channel (control is 3,7)
+
+  SPRITE index,y,x,f,c
+
+     The first parameter indicates the number of the sprite (0-31).
+
+     Y contains the Y-coordinate for the top row of the sprite.
+     The final result is one pixel below the expect pixel row, so you
+     typically must subtract one pixel.
+
+     X contains the X-coordinate for the sprite (0-255)
+
+     F contains the sprite frame. You must multiply the desired sprite
+     definition (0-63) by 4 to show the right sprite.
+
+     C contains the color for the sprite (0-15). Alternatively, you can
+     add the flag $80 (128 decimal) to displace the sprite by 32 pixels
+     to the left. Allowing it to blend inside the screen from the left.
+
+     Sprites are updated on the vertical retrace.
+
+  OUT port,data
+
+     It outputs "data" in the hardware port "port".
+
+  CLS
+
+     Clears the screen. The screen buffer is set to 32.
+
+     Also it resets the internal cursor position.
+
+  PRINT [AT [expr]][,]["string"]
+
+     Prints the given string at the current cursor coordinate (or
+     selected via the AT value 0 to 767).
+
+     The string is processed in ASCII, and CVBasic automatically
+     defines the ASCII charset to be used at the start. You can
+     redefine all the characters if required.
+
+     If you want to use a character beyond the printable ones, you
+     can use the inverted slash as an escape character (by example
+     "\128\129")
+
+     If you want to use double quotes inside a string you can
+     escape it this way: \"
+
+     Examples of positioning:
+
+         PRINT AT 0,"A"    ' Upper-left corner
+         PRINT AT 31,"A"   ' Upper-right corner
+         PRINT AT 736,"A"  ' Bottom-left corner
+         PRINT AT 767,"A"  ' Bottom-right corner
+
+  PRINT [expr]
+
+     Illustrates the expression as an ASCII number using
+     characters between 48 and 57.
+
+  BITMAP "00000000"
+  BITMAP "00001111"
+  
+  BITMAP "________"
+  BITMAP "____XXXX"
+  
+    Allows you to draw using binary.
+
+    For characters you should use 8 BITMAP statements containing 8 pixels each one
+    to form a graphic definition.
+
+    For sprites you should use 16 BITMAP statements containing 16 pixels each one.
+    
+    This is most useful when attaching a label and using with DEFINE CHAR and DEFINE SPRITE.
+    
+    Characters taken as zero include: "0" "_" " " "."
+
+    Every other character will be interpreted as one.
+
+>>>>>>>>>>>>>>  Expression syntax
+
+The expression syntax is like a calculator.
+
+The usual precedence rules apply to expression operators. Addition and
+subtraction have lower precedence than multiplication and division. This means
+1 + 2 * 3 = 7 not 9.
+
+The expression parser will take advantage of 8-bit variables and numbers to optimize the code. If you want a variable to "become" 16-bit you need for example to add a 16-bit number to it.
+  
+  A=5               Decimal number (16 bits)
+  A=5.              Decimal number (8 bits)
+  A=$1000           Hexadecimal number
+  A=&10101          Binary number
+                    
+  A=B               Simple assignment
+  A=A+B             Simple addition
+  A=A-B             Simple subtraction
+  A=A*B             Simple multiplication
+                    Multiplication by 2/4/8/16/32/64/128/256 is
+                    internally optimized.
+  A=A/B             Simple unsigned division.
+  A=A%B             Simple unsigned remainder.
+  A=(A+B)-C
+  A=A AND B
+  A=A OR B          
+  A=A XOR B
+  A=NOT A
+  A=-A
+  A=A=B             If A and B are the same the result is $ffff (-1) else zero
+  A=A<>B
+  A=A<B
+  A=A>B
+  A=A<=B
+  A=A>=B
+  A=PEEK(expr)      Reads a memory location
+                    PEEK always reads 8-bit data than can be processed in
+                    an expression.
+  A=VPEEK(expr)     Reads a VRAM memory location
+                    VPEEK always reads 8-bit data than can be processed in
+                    an expression.
+  A=ABS(expr)       Gets absolute value of expression (non-negative)
+  A=array(expr)     Accesses an array. The array can be defined with DIM or
+                    label for DATA
+  array(expr)=A     Writes data to an array. The array can be defined with DIM.
+                    DATA is not writable
+
+  CONT              Contains the state of both controllers.
+  CONT.UP           Non-zero if any controller pointing up
+  CONT.DOWN         Non-zero if any controller pointing down
+  CONT.LEFT         Non-zero if any controller pointing left
+  CONT.RIGHT        Non-zero if any controller pointing right
+  CONT.BUTTON       Non-zero if any controller left button is pressed.
+  CONT.BUTTON2      Non-zero if any controller right button is pressed.
+  CONT.KEY          Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
+                    In any controller.
+
+  CONT1             Contains the state of the first controller.
+  CONT1.UP          Non-zero if controller pointing up
+  CONT1.DOWN        Non-zero if controller pointing down
+  CONT1.LEFT        Non-zero if controller pointing left
+  CONT1.RIGHT       Non-zero if controller pointing right
+  CONT1.BUTTON      Non-zero if controller left button is pressed.
+  CONT1.BUTTON2     Non-zero if controller right button is pressed.
+  CONT1.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
+
+  CONT2             Contains the state of the second controller.
+  CONT2.UP          Non-zero if controller pointing up
+  CONT2.DOWN        Non-zero if controller pointing down
+  CONT2.LEFT        Non-zero if controller pointing left
+  CONT2.RIGHT       Non-zero if controller pointing right
+  CONT2.BUTTON      Non-zero if controller left button is pressed.
+  CONT2.BUTTON2     Non-zero if controller right button is pressed.
+  CONT2.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
+
+  RANDOM
+    Produces a pseudo-random value between 0 and 65535.
+    The value produced is different each time.
+    
+  RANDOM(range)
+    Produces a pseudo-random value between 0 and range-1.
+    The value produced is different each time.
+    
+  FRAME
+    Returns the current frame number (0-65535, it cycles back to
+    0 after reaching 65535)
+    
+
+>>>>>>>>>>>>>>  Useful VRAM addresses
+
+Currently CVBasic handles in its own the bitmap, color and sprites tables.
+
+However, you probably will need direct access to the screen.
+
+The screen is a 32x24 grid located at the VRAM address $1800-$1aff. It can be accessed using VPOKE (writing) and VPEEK (reading).
+
+See the included example viboritas.bas for examples.
+
+
+>>>>>>>>>>>>>>  Useful links
+
+CoolCV emulator
+
+  https://forums.atariage.com/topic/240800-coolcv-emulator-for-mac-os-x-linux-windows-and-raspberry/
+
+tniASM assembler
+
+  http://www.tni.nl/products/tniasm.html
+
+  
+>>>>>>>>>>>>>>  Acknowledgments
+
+Thanks to following members of Atariage for contributing valuable suggestions:
+
+  gemintronic
+  Kiwi
+  pixelboy
