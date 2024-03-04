@@ -230,6 +230,48 @@ The following statements are available:
 
      Decision statement
 
+  ON expr GOTO [label],[label],[label]
+  ON expr GOTO [label],,[label]
+  ON expr GOTO ,,[label]
+  ON expr GOSUB [label],[label],[label]
+  ON expr GOSUB [label],,[label]
+  ON expr GOSUB ,,[label]
+  ON expr FAST GOTO
+  ON expr FAST GOSUB
+
+     Decision statement
+
+     The expression is evaluated and if the result is zero, the first label
+     is taken, if the result is one, the second label is taken, and
+     successively up to any number of labels.
+
+     If GOSUB is used then you must make sure that each label is linked to
+     a PROCEDURE.
+
+     If an option has no label or if the expression exceeds the number of
+     labels, the execution flow continues with the following statement
+     after ON.
+
+     This statement can be made faster in execution using the FAST modifier,
+     it will avoid checking boundaries, but if your list of labels doesn't cover
+     the full expression range then your PROGRAM WILL CRASH.
+
+  ON FRAME GOSUB label
+  
+     On each video frame interrupt, the CVBasic core will call the indicated
+     PROCEDURE.
+
+     This doesn't generate any code and should only appear once in your program.
+     Also, it’s important to keep in mind this procedure could be called even
+     before your initialization routines are executed.
+
+     The only valid assumption is that every single variable is zero after
+     booting.
+
+     Also, it's your responsibility that the code doesn't take too long to
+     execute, otherwise video frame interrupts will accumulate, and your memory
+     stack will overflow.
+
   POKE address,data
   
      Poke memory with data.

@@ -84,6 +84,7 @@ struct label *label_hash[HASH_PRIME];
 struct label *array_hash[HASH_PRIME];
 
 struct label *inside_proc;
+struct label *frame_drive;
 
 struct constant {
     struct constant *next;
@@ -3167,6 +3168,127 @@ void compile_statement(int check_for_else)
                     if (lex != C_COMMA)
                         break;
                 }
+            } else if (strcmp(name, "ON") == 0) {
+                struct label *label;
+                int table;
+                int c;
+                int max_value;
+                int gosub;
+                int fast;
+                struct label *options[256];
+                int new_label;
+                int type;
+                
+                get_lex();
+                if (lex == C_NAME && strcmp(name, "FRAME") == 0) {  // Frame-driven games
+                    get_lex();
+                    if (lex != C_NAME || strcmp(name, "GOSUB") != 0) {
+                        emit_error("Bad syntax for ON FRAME GOSUB");
+                    }
+                    get_lex();
+                    if (lex != C_NAME) {
+                        emit_error("Missing label for ON FRAME GOSUB");
+                    }
+                    if (frame_drive != NULL) {
+                        emit_error("More than one ON FRAME GOSUB");
+                    }
+                    label = label_search(name);
+                    if (label == NULL) {
+                        label = label_add(name);
+                    }
+                    label->used |= LABEL_USED;
+                    label->used |= LABEL_CALLED_BY_GOSUB;
+                    frame_drive = label;
+                    get_lex();
+                } else {
+                    type = evaluate_expression(0, 0, 0);
+                    fast = 0;
+                    if (lex == C_NAME && strcmp(name, "FAST") == 0) {
+                        get_lex();
+                        fast = 1;
+                    }
+                    gosub = 0;
+                    if (lex != C_NAME || (strcmp(name, "GOTO") != 0 && strcmp(name, "GOSUB") != 0)) {
+                        emit_error("required GOTO or GOSUB after ON");
+                    } else if (strcmp(name, "GOTO") == 0) {
+                        get_lex();
+                    } else if (strcmp(name, "GOSUB") == 0) {
+                        get_lex();
+                        gosub = 1;
+                    }
+                    max_value = 0;
+                    while (1) {
+                        if (max_value == sizeof(options) / sizeof(struct label *)) {
+                            emit_error("too many options for ON statement");
+                            max_value--;
+                        }
+                        if (lex == C_NAME) {
+                            label = label_search(name);
+                            if (label == NULL) {
+                                label = label_add(name);
+                            }
+                            label->used |= LABEL_USED;
+                            if (gosub != 0) {
+                                label->used |= LABEL_CALLED_BY_GOSUB;
+                            } else {
+                                label->used |= LABEL_CALLED_BY_GOTO;
+                            }
+                            options[max_value++] = label;
+                            get_lex();
+                        } else {
+                            options[max_value++] = NULL;
+                        }
+                        if (lex != C_COMMA)
+                            break;
+                        get_lex();
+                    }
+                    table = next_local++;
+                    new_label = next_local++;
+                    if (fast == 0) {
+                        if ((type & MAIN_TYPE) == TYPE_8) {
+                            sprintf(temp, "%d", max_value);
+                            z80_1op("CP", temp);
+                        } else {
+                            sprintf(temp, "%d", max_value);
+                            z80_2op("LD", "DE", temp);
+                            z80_1op("AND", "A");
+                            z80_2op("SBC", "HL", "DE");
+                            z80_2op("ADD", "HL", "DE");
+                        }
+                        sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                        z80_2op("JP", "NC", temp);
+                    }
+                    if (gosub) {
+                        sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                        z80_2op("LD", "DE", temp);
+                        z80_1op("PUSH", "DE");
+                    }
+                    if ((type & MAIN_TYPE) == TYPE_8) {
+                        z80_2op("LD", "L", "A");
+                        z80_2op("LD", "H", "0");
+                    }
+                    z80_2op("ADD", "HL", "HL");
+                    sprintf(temp, INTERNAL_PREFIX "%d", table);
+                    z80_2op("LD", "DE", temp);
+                    z80_2op("ADD", "HL", "DE");
+                    z80_2op("LD", "A", "(HL)");
+                    z80_1op("INC", "HL");
+                    z80_2op("LD", "H", "(HL)");
+                    z80_2op("LD", "L", "A");
+                    z80_1op("JP", "(HL)");
+                    sprintf(temp, INTERNAL_PREFIX "%d", table);
+                    z80_label(temp);
+                    for (c = 0; c < max_value; c++) {
+                        if (options[c] != NULL) {
+                            sprintf(temp, LABEL_PREFIX "%s", options[c]->name);
+                        } else {
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                        }
+                        z80_1op("DW", temp);
+                    }
+                    sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                    z80_label(temp);
+                }
             } else if (strcmp(name, "SOUND") == 0) {
                 get_lex();
                 if (lex != C_NUM) {
@@ -3272,6 +3394,7 @@ int main(int argc, char *argv[])
     FILE *prologue;
     int c;
     int size;
+    char *p;
     
     fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
     fprintf(stderr, "(c) 2024 Oscar Toledo G. https://nanochess.org/\n\n");
@@ -3303,6 +3426,7 @@ int main(int argc, char *argv[])
     }
     fclose(prologue);
     inside_proc = NULL;
+    frame_drive = NULL;
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
@@ -3364,7 +3488,16 @@ int main(int argc, char *argv[])
         exit(1);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
-        fputs(line, output);
+        p = line;
+        while (*p && isspace(*p))
+            p++;
+        if (memcmp(p, ";CVBASIC MARK DON'T CHANGE", 26) == 0) {  /* Location to replace */
+            if (frame_drive != NULL) {
+                fprintf(output, "\tCALL " LABEL_PREFIX "%s\n", frame_drive->name);
+            }
+        } else {
+            fputs(line, output);
+        }
     }
     fclose(prologue);
     for (c = 0; c < HASH_PRIME; c++) {
