@@ -180,15 +180,51 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
     fprintf(output, "\t%s %s,%s\n", mnemonic, operand1, operand2);
 }
 
+/*
+ ** Node creation.
+ ** It also optimizes common patterns of expression node trees.
+ */
 struct node *node_create(enum node_type type, int value, struct node *left, struct node *right)
 {
     struct node *new_node;
     
     switch (type) {
-        case N_REDUCE16:
+        case N_REDUCE16:    /* Reduce a 16-bit value to 8-bit */
             if (left->type == N_NUM16) {
                 left->type = N_NUM8;
                 left->value &= 255;
+                return left;
+            }
+            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16) && (left->left->type == N_EXTEND8) && (left->right->type == N_NUM16)) {
+                if (left->type == N_PLUS16)
+                    left->type = N_PLUS8;
+                else if (left->type == N_MINUS16)
+                    left->type = N_MINUS8;
+                else if (left->type == N_AND16)
+                    left->type = N_AND8;
+                else if (left->type == N_OR16)
+                    left->type = N_OR8;
+                else if (left->type == N_XOR16)
+                    left->type = N_XOR8;
+                left->right->type = N_NUM8;
+                left->right->value &= 0xff;
+                /* Remove the N_EXTEND8 */
+                new_node = left->left;
+                left->left = new_node->left;
+                new_node->left = NULL;
+                node_delete(new_node);
+                return left;
+            }
+            if ((left->type == N_NEG16 || left->type == N_NOT16) && (left->left->type == N_EXTEND8)) {
+                if (left->type == N_NEG16)
+                    left->type = N_NEG8;
+                else if (left->type == N_NOT16)
+                    left->type = N_NOT8;
+                /* Remove the N_EXTEND8 */
+                new_node = left->left;
+                left->left = new_node->left;
+                new_node->left = NULL;
+                node_delete(new_node);
                 return left;
             }
             break;
@@ -196,6 +232,30 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
             if (left->type == N_NUM8) {
                 left->type = N_NUM16;
                 left->value &= 255;
+                return left;
+            }
+            break;
+        case N_NEG8:
+            if (left->type == N_NUM8) {
+                left->value = -left->value & 0xff;
+                return left;
+            }
+            break;
+        case N_NEG16:
+            if (left->type == N_NUM16) {
+                left->value = -left->value & 0xffff;
+                return left;
+            }
+            break;
+        case N_NOT8:
+            if (left->type == N_NUM8) {
+                left->value = ~left->value & 0xff;
+                return left;
+            }
+            break;
+        case N_NOT16:
+            if (left->type == N_NUM16) {
+                left->value = ~left->value & 0xffff;
                 return left;
             }
             break;
@@ -216,14 +276,14 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 node_delete(right);
                 return left;
             }
-            if (right->type == N_NUM16 && right->value == 0) {
-                node_delete(right);
-                return left;
-            }
             if (left->type == N_NUM16) {    /* Move constant to right */
                 new_node = left;
                 left = right;
                 right = new_node;
+            }
+            if (right->type == N_NUM16 && right->value == 0) {
+                node_delete(right);
+                return left;
             }
             break;
         case N_MINUS16:
@@ -243,6 +303,11 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 node_delete(right);
                 return left;
             }
+            if (left->type == N_NUM16) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
             if (right->type == N_NUM16) {
                 if (right->value == 0xffff) {
                     node_delete(right);
@@ -259,6 +324,11 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 left->value |= right->value;
                 node_delete(right);
                 return left;
+            }
+            if (left->type == N_NUM16) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
             }
             if (right->type == N_NUM16) {
                 if (right->value == 0x0000) {
@@ -277,7 +347,101 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 node_delete(right);
                 return left;
             }
+            if (left->type == N_NUM16) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
             if (right->type == N_NUM16) {
+                if (right->value == 0) {
+                    node_delete(right);
+                    return left;
+                }
+            }
+            break;
+        case N_PLUS8:
+            if (left->type == N_NUM8 && right->type == N_NUM8) {
+                left->value = (left->value + right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_NUM8) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
+            if (right->type == N_NUM8 && right->value == 0) {
+                node_delete(right);
+                return left;
+            }
+            break;
+        case N_MINUS8:
+            if (left->type == N_NUM8 && right->type == N_NUM8) {
+                left->value = (left->value - right->value) & 0xff;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM8 && right->value == 0) {
+                node_delete(right);
+                return left;
+            }
+            break;
+        case N_AND8:
+            if (left->type == N_NUM8 && right->type == N_NUM8) {
+                left->value &= right->value;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_NUM8) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
+            if (right->type == N_NUM8) {
+                if (right->value == 0xff) {
+                    node_delete(right);
+                    return left;
+                }
+                if (right->value == 0x00) {
+                    node_delete(left);
+                    return right;
+                }
+            }
+            break;
+        case N_OR8:
+            if (left->type == N_NUM8 && right->type == N_NUM8) {
+                left->value |= right->value;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_NUM8) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
+            if (right->type == N_NUM16) {
+                if (right->value == 0x0000) {
+                    node_delete(right);
+                    return left;
+                }
+                if (right->value == 0xffff) {
+                    node_delete(left);
+                    return right;
+                }
+            }
+            break;
+        case N_XOR8:
+            if (left->type == N_NUM8 && right->type == N_NUM8) {
+                left->value ^= right->value;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_NUM8) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
+            if (right->type == N_NUM8) {
                 if (right->value == 0) {
                     node_delete(right);
                     return left;
@@ -1869,10 +2033,10 @@ struct node *evaluate_level_7(int *type)
         get_lex();
         if (value_special) {
             *type = TYPE_8;
-            return node_create(N_NUM8, temp, NULL, NULL);
+            return node_create(N_NUM8, temp & 0xff, NULL, NULL);
         }
         *type = TYPE_16;
-        return node_create(N_NUM16, temp, NULL, NULL);
+        return node_create(N_NUM16, temp & 0xffff, NULL, NULL);
     }
     emit_error("bad syntax por expression");
     *type = TYPE_16;
