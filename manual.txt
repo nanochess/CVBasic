@@ -93,6 +93,19 @@ The following statements are available:
      Everything between REM and the end of the line is treated by the compiler
      as a comment.
 
+  CONST [name]=[constant expression]
+  
+     Assign a name to a constant expression. The compiler will replace all
+     instances of this name, in all expressions, with the number. These names
+     have priority over variable names.
+
+     This is like a compiler directive, it doesn't generate code and it can
+     appear anywhere in the program but it will be treated as a constant from
+     the point of appearance onwards.
+
+     Constants that start with the # prefix are treated as 16-bit numbers, and
+     if this isn't present then the constant will be treated as an 8-bit number.
+  
   GOTO label        
   
      Go to label.

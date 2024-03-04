@@ -85,6 +85,14 @@ struct label *array_hash[HASH_PRIME];
 
 struct label *inside_proc;
 
+struct constant {
+    struct constant *next;
+    int value;
+    char name[1];
+};
+
+struct constant *constant_hash[HASH_PRIME];
+
 enum node_type {
     N_OR8, N_OR16,
     N_XOR8, N_XOR16,
@@ -1123,6 +1131,43 @@ int label_hash_value(char *name)
 }
 
 /*
+ ** Search for a constant
+ */
+struct constant *constant_search(char *name)
+{
+    struct constant *explore;
+    
+    explore = constant_hash[label_hash_value(name)];
+    while (explore != NULL) {
+        if (strcmp(explore->name, name) == 0)
+            return explore;
+    }
+    return NULL;
+}
+
+/*
+ ** Add a constant
+ */
+struct constant *constant_add(char *name)
+{
+    struct constant **previous;
+    struct constant *explore;
+    struct constant *new_one;
+    
+    new_one = malloc(sizeof(struct constant) + strlen(name));
+    if (new_one == NULL) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+    new_one->value = 0;
+    strcpy(new_one->name, name);
+    previous = &constant_hash[label_hash_value(name)];
+    new_one->next = *previous;
+    *previous = new_one;
+    return new_one;
+}
+
+/*
  ** Search for a label
  */
 struct label *label_search(char *name)
@@ -1497,6 +1542,16 @@ int evaluate_expression(int cast, int to_type, int label)
             type = TYPE_8;
         }
     }
+    if (label != 0 && (tree->type == N_NUM8 || tree->type == N_NUM16)) {
+        if (tree->value == 0) {
+            sprintf(temp, INTERNAL_PREFIX "%d", label);
+            z80_1op("JP", temp);    /* Jump over */
+        } else {
+            /* No code generated :) */
+        }
+        node_delete(tree);
+        return type;
+    }
     node_label(tree);
     node_generate(tree, label);
     node_delete(tree);
@@ -1766,6 +1821,7 @@ struct node *evaluate_level_7(int *type)
 {
     struct node *tree;
     struct label *label;
+    struct constant *constant;
     
     if (lex == C_LPAREN) {
         get_lex();
@@ -2037,6 +2093,16 @@ struct node *evaluate_level_7(int *type)
             tree = node_create(*type == TYPE_16 ? N_PEEK16 : N_PEEK8, 0,
                                node_create(N_PLUS16, 0, addr, tree), NULL);
             return tree;
+        }
+        constant = constant_search(name);
+        if (constant != NULL) {
+            get_lex();
+            if (constant->name[0] == '#') {
+                *type = TYPE_16;
+                return node_create(N_NUM16, constant->value & 0xffff, NULL, NULL);
+            }
+            *type = TYPE_8;
+            return node_create(N_NUM8, constant->value & 0xff, NULL, NULL);
         }
         label = label_search(name);
         if (label != NULL && (label->used & LABEL_IS_VARIABLE) == 0) {
@@ -3027,6 +3093,38 @@ void compile_statement(int check_for_else)
                                 bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
                         fprintf(output, "%s", temp);
                     }
+                }
+            } else if (strcmp(name, "CONST") == 0) {
+                struct constant *c;
+                
+                get_lex();
+                if (lex != C_NAME) {
+                    emit_error("name required for constant assignment");
+                    return;
+                }
+                c = constant_search(name);
+                if (c != NULL) {
+                    emit_error("constant redefined");
+                } else {
+                    c = constant_add(name);
+                }
+                strcpy(assigned, name);;
+                get_lex();
+                if (lex != C_EQUAL) {
+                    emit_error("required '=' for constant assignment");
+                } else {
+                    struct node *tree;
+                    int type;
+                    
+                    get_lex();
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("not a constant expression in CONST");
+                    } else {
+                        c->value = tree->value;
+                    }
+                    node_delete(tree);
+                    tree = NULL;
                 }
             } else if (strcmp(name, "DIM") == 0) {
                 char array[MAX_LINE_SIZE];
