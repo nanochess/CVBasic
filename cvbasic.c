@@ -115,6 +115,8 @@ struct node {
 
 int optimized;
 
+void node_delete(struct node *);
+
 struct node *evaluate_level_0(int *);
 struct node *evaluate_level_1(int *);
 struct node *evaluate_level_2(int *);
@@ -182,30 +184,108 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
 {
     struct node *new_node;
     
-    if (type == N_REDUCE16) {
-        if (left->type == N_NUM16) {
-            left->type = N_NUM8;
-            left->value &= 255;
-            return left;
-        }
-    }
-    if (type == N_EXTEND8) {
-        if (left->type == N_NUM8) {
-            left->type = N_NUM16;
-            left->value &= 255;
-            return left;
-        }
-    }
-    if (type == N_MOD) {
-        if (right->type == N_NUM16) {
-            if (right->value == 2 || right->value == 4 || right->value == 8 || right->value == 16
-                || right->value == 32 || right->value == 64 || right->value == 128 || right->value == 256
-                || right->value == 512 || right->value == 1024 || right->value == 2048 || right->value == 4096
-                || right->value == 8192 || right->value == 16384 || right->value == 32768) {
-                right->value--;
-                type = N_AND16;
+    switch (type) {
+        case N_REDUCE16:
+            if (left->type == N_NUM16) {
+                left->type = N_NUM8;
+                left->value &= 255;
+                return left;
             }
-        }
+            break;
+        case N_EXTEND8:
+            if (left->type == N_NUM8) {
+                left->type = N_NUM16;
+                left->value &= 255;
+                return left;
+            }
+            break;
+        case N_MOD:
+            if (right->type == N_NUM16) {
+                if (right->value == 2 || right->value == 4 || right->value == 8 || right->value == 16
+                    || right->value == 32 || right->value == 64 || right->value == 128 || right->value == 256
+                    || right->value == 512 || right->value == 1024 || right->value == 2048 || right->value == 4096
+                    || right->value == 8192 || right->value == 16384 || right->value == 32768) {
+                    right->value--;
+                    type = N_AND16;
+                }
+            }
+            break;
+        case N_PLUS16:
+            if (left->type == N_NUM16 && right->type == N_NUM16) {
+                left->value = (left->value + right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM16 && right->value == 0) {
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_NUM16) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
+            break;
+        case N_MINUS16:
+            if (left->type == N_NUM16 && right->type == N_NUM16) {
+                left->value = (left->value - right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM16 && right->value == 0) {
+                node_delete(right);
+                return left;
+            }
+            break;
+        case N_AND16:
+            if (left->type == N_NUM16 && right->type == N_NUM16) {
+                left->value &= right->value;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM16) {
+                if (right->value == 0xffff) {
+                    node_delete(right);
+                    return left;
+                }
+                if (right->value == 0x0000) {
+                    node_delete(left);
+                    return right;
+                }
+            }
+            break;
+        case N_OR16:
+            if (left->type == N_NUM16 && right->type == N_NUM16) {
+                left->value |= right->value;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM16) {
+                if (right->value == 0x0000) {
+                    node_delete(right);
+                    return left;
+                }
+                if (right->value == 0xffff) {
+                    node_delete(left);
+                    return right;
+                }
+            }
+            break;
+        case N_XOR16:
+            if (left->type == N_NUM16 && right->type == N_NUM16) {
+                left->value ^= right->value;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM16) {
+                if (right->value == 0) {
+                    node_delete(right);
+                    return left;
+                }
+            }
+            break;
+        default:
+            break;
     }
     new_node = malloc(sizeof(struct node));
     if (new_node == NULL) {
@@ -336,8 +416,12 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "HL", temp);
             break;
         case N_NUM8:
-            sprintf(temp, "%d", node->value);
-            z80_2op("LD", "A", temp);
+            if (node->value == 0) {
+                z80_1op("SUB", "A");
+            } else {
+                sprintf(temp, "%d", node->value);
+                z80_2op("LD", "A", temp);
+            }
             break;
         case N_NUM16:
             sprintf(temp, "%d", node->value);
@@ -573,6 +657,68 @@ void node_generate(struct node *node, int decision)
                     while (c) {
                         z80_1op("DEC", "HL");
                         c--;
+                    }
+                    return;
+                }
+            }
+            if (node->type == N_OR16 || node->type == N_AND16 || node->type == N_XOR16) {
+                if (node->right->type == N_NUM16)
+                    explore = node->right;
+                else
+                    explore = NULL;
+                if (explore != NULL) {
+                    int value = explore->value;
+                    int byte;
+                    char *mnemonic;
+                    
+                    if (node->type == N_OR16) {
+                        mnemonic = "OR";
+                    } else if (node->type == N_AND16) {
+                        mnemonic = "AND";
+                    } else if (node->type == N_XOR16) {
+                        mnemonic = "XOR";
+                    }
+                    if (node->left != explore)
+                        node_generate(node->left, 0);
+                    else
+                        node_generate(node->right, 0);
+                    byte = value & 0xff;
+                    if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
+                        /* Nothing to do :) */
+                    } else if (node->type == N_AND16 && byte == 0xff) {
+                        /* Nothing to do :) */
+                    } else if (node->type == N_AND16 && byte == 0x00) {
+                        z80_2op("LD", "L", "0");
+                    } else if (node->type == N_OR16 && byte == 0xff) {
+                        z80_2op("LD", "L", "255");
+                    } else if (node->type == N_XOR16 && byte == 0xff) {
+                        z80_2op("LD", "A", "L");
+                        z80_noop("CPL");
+                        z80_2op("LD", "L", "A");
+                    } else {
+                        z80_2op("LD", "A", "L");
+                        sprintf(temp, "%d", byte);
+                        z80_1op(mnemonic, temp);
+                        z80_2op("LD", "L", "A");
+                    }
+                    byte = (value >> 8) & 0xff;
+                    if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
+                        /* Nothing to do :) */
+                    } else if (node->type == N_AND16 && byte == 0xff) {
+                        /* Nothing to do :) */
+                    } else if (node->type == N_AND16 && byte == 0x00) {
+                        z80_2op("LD", "H", "0");
+                    } else if (node->type == N_OR16 && byte == 0xff) {
+                        z80_2op("LD", "H", "255");
+                    } else if (node->type == N_XOR16 && byte == 0xff) {
+                        z80_2op("LD", "A", "H");
+                        z80_noop("CPL");
+                        z80_2op("LD", "H", "A");
+                    } else {
+                        z80_2op("LD", "A", "H");
+                        sprintf(temp, "%d", byte);
+                        z80_1op(mnemonic, temp);
+                        z80_2op("LD", "H", "A");
                     }
                     return;
                 }

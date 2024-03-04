@@ -1,4 +1,4 @@
-# CVBasic compiler v0.1.0
+# CVBasic compiler v0.2.0
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -17,16 +17,15 @@ BASIC language cross-compiler for the Colecovision.
 
 ### Usage guide
 
-    cvbasic infile.bas outfile.asm
+    cvbasic game.bas game.asm
+    gasm80 game.asm -o game.rom -l game.lst
 
-You need to assemble the output file using tniASM v0.45 available from http://www.tni.nl/products/tniasm.html
-
-Currently the output file name is fixed as game.rom
+You need to assemble the output file using Gasm80 available from [http://github.com/nanochess/gasm80](http://github.com/nanochess/gasm80)
 
 
 ### Notes
 
-The current official version is v0.1.0.
+The current official version is v0.2.0.
 
 
 ### Acknowledgments

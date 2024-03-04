@@ -1,5 +1,5 @@
 	'
-	' Viboritas
+	' Viboritas (demo for CVBasic)
 	'
 	' by Oscar Toledo G.
 	' https://nanochess.org/
@@ -18,7 +18,7 @@ restart_game:
 restart_level:
 	
 	PRINT AT 684,"Lives: ",lives
-	PRINT AT 745,"nanochess 2024"
+	PRINT AT 745,"nanochess 1990"
 	
 next_level:
 	GOSUB draw_level
