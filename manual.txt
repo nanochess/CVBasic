@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Feb/29/2024.
+Last revision: Mar/05/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,31 +22,29 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Description
 
-CVBasic is an integer BASIC compiler for Colecovision. It works as a cross compiler over a PC and generates assembler code that can be processed by tniASM v0.45.
+CVBasic is an integer BASIC compiler for Colecovision. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
 Platforms requirements:
   o PC with Windows XP or better.
 
 The current limitations are:
   o CVBasic won't warn you if you exceed the 1K of RAM of Colecovision.
-  o CVBasic hard codes the output ROM file as "game.rom"
   o All comparisons are unsigned.
-  o The expression compiler isn't optimized (for example, decisions use extra instructions at this moment).
 
 Usage:
   
   cvbasic in.bas output.asm
 
-The following modules are automatically included as prologue and epilogue of your generated code and these set important variables and helper code:
+The following modules are automatically included as the prologue and epilogue of your generated code and these set important variables and helper code:
 
   cvbasic_prologue.asm
   cvbasic_epilogue.asm
 
-Afterwards you should assemble your program using tniASM v0.45 available from http://www.tni.nl/products/tniasm.html
+Afterwards, you should assemble your program using the included Gasm80 assembler.
 
-  tniasm output.asm
+  gasm80 output.asm -o output.rom
 
-And finally you can test the generated game.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
+And finally, you can test the generated output.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
 
 
 >>>>>>>>>>>>>>  Supporting the developer
@@ -683,10 +681,6 @@ CoolCV emulator
 
   https://forums.atariage.com/topic/240800-coolcv-emulator-for-mac-os-x-linux-windows-and-raspberry/
 
-tniASM assembler
-
-  http://www.tni.nl/products/tniasm.html
-
   
 >>>>>>>>>>>>>>  Acknowledgments
 
@@ -695,3 +689,4 @@ Thanks to following members of Atariage for contributing valuable suggestions:
   gemintronic
   Kiwi
   pixelboy
+  youki
