@@ -35,6 +35,7 @@ Thanks to the following member of Atariage for contributing valuable suggestions
     gemintronic
     Kiwi
     pixelboy
+    youki
 
 ### Supporting the developer
 

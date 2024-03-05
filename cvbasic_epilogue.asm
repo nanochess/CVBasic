@@ -81,14 +81,17 @@ nmi_handler:
 	ld a,(hl)
 	ld (key2_data),a
 
+    if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
 	or a
 	call nz,music_hardware
+    endif
 
 	ld hl,(frame)
 	inc hl
 	ld (frame),hl
 
+    if CVBASIC_MUSIC_PLAYER
 	;
 	; Music is played with a 50hz clock.
 	;
@@ -107,6 +110,7 @@ nmi_handler:
 	or a
 	call nz,music_generate
 .3:
+    endif
 	;CVBASIC MARK DON'T CHANGE
 
 	pop de
