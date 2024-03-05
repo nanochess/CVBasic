@@ -30,6 +30,8 @@
 
 char path[4096];
 
+int music_used;
+
 char current_file[MAX_LINE_SIZE];
 int current_line;
 FILE *input;
@@ -111,7 +113,7 @@ enum node_type {
     N_NUM8, N_NUM16,
     N_PEEK8, N_PEEK16, N_VPEEK, N_INP, N_ABS16,
     N_JOY1, N_JOY2, N_KEY1, N_KEY2,
-    N_RANDOM, N_FRAME,
+    N_RANDOM, N_FRAME, N_MUSIC, N_NTSC,
     N_ADDR,
 };
 
@@ -638,6 +640,12 @@ void node_generate(struct node *node, int decision)
             break;
         case N_FRAME:
             z80_2op("LD", "HL", "(frame)");
+            break;
+        case N_MUSIC:
+            z80_2op("LD", "A", "(music_playing)");
+            break;
+        case N_NTSC:
+            z80_2op("LD", "A", "(ntsc)");
             break;
         case N_OR8:
         case N_XOR8:
@@ -2055,6 +2063,28 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_16;
             return tree;
         }
+        if (strcmp(name, "MUSIC") == 0) {
+            get_lex();
+            if (lex != C_PERIOD) {
+                emit_error("missing period in MUSIC");
+            } else {
+                get_lex();
+            }
+            if (lex != C_NAME || strcmp(name, "PLAYING") != 0) {
+                emit_error("only allowed MUSIC.PLAYING");
+            } else {
+                get_lex();
+            }
+            tree = node_create(N_MUSIC, 0, NULL, NULL);
+            *type = TYPE_8;
+            return tree;
+        }
+        if (strcmp(name, "NTSC") == 0) {
+            get_lex();
+            tree = node_create(N_NTSC, 0, NULL, NULL);
+            *type = TYPE_8;
+            return tree;
+        }
         if (lex_sneak_peek() == '(') {  // Indexed access
             int type2;
             struct node *addr;
@@ -3170,6 +3200,160 @@ void compile_statement(int check_for_else)
                     if (lex != C_COMMA)
                         break;
                 }
+            } else if (strcmp(name, "PLAY") == 0) {
+                int label;
+                int c;
+                
+                get_lex();
+                if (lex != C_NAME) {
+                    emit_error("bad syntax for PLAY");
+                    break;
+                }
+                music_used = 1;
+                if (strcmp(name, "OFF") == 0) {
+                    get_lex();
+                    z80_2op("LD", "HL", "music_silence");
+                    z80_1op("CALL", "music_play");
+                } else if (strcmp(name, "NONE") == 0) {
+                    get_lex();
+                    z80_1op("XOR", "A");
+                    z80_2op("LD", "(music_mode)", "A");
+                } else if (strcmp(name, "SIMPLE") == 0) {
+                    get_lex();
+                    c = 3;
+                    if (lex == C_NAME && strcmp(name, "NO") == 0) {
+                        get_lex();
+                        if (lex == C_NAME && strcmp(name, "DRUMS") == 0) {
+                            get_lex();
+                            c = 2;
+                        } else {
+                            emit_error("only allowed PLAY SIMPLE NO DRUMS");
+                        }
+                    }
+                    sprintf(temp, "%d", c);
+                    z80_2op("LD", "A", temp);
+                    z80_2op("LD", "(music_mode)", "A");
+                } else if (strcmp(name, "FULL") == 0) {
+                    get_lex();
+                    c = 5;
+                    if (lex == C_NAME && strcmp(name, "NO") == 0) {
+                        get_lex();
+                        if (lex == C_NAME && strcmp(name, "DRUMS") == 0) {
+                            get_lex();
+                            c = 4;
+                        } else {
+                            emit_error("only allowed PLAY FULL NO DRUMS");
+                        }
+                    }
+                    sprintf(temp, "%d", c);
+                    z80_2op("LD", "A", temp);
+                    z80_2op("LD", "(music_mode)", "A");
+                } else {
+                    struct label *label;
+                    
+                    label = label_search(name);
+                    if (label == NULL) {
+                        label = label_add(name);
+                    }
+                    label->used |= LABEL_USED;
+                    strcpy(temp, LABEL_PREFIX);
+                    strcat(temp, name);
+                    z80_2op("LD", "HL", temp);
+                    z80_1op("CALL", "music_play");
+                    get_lex();
+                }
+            } else if (strcmp(name, "MUSIC") == 0) {
+                int arg;
+                static int previous[4];
+                unsigned int notes;
+                int note;
+                int c;
+                int label;
+                
+                get_lex();
+                label = 0;
+                notes = 0;
+                arg = 0;
+                while (1) {
+                    if (lex != C_NAME && lex != C_MINUS) {
+                        emit_error("bad syntax for MUSIC");
+                        break;
+                    }
+                    if (lex == C_MINUS) {
+                        // Nothing to do
+                    } else if (arg == 0 && strcmp(name, "REPEAT") == 0) {
+                        get_lex();
+                        notes = 0xfd;
+                        break;
+                    } else if (arg == 0 && strcmp(name, "STOP") == 0) {
+                        get_lex();
+                        notes = 0xfe;
+                        break;
+                    } else if (arg == 3) {
+                        if (name[0] != 'M' || name[1] < '1' || name[1] > '3') {
+                            emit_error("bad syntax for drum in MUSIC");
+                            break;
+                        }
+                        notes |= (name[1] - '0') << ((arg & 3) * 8);
+                    } else if (strcmp(name, "S") == 0) {
+                        notes |= 0x3f << ((arg & 3) * 8);
+                    } else {
+                        notes |= previous[arg] << ((arg & 3) * 8);
+                        c = 0;
+                        switch (name[c++]) {
+                            case 'C': note = 0; break;
+                            case 'D': note = 2; break;
+                            case 'E': note = 4; break;
+                            case 'F': note = 5; break;
+                            case 'G': note = 7; break;
+                            case 'A': note = 9; break;
+                            case 'B': note = 11; break;
+                            default: emit_error("bad syntax for note in MUSIC"); break;
+                        }
+                        switch (name[c++]) {
+                            case '2': note += 0 * 12; break;
+                            case '3': note += 1 * 12; break;
+                            case '4': note += 2 * 12; break;
+                            case '5': note += 3 * 12; break;
+                            case '6': note += 4 * 12; break;
+                            case '7': if (note == 0) { note += 5 * 12; break; }
+                            default: emit_error("bad syntax for note in MUSIC"); break;
+                        }
+                        note++;
+                        if (name[c] == '#') {
+                            note++;
+                            c++;
+                        }
+                        if (name[c] == 'W') {
+                            previous[arg] = 0x00;
+                            notes &= ~(0xc0 << ((arg & 3) * 8));
+                            notes |= previous[arg] << ((arg & 3) * 8);
+                        } else if (name[c] == 'X') {
+                            previous[arg] = 0x40;
+                            notes &= ~(0xc0 << ((arg & 3) * 8));
+                            notes |= previous[arg] << ((arg & 3) * 8);
+                        } else if (name[c] == 'Y') {
+                            previous[arg] = 0x80;
+                            notes &= ~(0xc0 << ((arg & 3) * 8));
+                            notes |= previous[arg] << ((arg & 3) * 8);
+                        } else if (name[c] == 'Z') {
+                            previous[arg] = 0xc0;
+                            notes &= ~(0xc0 << ((arg & 3) * 8));
+                            notes |= previous[arg] << ((arg & 3) * 8);
+                        }
+                        notes |= note << ((arg & 3) * 8);
+                    }
+                    get_lex();
+                    arg++;
+                    if (lex != C_COMMA)
+                        break;
+                    if (arg == 4) {
+                        emit_error("too many arguments for MUSIC");
+                        break;
+                    }
+                    get_lex();
+                }
+                fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x\n", notes & 0xff, (notes >> 8) & 0xff, (notes >> 16) & 0xff, (notes >> 24) & 0xff);
             } else if (strcmp(name, "ON") == 0) {
                 struct label *label;
                 int table;
@@ -3526,6 +3710,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
         exit(1);
     }
+    fprintf(output, "COLECO:\tequ 1\n");
+    
     prologue = fopen("cvbasic_prologue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
@@ -3541,6 +3727,8 @@ int main(int argc, char *argv[])
     compile_basic();
     fclose(input);
 
+    fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
+        
     prologue = fopen("cvbasic_epilogue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_epilogue.asm.\n");
@@ -3596,7 +3784,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used,
             1024 -  /* Total RAM memory */
             64 -    /* Stack requirements */
-            145);   /* Support variables */
+            (music_used ? 23 : 0) -     /* Music player requirements */
+            147);   /* Support variables */
     fprintf(stderr, "Compilation finished.\n\n");
     exit(0);
 }

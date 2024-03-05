@@ -18,8 +18,6 @@ JOY1:	equ $fc
 JOY2:	equ $ff
 PSG:	equ $ff
 
-TURN_OFF_SOUND:	equ $1fd6
-
 STACK:	equ $7400
 
 	org $8000
@@ -451,7 +449,14 @@ START:
 	jp z,$-4
 	ld (lfsr),hl
 
-	call TURN_OFF_SOUND
+	ld a,($0069)
+	cp 50
+	ld a,0
+	jr z,$+4
+	ld a,1
+	ld (ntsc),a
+
+	call music_init
 
 	xor a
 	ld (mode),a

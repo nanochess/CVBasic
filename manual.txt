@@ -483,6 +483,93 @@ The following statements are available:
 
     Every other character will be interpreted as one.
 
+  PLAY SIMPLE
+  PLAY SIMPLE NO DRUMS
+  PLAY FULL
+  PLAY FULL NO DRUMS
+  
+    Activates music player and selects the type of music played, SIMPLE only
+    uses two channels, allowing the programmer to use SOUND 2 for sound effects.
+    
+    FULL will use all three channels, so SOUND cannot be used in this context.
+    
+    The music player plays drums using the noise channel and the mix register.
+    You can deactivate this feature using the NO DRUMS syntax, for example, if
+    you want to generate explosion sounds with the noise channel, allowing you
+    to use SOUND 4.
+
+    Notice that the music player will update the sound channels on every video
+    frame.
+
+
+  PLAY NONE
+  
+    Deactivate the music player. Following this the programmer should turn off all
+    the sound channels, using this code:
+    
+      SOUND 0,,0
+      SOUND 1,,0
+      SOUND 2,,0
+      SOUND 3,,0
+
+
+  PLAY label
+  
+    Plays the music pointed by 'label'.
+    
+    CVBasic will include automatically extra code for the music player.
+    
+    Music must be in this format: (each MUSIC statement can contain up to 4
+    arguments)
+    
+        label:  DATA BYTE 8         ' Ticks per note (there are 50 ticks per second)
+                MUSIC F4,A4#,C5
+                MUSIC S,S,S
+                MUSIC -,-,-
+
+                MUSIC REPEAT
+                MUSIC STOP
+
+                MUSIC C4,F4,- ' Note how C4 extends along 4 tempos and F4 only 2
+                MUSIC S,S,-
+                MUSIC S,-,-
+                MUSIC S,-,-
+                
+    Identifiers for notes: Note C, D, E, F, G, A, B followed by an octave (2-6), C7
+                           is also available.
+
+                           Optionally add the # sign for sharp.
+
+                           Optionally add W, X, Y or Z to specify the instrument.
+                           (W for piano, X for clarinet, Y for flute and Z for bass)
+                           
+                           Setting the instrument carries over in each channel for
+                           MUSIC statements played afterward if the instrument
+                           is not specified thereafter.
+                           
+                           Notice that the instrument waveforms can be altered
+                           by modifying the cvbasic_epilogue.asm file for your
+                           program.
+
+                           Also, the programmer can put S to sustain previous note,
+                           or can put - for silence.
+        
+                           The fourth argument for MUSIC allows simple drums:
+
+                             Valid values are:
+                                -  none
+                                M1 strong
+                                M2 tap
+                                M3 roll
+
+    CVBasic will detect automatically PAL/NTSC Colecovision and will adjust 
+    music timing and frequencies accordingly.
+
+  PLAY OFF
+  
+    Stops music, if music is currently playing.
+    
+
 >>>>>>>>>>>>>>  Expression syntax
 
 The expression syntax is like a calculator.
@@ -545,8 +632,8 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT1.DOWN        Non-zero if controller pointing down
   CONT1.LEFT        Non-zero if controller pointing left
   CONT1.RIGHT       Non-zero if controller pointing right
-  CONT1.BUTTON      Non-zero if controller left button is pressed.
-  CONT1.BUTTON2     Non-zero if controller right button is pressed.
+  CONT1.BUTTON      Non-zero if the controller left button is pressed.
+  CONT1.BUTTON2     Non-zero if the controller right button is pressed.
   CONT1.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
 
   CONT2             Contains the state of the second controller.
@@ -554,8 +641,8 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT2.DOWN        Non-zero if controller pointing down
   CONT2.LEFT        Non-zero if controller pointing left
   CONT2.RIGHT       Non-zero if controller pointing right
-  CONT2.BUTTON      Non-zero if controller left button is pressed.
-  CONT2.BUTTON2     Non-zero if controller right button is pressed.
+  CONT2.BUTTON      Non-zero if the controller left button is pressed.
+  CONT2.BUTTON2     Non-zero if the controller right button is pressed.
   CONT2.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
 
   RANDOM
@@ -569,6 +656,14 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   FRAME
     Returns the current frame number (0-65535, it cycles back to
     0 after reaching 65535)
+
+  NTSC
+    Returns 1 if the Colecovision is an NTSC console, otherwise
+    returns zero.
+
+  MUSIC.PLAYING
+    Returns zero if music is not currently playing, returns a non-zero
+    value otherwise.
     
 
 >>>>>>>>>>>>>>  Useful VRAM addresses
