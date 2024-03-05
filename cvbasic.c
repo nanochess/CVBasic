@@ -111,7 +111,7 @@ enum node_type {
     N_AND8, N_AND16,
     N_EQUAL8, N_EQUAL16, N_NOTEQUAL8, N_NOTEQUAL16, N_LESS8, N_LESS16, N_LESSEQUAL8, N_LESSEQUAL16, N_GREATER8, N_GREATER16, N_GREATEREQUAL8, N_GREATEREQUAL16,
     N_PLUS8, N_PLUS16, N_MINUS8, N_MINUS16,
-    N_MUL, N_DIV, N_MOD,
+    N_MUL16, N_DIV16, N_MOD16,
     N_NEG8, N_NEG16, N_NOT8, N_NOT16,
     N_EXTEND8, N_REDUCE16,
     N_LOAD8, N_LOAD16,
@@ -207,7 +207,8 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
 struct node *node_create(enum node_type type, int value, struct node *left, struct node *right)
 {
     struct node *new_node;
-    
+    struct node *extract;
+
     switch (type) {
         case N_REDUCE16:    /* Reduce a 16-bit value to 8-bit */
             if (left->type == N_NUM16) {
@@ -250,7 +251,6 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
              ** Optimize expressions to avoid 16-bit operations when 8-bit are enough.
              */
             if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16) && (left->right->type == N_NUM16)) {
-                struct node *extract;
                 
                 if (left->type == N_PLUS16)
                     left->type = N_PLUS8;
@@ -311,7 +311,7 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 return left;
             }
             break;
-        case N_MOD:     /* Modulo */
+        case N_MOD16:     /* Modulo */
             if (right->type == N_NUM16) {   /* Optimize power of 2 constant case */
                 if (right->value == 2 || right->value == 4 || right->value == 8 || right->value == 16
                     || right->value == 32 || right->value == 64 || right->value == 128 || right->value == 256
@@ -320,6 +320,33 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                     right->value--;
                     type = N_AND16;
                 }
+            }
+            break;
+        case N_EQUAL16:
+        case N_NOTEQUAL16:
+        case N_LESS16:
+        case N_LESSEQUAL16:
+        case N_GREATER16:
+        case N_GREATEREQUAL16:
+            if (left->type == N_EXTEND8 && right->type == N_NUM16 && (right->value & ~0xff) == 0) {
+                extract = left;
+                if (type == N_EQUAL16)
+                    type = N_EQUAL8;
+                else if (type == N_NOTEQUAL16)
+                    type = N_NOTEQUAL8;
+                else if (type == N_LESS16)
+                    type = N_LESS8;
+                else if (type == N_LESSEQUAL16)
+                    type = N_LESSEQUAL8;
+                else if (type == N_GREATER16)
+                    type = N_GREATER8;
+                else if (type == N_GREATEREQUAL16)
+                    type = N_GREATEREQUAL8;
+                left = left->left;
+                right->type = N_NUM8;
+                
+                extract->left = NULL;
+                node_delete(extract);
             }
             break;
         case N_PLUS16:  /* 16-bit addition */
@@ -764,7 +791,10 @@ void node_generate(struct node *node, int decision)
                     z80_2op("JP", "Z", temp);
                 }
             } else if (node->type == N_EQUAL8) {
-                z80_1op("CP", temp);
+                if (strcmp(temp, "0") == 0)
+                    z80_1op("AND", "A");
+                else
+                    z80_1op("CP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -775,7 +805,10 @@ void node_generate(struct node *node, int decision)
                     z80_1op("DEC", "A");
                 }
             } else if (node->type == N_NOTEQUAL8) {
-                z80_1op("CP", temp);
+                if (strcmp(temp, "0") == 0)
+                    z80_1op("AND", "A");
+                else
+                    z80_1op("CP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -786,7 +819,10 @@ void node_generate(struct node *node, int decision)
                     z80_1op("DEC", "A");
                 }
             } else if (node->type == N_LESS8) {
-                z80_1op("CP", temp);
+                if (strcmp(temp, "0") == 0)
+                    z80_1op("AND", "A");
+                else
+                    z80_1op("CP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -797,7 +833,10 @@ void node_generate(struct node *node, int decision)
                     z80_1op("DEC", "A");
                 }
             } else if (node->type == N_LESSEQUAL8) {
-                z80_1op("CP", temp);
+                if (strcmp(temp, "0") == 0)
+                    z80_1op("AND", "A");
+                else
+                    z80_1op("CP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -808,7 +847,10 @@ void node_generate(struct node *node, int decision)
                     z80_1op("DEC", "A");
                 }
             } else if (node->type == N_GREATER8) {
-                z80_1op("CP", temp);
+                if (strcmp(temp, "0") == 0)
+                    z80_1op("AND", "A");
+                else
+                    z80_1op("CP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -819,7 +861,10 @@ void node_generate(struct node *node, int decision)
                     z80_1op("DEC", "A");
                 }
             } else if (node->type == N_GREATEREQUAL8) {
-                z80_1op("CP", temp);
+                if (strcmp(temp, "0") == 0)
+                    z80_1op("AND", "A");
+                else
+                    z80_1op("CP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -960,7 +1005,7 @@ void node_generate(struct node *node, int decision)
                     return;
                 }
             }
-            if (node->type == N_MUL) {
+            if (node->type == N_MUL16) {
                 if (node->left->type == N_NUM16)
                     explore = node->left;
                 else if (node->right->type == N_NUM16)
@@ -1139,11 +1184,11 @@ void node_generate(struct node *node, int decision)
             } else if (node->type == N_MINUS16) {
                 z80_1op("OR", "A");
                 z80_2op("SBC", "HL", "DE");
-            } else if (node->type == N_MUL) {
+            } else if (node->type == N_MUL16) {
                 z80_1op("CALL", "_mul16");
-            } else if (node->type == N_DIV) {
+            } else if (node->type == N_DIV16) {
                 z80_1op("CALL", "_div16");
-            } else if (node->type == N_MOD) {
+            } else if (node->type == N_MOD16) {
                 z80_1op("CALL", "_mod16");
             } else if (node->type == N_ASSIGN16) {
                 z80_2op("LD", "A", "L");
@@ -1820,17 +1865,17 @@ struct node *evaluate_level_5(int *type)
             get_lex();
             right = evaluate_level_6(&type2);
             *type = extend_types(&left, *type, &right, type2);
-            left = node_create(N_MUL, 0, left, right);
+            left = node_create(N_MUL16, 0, left, right);
         } else if (lex == C_DIV) {
             get_lex();
             right = evaluate_level_6(&type2);
             *type = extend_types(&left, *type, &right, type2);
-            left = node_create(N_DIV, 0, left, right);
+            left = node_create(N_DIV16, 0, left, right);
         } else if (lex == C_MOD) {
             get_lex();
             right = evaluate_level_6(&type2);
             *type = extend_types(&left, *type, &right, type2);
-            left = node_create(N_MOD, 0, left, right);
+            left = node_create(N_MOD16, 0, left, right);
         } else {
             break;
         }
@@ -2088,7 +2133,7 @@ struct node *evaluate_level_7(int *type)
                 tree = evaluate_level_0(type);
                 if ((*type & MAIN_TYPE) == TYPE_8)
                     tree = node_create(N_EXTEND8, 0, tree, NULL);
-                tree = node_create(N_MOD, 0, node_create(N_RANDOM, 0, NULL, NULL), tree);
+                tree = node_create(N_MOD16, 0, node_create(N_RANDOM, 0, NULL, NULL), tree);
                 if (lex != C_RPAREN) {
                     emit_error("missing right parenthesis in RANDOM");
                 }
@@ -2162,7 +2207,7 @@ struct node *evaluate_level_7(int *type)
             if ((type2 & MAIN_TYPE) == TYPE_8)
                 tree = node_create(N_EXTEND8, 0, tree, NULL);
             if (*type == TYPE_16) {
-                tree = node_create(N_MUL, 0, tree,
+                tree = node_create(N_MUL16, 0, tree,
                                    node_create(N_NUM16, 2, NULL, NULL));
             }
             tree = node_create(*type == TYPE_16 ? N_PEEK16 : N_PEEK8, 0,
@@ -2267,7 +2312,7 @@ void compile_assignment(int is_read)
         if ((type & MAIN_TYPE) == TYPE_8)
             tree = node_create(N_EXTEND8, 0, tree, NULL);
         if (type2 == TYPE_16) {
-            tree = node_create(N_MUL, 0, tree,
+            tree = node_create(N_MUL16, 0, tree,
                                node_create(N_NUM16, 2, NULL, NULL));
         }
         addr = node_create(N_PLUS16, 0, addr, tree);
