@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.2.0 Mar/03/2024"
+#define VERSION "v0.2.0 Mar/04/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -3504,6 +3504,7 @@ int main(int argc, char *argv[])
     int c;
     int size;
     char *p;
+    int bytes_used;
     
     fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
     fprintf(stderr, "(c) 2024 Oscar Toledo G. https://nanochess.org/\n\n");
@@ -3558,6 +3559,7 @@ int main(int argc, char *argv[])
         }
     }
     fclose(prologue);
+    bytes_used = 0;
     for (c = 0; c < HASH_PRIME; c++) {
         label = label_hash[c];
         while (label != NULL) {
@@ -3565,10 +3567,13 @@ int main(int argc, char *argv[])
             strcat(temp, label->name);
             strcat(temp, ":\t");
             if (label->used & LABEL_IS_VARIABLE) {
-                if ((label->used & MAIN_TYPE) == TYPE_8)
+                if ((label->used & MAIN_TYPE) == TYPE_8) {
                     strcat(temp, "rb 1");
-                else
+                    bytes_used++;
+                } else {
                     strcat(temp, "rb 2");
+                    bytes_used += 2;
+                }
                 fprintf(output, "%s\n", temp);
             }
             label = label->next;
@@ -3583,10 +3588,16 @@ int main(int argc, char *argv[])
                 size = 1;
             sprintf(temp, ARRAY_PREFIX "%s:\trb %d", label->name, label->length * size);
             fprintf(output, "%s\n", temp);
+            bytes_used += label->length * size;
             label = label->next;
         }
     }
     fclose(output);
+    fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used,
+            1024 -  /* Total RAM memory */
+            64 -    /* Stack requirements */
+            145);   /* Support variables */
+    fprintf(stderr, "Compilation finished.\n\n");
     exit(0);
 }
 
