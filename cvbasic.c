@@ -28,6 +28,13 @@
 #define LABEL_PREFIX    "cvb_"
 #define INTERNAL_PREFIX "cv"
 
+/*
+ ** Supported platforms.
+ */
+enum {
+    COLECOVISION, SG1000, MSX
+} machine;
+
 char path[4096];
 
 int music_used;
@@ -3696,22 +3703,33 @@ int main(int argc, char *argv[])
     if (argc < 3) {
         fprintf(stderr, "Usage:\n");
         fprintf(stderr, "\n");
-        fprintf(stderr, "    cvbasic input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic [--sg1000] input.bas output.asm\n");
         exit(1);
     }
-    strcpy(current_file, argv[1]);
+    c = 1;
+    if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && memcmp(&argv[c][4], "1000", 5) == 0) {
+        machine = SG1000;
+        c++;
+    } else {
+        machine = COLECOVISION;
+    }
+    strcpy(current_file, argv[c]);
     input = fopen(current_file, "r");
     if (input == NULL) {
         fprintf(stderr, "Couldn't open '%s' source file.\n", current_file);
         exit(1);
     }
-    output = fopen(argv[2], "w");
+    c++;
+    output = fopen(argv[c], "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
         exit(1);
     }
-    fprintf(output, "COLECO:\tequ 1\n");
-    
+    c++;
+    fprintf(output, "COLECO:\tequ %d\n", (machine == COLECOVISION) ? 1 : 0);
+    fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
+    fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
+
     prologue = fopen("cvbasic_prologue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");

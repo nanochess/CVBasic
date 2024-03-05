@@ -8,6 +8,7 @@
 	; Revision date: Feb/29/2024. Added joystick, keypad, frame, random, and
 	;                             read_pointer variables.
 	; Revision date: Mar/04/2024. Added music player.
+	; Revision date: Mar/05/2024. Added support for Sega SG1000.
 	;
 
 nmi_handler:
@@ -32,6 +33,7 @@ nmi_handler:
 	outi
 	jp nz,$-2
 
+    if COLECO
 	out (JOYSEL),a
 	ex (sp),hl
 	ex (sp),hl
@@ -80,6 +82,62 @@ nmi_handler:
 	add hl,bc
 	ld a,(hl)
 	ld (key2_data),a
+    endif
+    if SG1000
+        ld b,$ff
+        in a,(JOY1)
+        bit 0,a
+        jr nz,$+4
+        res 0,b
+        bit 1,a
+        jr nz,$+4
+        res 2,b
+        bit 2,a
+        jr nz,$+4
+        res 3,b
+        bit 3,a
+        jr nz,$+4
+        res 1,b
+        bit 4,a
+        jr nz,$+4
+        res 6,b
+        bit 5,a
+        jr nz,$+4
+        res 7,b
+	push af
+	ld a,b
+	cpl
+	ld (joy1_data),a
+	pop af
+
+	ld b,$ff
+        bit 6,a
+        jr nz,$+4
+        res 0,b
+        bit 7,a
+        jr nz,$+4
+        res 2,b
+
+        in a,(JOY2)
+        bit 0,a
+        jr nz,$+4
+        res 3,b
+        bit 1,a
+        jr nz,$+4
+        res 1,b
+        bit 2,a
+        jr nz,$+4
+        res 4,b
+        bit 3,a
+        jr nz,$+4
+        res 5,b
+	push af
+	ld a,b
+	cpl
+	ld (joy2_data),a
+	pop af
+
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -118,7 +176,13 @@ nmi_handler:
 	pop hl
 	in a,(VDP+1)
 	pop af
+    if COLECO
 	retn
+    endif
+    if SG1000
+        ei
+        reti
+    endif
 
 	;
 	; The music player code comes from my
@@ -129,7 +193,7 @@ nmi_handler:
         ; Init music player.
         ;
 music_init:
-    if COLECO
+    if COLECO+SG1000
         ld a,$9f
         out (PSG),a
         ld a,$bf
@@ -504,7 +568,7 @@ music_flute:
         ; Emit sound.
         ;
 music_hardware:
-    if COLECO
+    if COLECO+SG1000
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.7		; Yes, jump.
@@ -629,7 +693,7 @@ music_hardware:
         ; Enable drum.
         ;
 enable_drum:
-    if COLECO
+    if COLECO+SG1000
         ld a,$f5
         ld (audio_vol4hw),a
     else
@@ -663,7 +727,7 @@ music_notes_table:
         ; 7th octave - 61
 	dw 54,51,48
 
-    if COLECO
+    if COLECO+SG1000
         ;
         ; Converts AY-3-8910 volume to SN76489
         ;
@@ -677,7 +741,7 @@ music_silence:
 	db -2
     endif
 
-	org $7000
+	org BASE_RAM
 
 sprites:
 	rb 128
