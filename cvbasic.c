@@ -215,6 +215,7 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 left->value &= 255;
                 return left;
             }
+            
             /*
              ** Optimize expressions that extended an 8-bit variable and then reduced it again.
              **
@@ -243,6 +244,40 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 new_node->left = NULL;
                 node_delete(new_node);
                 return left;
+            }
+            
+            /*
+             ** Optimize expressions to avoid 16-bit operations when 8-bit are enough.
+             */
+            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16) && (left->right->type == N_NUM16)) {
+                struct node *extract;
+                
+                if (left->type == N_PLUS16)
+                    left->type = N_PLUS8;
+                else if (left->type == N_MINUS16)
+                    left->type = N_MINUS8;
+                else if (left->type == N_AND16)
+                    left->type = N_AND8;
+                else if (left->type == N_OR16)
+                    left->type = N_OR8;
+                else if (left->type == N_XOR16)
+                    left->type = N_XOR8;
+                left->right->type = N_NUM8;
+                left->right->value &= 0xff;
+
+                /*
+                 ** Move down the N_REDUCE16 calling node_create to
+                 ** make recursive optimization.
+                 */
+                extract = left;
+                type = left->type;
+                right = left->right;
+                left = node_create(N_REDUCE16, 0, left->left, NULL);
+                value = 0;
+                
+                extract->left = NULL;
+                extract->right = NULL;
+                node_delete(extract);
             }
             break;
         case N_EXTEND8: /* Extend 8-bit expression to 16-bit */
