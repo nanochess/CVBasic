@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.2.0 Mar/04/2024"
+#define VERSION "v0.3.0 Mar/05/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -180,24 +180,127 @@ void emit_warning(char *string)
     fprintf(stderr, "Warning: %s at line %d (%s)\n", string, current_line, current_file);
 }
 
+char z80_a_content[MAX_LINE_SIZE];
+char z80_hl_content[MAX_LINE_SIZE];
+
+/*
+ ** Emit a Z80 label
+ */
 void z80_label(char *label)
 {
     fprintf(output, "%s:\n", label);
+    z80_a_content[0] = '\0';
+    z80_hl_content[0] = '\0';
 }
 
+/*
+ ** Reset A register (technically a null label)
+ */
+void z80_reset(void)
+{
+    z80_a_content[0] = '\0';
+}
+
+/*
+ ** Emit a Z80 instruction with no operand
+ */
 void z80_noop(char *mnemonic)
 {
     fprintf(output, "\t%s\n", mnemonic);
+    z80_a_content[0] = '\0';
+    z80_hl_content[0] = '\0';
 }
 
+/*
+ ** Emit a Z80 instruction with a single operand
+ */
 void z80_1op(char *mnemonic, char *operand)
 {
     fprintf(output, "\t%s %s\n", mnemonic, operand);
+    if (strcmp(mnemonic, "PUSH") == 0 || strcmp(mnemonic, "CP") == 0) {
+        /* No affected registers */
+    } else if (strcmp(mnemonic, "POP") == 0) {
+        if (strcmp(operand, "AF") == 0)
+            z80_a_content[0] = '\0';
+        else if (strcmp(operand, "HL") == 0)
+            z80_hl_content[0] = '\0';
+    } else if (strcmp(mnemonic, "CALL") == 0 ||
+               strcmp(mnemonic, "JP") == 0) {
+        z80_a_content[0] = '\0';
+        z80_hl_content[0] = '\0';
+    } else if (strcmp(mnemonic, "SUB") == 0 ||
+               strcmp(mnemonic, "OR") == 0 ||
+               strcmp(mnemonic, "XOR") == 0 ||
+               strcmp(mnemonic, "AND") == 0) {
+        z80_a_content[0] = '\0';
+    } else if (strcmp(mnemonic, "INC") == 0) {
+        if (strcmp(operand, "H") == 0 ||
+            strcmp(operand, "L") == 0 ||
+            strcmp(operand, "HL") == 0)
+            z80_hl_content[0] = '\0';
+        else if (strcmp(operand, "A") == 0 ||
+                 strcmp(operand, "(HL)") == 0)
+            z80_a_content[0] = '\0';
+    } else if (strcmp(mnemonic, "DEC") == 0) {
+        if (strcmp(operand, "H") == 0 ||
+            strcmp(operand, "L") == 0 ||
+            strcmp(operand, "HL") == 0)
+            z80_hl_content[0] = '\0';
+        else if (strcmp(operand, "A") == 0 ||
+                 strcmp(operand, "(HL)") == 0)
+            z80_a_content[0] = '\0';
+    } else {
+        fprintf(stderr, "z80_1op: not found mnemonic %s\n", mnemonic);
+    }
 }
 
+/*
+ ** Emit a Z80 instruction with two operands
+ */
 void z80_2op(char *mnemonic, char *operand1, char *operand2)
 {
+    
+    /*
+     ** Optimize constant expressions (both constants and access to memory variables)
+     */
+    if (strcmp(mnemonic, "LD") == 0) {
+        if (strcmp(operand1, "A") == 0) {
+            if (strcmp(operand2, z80_a_content) == 0)
+                return;
+        } else if (strcmp(operand1, "HL") == 0) {
+            if (strcmp(operand2, z80_a_content) == 0)
+                return;
+        }
+    }
+    
     fprintf(output, "\t%s %s,%s\n", mnemonic, operand1, operand2);
+    if (strcmp(mnemonic, "JP") == 0 ||
+        strcmp(mnemonic, "JR") == 0 ||
+        strcmp(mnemonic, "OUT") == 0) {
+        /* No affected registers */
+    } else if (strcmp(mnemonic, "EX") == 0) {
+        z80_hl_content[0] = '\0';
+    } else if (strcmp(mnemonic, "IN") == 0) {
+        z80_a_content[0] = '\0';
+    } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "SBC") == 0) {
+        if (strcmp(operand1, "A") == 0)
+            z80_a_content[0] = '\0';
+        else
+            z80_hl_content[0] = '\0';
+    } else if (strcmp(mnemonic, "LD") == 0) {
+        if (strcmp(operand1, "L") == 0 || strcmp(operand1, "H") == 0)
+            z80_hl_content[0] = '\0';
+        if (strcmp(operand1, "HL") == 0)
+            strcpy(z80_hl_content, operand2);
+        else if (strcmp(operand2, "HL") == 0)
+            strcpy(z80_hl_content, operand1);
+        if (strcmp(operand1, "A") == 0 && (isdigit(operand2[0]) || operand2[0] == '('))
+            strcpy(z80_a_content, operand2);
+        else if (strcmp(operand2, "A") == 0 && operand1[0] == '(')
+            strcpy(z80_a_content, operand1);
+    } else {
+        fprintf(stderr, "z80_2op: not found mnemonic %s\n", mnemonic);
+    }
 }
 
 /*
@@ -545,6 +648,9 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
 
 #define MAX_REGS  100
 
+/*
+ ** Label nodes with an estimate of used registers
+ */
 void node_label(struct node *node)
 {
     int c;
@@ -803,6 +909,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NZ", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_NOTEQUAL8) {
                 if (strcmp(temp, "0") == 0)
@@ -817,6 +924,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "Z", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_LESS8) {
                 if (strcmp(temp, "0") == 0)
@@ -831,6 +939,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_LESSEQUAL8) {
                 if (strcmp(temp, "0") == 0)
@@ -845,6 +954,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_GREATER8) {
                 if (strcmp(temp, "0") == 0)
@@ -859,6 +969,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_GREATEREQUAL8) {
                 if (strcmp(temp, "0") == 0)
@@ -873,6 +984,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_PLUS8) {
                 z80_2op("ADD", "A", temp);
@@ -1118,6 +1230,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NZ", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_NOTEQUAL16) {
                 z80_1op("OR", "A");
@@ -1130,6 +1243,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "Z", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_LESS16) {
                 z80_1op("OR", "A");
@@ -1142,6 +1256,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_LESSEQUAL16) {
                 z80_1op("OR", "A");
@@ -1154,6 +1269,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_GREATER16) {
                 z80_1op("OR", "A");
@@ -1166,6 +1282,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_GREATEREQUAL16) {
                 z80_1op("OR", "A");
@@ -1178,6 +1295,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
+                    z80_reset();
                 }
             } else if (node->type == N_PLUS16) {
                 z80_2op("ADD", "HL", "DE");
