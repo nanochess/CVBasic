@@ -3332,6 +3332,16 @@ void compile_statement(int check_for_else)
                         fprintf(output, "%s", temp);
                     }
                 }
+            } else if (strcmp(name, "BORDER") == 0) {
+                int type;
+                
+                get_lex();
+                type = evaluate_expression(1, TYPE_8, 0);
+                z80_2op("LD", "B", "A");
+                z80_2op("LD", "C", "7");
+                z80_1op("CALL", "nmi_off");
+                z80_1op("CALL", "WRTVDP");
+                z80_1op("CALL", "nmi_on");
             } else if (strcmp(name, "CONST") == 0) {
                 struct constant *c;
                 
