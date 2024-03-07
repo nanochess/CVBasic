@@ -8,6 +8,11 @@
 	' Revision date: Feb/29/2024. Ported to CVBasic.
 	'
 
+	' The original game was made in Z80 assembler,
+	' you can see it here: https://nanochess.org/viboritas.html
+
+	' It is easier to understand in CVBasic ;)
+
 	DEFINE CHAR 128,21,game_bitmaps
 	DEFINE COLOR 128,21,game_colors
 	DEFINE SPRITE 0,10,game_sprites

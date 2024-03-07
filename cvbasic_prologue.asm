@@ -10,6 +10,7 @@
 	;                             Added random generator. Added sound routines.
 	; Revision date: Mar/03/2024. Removed fname directive to use gasm80.
 	; Revision date: Mar/05/2024. Added support for Sega SG1000.
+	; Revision date: Mar/06/2024. Added ENASCR, DISSCR, and CPYBLK.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -153,6 +154,47 @@ LDIRVM3:
 	pop hl
 	ret
 
+DISSCR:
+	call nmi_off
+	ld bc,$a201
+	call WRTVDP
+	jp nmi_on
+
+ENASCR:
+	call nmi_off
+	ld bc,$e201
+	call WRTVDP
+	jp nmi_on
+
+CPYBLK:
+	pop hl
+	ex af,af'
+	pop af
+	ld b,a
+	pop af
+	ld c,a
+	pop de
+	ex (sp),hl
+	call nmi_off
+.1:	push bc
+	push hl
+	push de
+	ld b,0
+	call LDIRVM
+	pop hl
+	ld bc,$0020
+	add hl,bc
+	ex de,hl
+	pop hl
+	ex af,af'
+	ld c,a
+	ld b,0
+	add hl,bc
+	ex af,af'
+	pop bc
+	djnz .1
+	jp nmi_on
+	
 nmi_off:
     if COLECO
 	push hl

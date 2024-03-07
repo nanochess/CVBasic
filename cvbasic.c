@@ -3405,6 +3405,115 @@ void compile_statement(int check_for_else)
                     if (lex != C_COMMA)
                         break;
                 }
+            } else if (strcmp(name, "SCREEN") == 0) {  // Copy screen
+                int label;
+                struct label *array;
+                
+                get_lex();
+                if (lex != C_NAME) {
+                    emit_error("bad syntax for SCREEN");
+                    break;
+                }
+                if (strcmp(name, "ENABLE") == 0) {
+                    get_lex();
+                    z80_1op("CALL", "ENASCR");
+                } else if (strcmp(name, "DISABLE") == 0) {
+                    get_lex();
+                    z80_1op("CALL", "DISSCR");
+                } else {
+                    array = array_search(name);
+                    if (array != NULL) {
+                        strcpy(assigned, ARRAY_PREFIX);
+                        strcat(assigned, name);
+                    } else {
+                        array = label_search(name);
+                        if (array == NULL) {
+                            array = label_add(name);
+                        }
+                        array->used |= LABEL_USED;
+                        strcpy(assigned, LABEL_PREFIX);
+                        strcat(assigned, name);
+                    }
+                    get_lex();
+                    if (lex == C_COMMA) {  // There is a second argument?
+                        struct node *final;
+                        struct node *addr;
+                        int type;
+                        
+                        get_lex();
+                        addr = node_create(N_ADDR, 0, NULL, NULL);
+                        addr->label = array;
+                        final = evaluate_level_0(&type);    /* Source */
+                        if ((type & MAIN_TYPE) == TYPE_8)
+                            final = node_create(N_EXTEND8, 0, final, NULL);
+                        final = node_create(N_PLUS16, 0, addr, final);
+                        node_label(final);
+                        node_generate(final, 0);
+                        node_delete(final);
+                        z80_1op("PUSH", "HL");
+                        if (lex != C_COMMA) {
+                            emit_error("missing comma after second parameter in SCREEN");
+                            break;
+                        }
+                        get_lex();
+                        final = evaluate_level_0(&type);    /* Target */
+                        if ((type & MAIN_TYPE) == TYPE_8)
+                            final = node_create(N_EXTEND8, 0, final, NULL);
+                        final = node_create(N_PLUS16, 0, node_create(N_NUM16, 0x1800, NULL, NULL), final);
+                        node_label(final);
+                        node_generate(final, 0);
+                        node_delete(final);
+                        z80_1op("PUSH", "HL");
+                        if (lex != C_COMMA) {
+                            emit_error("missing comma after third parameter in SCREEN");
+                            break;
+                        }
+                        get_lex();
+                        final = evaluate_level_0(&type);    /* Width */
+                        if ((type & MAIN_TYPE) == TYPE_16)
+                            final = node_create(N_REDUCE16, 0, final, NULL);
+                        node_label(final);
+                        node_generate(final, 0);
+                        node_delete(final);
+                        z80_1op("PUSH", "AF");
+                        if (lex != C_COMMA) {
+                            emit_error("missing comma after fourth parameter in SCREEN");
+                            break;
+                        }
+                        get_lex();
+                        final = evaluate_level_0(&type);    /* Height */
+                        if ((type & MAIN_TYPE) == TYPE_16)
+                            final = node_create(N_REDUCE16, 0, final, NULL);
+                        node_label(final);
+                        node_generate(final, 0);
+                        node_delete(final);
+                        if (lex == C_COMMA) {   /* Sixth argument for SCREEN (stride width) */
+                            z80_1op("PUSH", "AF");
+                            get_lex();
+                            final = evaluate_level_0(&type);
+                            if ((type & MAIN_TYPE) == TYPE_16)
+                                final = node_create(N_REDUCE16, 0, final, NULL);
+                            node_label(final);
+                            node_generate(final, 0);
+                            node_delete(final);
+                            z80_1op("CALL", "CPYBLK");
+                        } else {
+                            z80_2op("LD", "B", "A");
+                            z80_1op("POP", "AF");   /* Extract previous width */
+                            z80_1op("PUSH", "AF");  /* Save width */
+                            z80_1op("PUSH", "BC");  /* Save height */
+                            z80_1op("PUSH", "AF");  /* Save stride width */
+                            z80_1op("CALL", "CPYBLK");
+                        }
+                    } else {
+                        z80_2op("LD", "HL", assigned);
+                        z80_2op("LD", "DE", "$1800");
+                        z80_2op("LD", "BC", "$0300");
+                        z80_1op("CALL", "nmi_off");
+                        z80_1op("CALL", "LDIRVM");
+                        z80_1op("CALL", "nmi_on");
+                    }
+                }
             } else if (strcmp(name, "PLAY") == 0) {
                 int label;
                 int c;
