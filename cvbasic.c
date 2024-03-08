@@ -3205,6 +3205,33 @@ void compile_statement(int check_for_else)
                         get_lex();
                     }
                     z80_1op("CALL", "define_color");
+                } else if (strcmp(name, "VRAM") == 0) {
+                    get_lex();
+                    type = evaluate_expression(1, TYPE_16, 0);
+                    z80_1op("PUSH", "HL");
+                    if (lex == C_COMMA)
+                        get_lex();
+                    else
+                        emit_error("missing comma in DEFINE");
+                    type = evaluate_expression(1, TYPE_16, 0);
+                    z80_1op("PUSH", "HL");
+                    if (lex == C_COMMA)
+                        get_lex();
+                    else
+                        emit_error("missing comma in DEFINE");
+                    if (lex != C_NAME) {
+                        emit_error("missing label in DEFINE");
+                    } else {
+                        strcpy(temp, LABEL_PREFIX);
+                        strcat(temp, name);
+                        z80_2op("LD", "HL", temp);
+                        z80_1op("POP", "BC");
+                        z80_1op("POP", "DE");
+                        get_lex();
+                    }
+                    z80_1op("CALL", "nmi_off");
+                    z80_1op("CALL", "LDIRVM");
+                    z80_1op("CALL", "nmi_on");
                 } else {
                     emit_error("syntax error in DEFINE");
                 }
@@ -3415,6 +3442,19 @@ void compile_statement(int check_for_else)
                     if (lex != C_COMMA)
                         break;
                 }
+            } else if (strcmp(name, "MODE") == 0) {
+                get_lex();
+                if (lex != C_NUM || value != 0 & value != 1 && value != 2) {
+                    emit_error("bad syntax for MODE");
+                    break;
+                }
+                get_lex();
+                if (value == 0)
+                    z80_1op("CALL", "mode_0");
+                if (value == 1)
+                    z80_1op("CALL", "mode_1");
+                if (value == 2)
+                    z80_1op("CALL", "mode_2");
             } else if (strcmp(name, "SCREEN") == 0) {  // Copy screen
                 int label;
                 struct label *array;
@@ -4119,8 +4159,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used,
             1024 -  /* Total RAM memory */
             64 -    /* Stack requirements */
-            (music_used ? 23 : 0) -     /* Music player requirements */
-            147);   /* Support variables */
+            (music_used ? 33 : 0) -     /* Music player requirements */
+            146);   /* Support variables */
     fprintf(stderr, "Compilation finished.\n\n");
     exit(0);
 }

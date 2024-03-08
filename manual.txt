@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/05/2024.
+Last revision: Mar/08/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -29,6 +29,7 @@ Platforms requirements:
 
 The current limitations are:
   o CVBasic won't warn you if you exceed the 1K of RAM of Colecovision.
+  o Division and modulo are unsigned.
   o All comparisons are unsigned.
 
 Usage:
@@ -383,6 +384,11 @@ The following statements are available:
 
      Each sprite is 16x16 pixels.
 
+  DEFINE VRAM address,length,label
+
+     Copies data from "label" into VRAM address "address".
+     The total of bytes is defined by "length".
+
   SOUND 0,[value 10 bits],[vol 0-15]
   SOUND 1,[value 10 bits],[vol 0-15]
   SOUND 2,[value 10 bits],[vol 0-15]
@@ -461,6 +467,86 @@ The following statements are available:
 
      Illustrates the expression as an ASCII number using
      characters between 48 and 57.
+
+  BORDER color
+
+     Select the border color. It can be a number from 0 to 15.
+
+  MODE 0
+
+     Select the video mode 0. In this mode, the 32x24 screen grid can have one
+     of the 256 characters in each grid square.
+
+     Each 8x8 pixel character can have a bitmap. Each line of a character
+     can have two colors. For example, $f1 is a white foreground and black
+     background.
+
+           0 - Transparent.     8 - Red.
+           1 - Black            9 - Light red.
+           2 - Green            a - Yellow. 
+           3 - Light green.     b - Pale yellow.
+           4 - Dark blue.       c - Dark green.
+           5 - Blue.            d - Purple.
+           6 - Dark red.        e - Gray.  
+           7 - Cyan.            f - White.
+
+  MODE 1
+
+     Select the video mode 1. This is a high-resolution video mode where
+     you can address each pixel individually.
+
+     Useful for graphics artwork filling the screen. Notice there is no
+     preloaded font for the screen, you should load individually the
+     graphics needed at any time.
+
+  MODE 2
+
+     This video is pretty similar to MODE 0, except it is faster for defining
+     bitmaps for the characters. Also, there is a limitation where the color for
+     characters is limited to a foreground/background color for each 8 characters.
+
+     VRAM addresses $2000-$201f controls the color for the characters group.
+
+
+  SCREEN DISABLE
+
+    Disables the video output. The current color of the border will fill the
+    screen (can be set up using the BORDER sentence). The video can be enabled
+    again with SCREEN ENABLE or using a MODE sentence.
+
+  SCREEN ENABLE
+
+    Enables the video output (preserves the previous video mode set by MODE).
+
+  SCREEN label[,origin_offset,target_offset,cols,rows]
+  SCREEN label[,origin_offset,target_offset,cols,rows,origin_width]
+
+    This statement is the fastest way to copy screen data to video. Using only
+    "SCREEN label” copies a full screen of 32x24 characters to video.
+
+    'label' points to a label inside your program containing the data for the
+    screen, similar to this:
+    
+      my_screen:
+         DATA BYTE "Top-left corner..." ' It continues...
+        
+    origin_offset is the offset inside the origin data.
+    target_offset is the offset (0-767) inside the target video screen.
+    cols is the horizontal size (number of columns) of your copy.
+    rows is the vertical size (number of rows) of your copy.
+    origin_width is the origin data width, useful to copy a sub-portion of a
+                 big graphic screen, like a map or when scrolling horizontally.
+                 If this parameter is not used, the default value is same
+                 as "cols".
+    
+    This can serve to move large elements in video or to display beautiful 
+    graphics screens.
+    
+    Label can be also a 16-bits array for dynamically drawn elements.
+    
+        DIM tile(4)
+        
+        SCREEN tile,0,0,2,2
 
   BITMAP "00000000"
   BITMAP "00001111"

@@ -341,9 +341,15 @@ define_char:
 	add hl,hl	; x8
 	ex de,hl
 	call nmi_off
+	ld a,(mode)
+	and 4
+	jr nz,.1
 	call LDIRVM3
 	jp nmi_on
 	
+.1:	call LDIRVM
+	jp nmi_on
+
 define_color:
 	ex de,hl
 	ld l,a
@@ -625,6 +631,168 @@ font_bitmaps:
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
     endif
 
+mode_0:
+	ld hl,mode
+	res 2,(hl)
+	call nmi_off
+	ld bc,$0200
+	call WRTVDP
+	ld bc,$a201
+	call WRTVDP
+	ld bc,$0602	; $1800 for pattern table.
+	call WRTVDP
+	ld bc,$ff03	; $2000 for color table.
+	call WRTVDP
+	ld bc,$0304	; $0000 for bitmap table.
+	call WRTVDP
+	ld bc,$3605	; $1b00 for sprite attribute table.
+	call WRTVDP
+	ld bc,$0706	; $3800 for sprites bitmaps.
+	call WRTVDP
+    if COLECO
+	ld hl,($006c)
+	ld de,-128
+	add hl,de
+    endif
+    if SG1000
+	ld hl,font_bitmaps
+    endif
+	ld de,$0100
+	ld bc,$0300
+	call LDIRVM3
+	call nmi_on
+	call nmi_off
+	ld hl,$2000
+	ld bc,$1800
+	ld a,$f1
+	call FILVRM
+	call nmi_on
+	call cls
+	call nmi_off
+	ld hl,$1b00
+	ld bc,$0080
+	ld a,$d1
+	call FILVRM
+	ld hl,sprites
+	ld de,sprites+1
+	ld bc,127
+	ld (hl),$d1
+	ldir
+	call nmi_on
+	call nmi_off
+	ld bc,$e201	; Enable screen and interrupts.
+	call WRTVDP
+	jp nmi_on
+
+mode_1:
+	ld hl,mode
+	res 2,(hl)
+	call nmi_off
+	ld bc,$0200
+	call WRTVDP
+	ld bc,$a201
+	call WRTVDP
+	ld bc,$0602	; $1800 for pattern table.
+	call WRTVDP
+	ld bc,$ff03	; $2000 for color table.
+	call WRTVDP
+	ld bc,$0304	; $0000 for bitmap table.
+	call WRTVDP
+	ld bc,$3605	; $1b00 for sprite attribute table.
+	call WRTVDP
+	ld bc,$0706	; $3800 for sprites bitmaps.
+	call WRTVDP
+	ld hl,$0000
+	ld bc,$1800
+	xor a
+	call FILVRM
+	call nmi_on
+	call nmi_off
+	ld hl,$2000
+	ld bc,$1800
+	ld a,$f1
+	call FILVRM
+	call nmi_on
+	ld hl,$1800
+.1:	call nmi_off
+	ld b,32
+.2:	ld a,l
+	call WRTVRM
+	inc hl
+	djnz .2
+	call nmi_on
+	ld a,h
+	cp $1b
+	jp nz,.1
+	call nmi_off
+	ld hl,$1b00
+	ld bc,$0080
+	ld a,$d1
+	call FILVRM
+	ld hl,sprites
+	ld de,sprites+1
+	ld bc,127
+	ld (hl),$d1
+	ldir
+	call nmi_on
+	call nmi_off
+	ld bc,$e201	; Enable screen and interrupts.
+	call WRTVDP
+	jp nmi_on
+
+mode_2:
+	ld hl,mode
+	set 2,(hl)
+	call nmi_off
+	ld bc,$0000
+	call WRTVDP
+	ld bc,$a201
+	call WRTVDP
+	ld bc,$0602	; $1800 for pattern table.
+	call WRTVDP
+	ld bc,$8003	; $2000 for color table.
+	call WRTVDP
+	ld bc,$0004	; $0000 for bitmap table.
+	call WRTVDP
+	ld bc,$3605	; $1b00 for sprite attribute table.
+	call WRTVDP
+	ld bc,$0706	; $3800 for sprites bitmaps.
+	call WRTVDP
+    if COLECO
+	ld hl,($006c)
+	ld de,-128
+	add hl,de
+    endif
+    if SG1000
+	ld hl,font_bitmaps
+    endif
+	ld de,$0100
+	ld bc,$0300
+	call LDIRVM
+	call nmi_on
+	call nmi_off
+	ld hl,$2000
+	ld bc,$0020
+	ld a,$f1
+	call FILVRM
+	call nmi_on
+	call cls
+	call nmi_off
+	ld hl,$1b00
+	ld bc,$0080
+	ld a,$d1
+	call FILVRM
+	ld hl,sprites
+	ld de,sprites+1
+	ld bc,127
+	ld (hl),$d1
+	ldir
+	call nmi_on
+	call nmi_off
+	ld bc,$e201	; Enable screen and interrupts.
+	call WRTVDP
+	jp nmi_on
+
 START:
 	di
 	ld sp,STACK
@@ -661,65 +829,8 @@ START:
 
 	xor a
 	ld (mode),a
-	ld bc,$0200
-	call WRTVDP
-	ld bc,$0602	; $1800 for pattern table.
-	call WRTVDP
-	ld bc,$ff03	; $2000 for color table.
-	call WRTVDP
-	ld bc,$0304	; $0000 for bitmap table.
-	call WRTVDP
-	ld bc,$3605	; $1b00 for sprite attribute table.
-	call WRTVDP
-	ld bc,$0706	; $3800 for sprites bitmaps.
-	call WRTVDP
 
-    if COLECO
-	ld hl,($006c)
-	ld de,-128
-	add hl,de
-    endif
-    if SG1000
-	ld hl,font_bitmaps
-    endif
-	push hl
-	ld de,$0100
-	ld bc,$0300
-	call LDIRVM
-	pop hl
-	push hl
-	ld de,$0900
-	ld bc,$0300
-	call LDIRVM
-	pop hl
-	ld de,$1100
-	ld bc,$0300
-	call LDIRVM
-	ld hl,$2000
-	ld bc,$1800
-	ld a,$f1
-	call FILVRM
-	ld hl,$1800
-	ld bc,$0300
-	ld a,$20
-	call FILVRM
-	ld hl,$1b00
-	ld bc,$0080
-	ld a,$d1
-	call FILVRM
-	ld hl,sprites
-	ld de,sprites+1
-	ld bc,127
-	ld (hl),$d1
-	ldir
-	ld hl,$3800
-	ld bc,$0800
-	xor a
-	call FILVRM
-
-	ld de,$0100
-	ld bc,$e201	; Enable screen and interrupts.
-	call WRTVDP
+	call mode_0
 
 	ld a,$ff
 	ld (joy1_data),a
