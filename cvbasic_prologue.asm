@@ -11,6 +11,7 @@
 	; Revision date: Mar/03/2024. Removed fname directive to use gasm80.
 	; Revision date: Mar/05/2024. Added support for Sega SG1000.
 	; Revision date: Mar/06/2024. Added ENASCR, DISSCR, and CPYBLK.
+	; Revision date: Mar/08/2024. Added modes 0, 1 and 2.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000

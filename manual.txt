@@ -654,6 +654,15 @@ The following statements are available:
     Stops music, if music is currently playing.
     
 
+  ASM code
+  
+    Allows you to insert assembly code code directly into your source code.
+    The line content is copied directly to the output. It's also very useful
+    to include assembly code modules, like this:
+    
+        ASM INCLUDE "yourfile.asm"
+        
+
 >>>>>>>>>>>>>>  Expression syntax
 
 The expression syntax is like a calculator.

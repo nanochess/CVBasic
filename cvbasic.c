@@ -3068,6 +3068,54 @@ void compile_statement(int check_for_else)
                         break;
                     get_lex();
                 }
+            } else if (strcmp(name, "DATA") == 0) {
+                get_lex();
+                if (lex == C_NAME && strcmp(name, "BYTE") == 0) {
+                    get_lex();
+                    while (1) {
+                        if (lex == C_STRING) {
+                            int c;
+                            
+                            for (c = 0; c < name_size; c++) {
+                                if ((c & 7) == 0) {
+                                    fprintf(output, "\tDB ");
+                                }
+                                fprintf(output, "$%02x", name[c] & 0xff);
+                                if ((c & 7) == 7 || c + 1 == name_size) {
+                                    fprintf(output, "\n");
+                                } else {
+                                    fprintf(output, ",");
+                                }
+                            }
+                            get_lex();
+                        } else if (lex == C_NUM) {
+                            sprintf(temp, "\tDB $%02x", value & 0xff);
+                            fprintf(output, "%s\n", temp);
+                            get_lex();
+                        } else {
+                            emit_error("syntax error in DATA");
+                            break;
+                        }
+                        if (lex != C_COMMA)
+                            break;
+                        get_lex();
+                    }
+                } else {
+                    while (1) {
+                        if (lex == C_NUM) {
+                            sprintf(temp, "\tDW $%04x", value & 0xffff);
+                            fprintf(output, "%s\n", temp);
+                            get_lex();
+                        } else {
+                            emit_error("syntax error in DATA");
+                            break;
+                        }
+                        if (lex != C_COMMA)
+                            break;
+                        get_lex();
+                    }
+                    
+                }
             } else if (strcmp(name, "OUT") == 0) {
                 struct node *tree;
                 int type;
@@ -3263,54 +3311,6 @@ void compile_statement(int check_for_else)
                     emit_error("missing comma in SPRITE");
                 type = evaluate_expression(1, TYPE_8, 0);
                 z80_1op("CALL", "update_sprite");
-            } else if (strcmp(name, "DATA") == 0) {
-                get_lex();
-                if (lex == C_NAME && strcmp(name, "BYTE") == 0) {
-                    get_lex();
-                    while (1) {
-                        if (lex == C_STRING) {
-                            int c;
-                            
-                            for (c = 0; c < name_size; c++) {
-                                if ((c & 7) == 0) {
-                                    fprintf(output, "\tDB ");
-                                }
-                                fprintf(output, "$%02x", name[c] & 0xff);
-                                if ((c & 7) == 7 || c + 1 == name_size) {
-                                    fprintf(output, "\n");
-                                } else {
-                                    fprintf(output, ",");
-                                }
-                            }
-                            get_lex();
-                        } else if (lex == C_NUM) {
-                            sprintf(temp, "\tDB $%02x", value & 0xff);
-                            fprintf(output, "%s\n", temp);
-                            get_lex();
-                        } else {
-                            emit_error("syntax error in DATA");
-                            break;
-                        }
-                        if (lex != C_COMMA)
-                            break;
-                        get_lex();
-                    }
-                } else {
-                    while (1) {
-                        if (lex == C_NUM) {
-                            sprintf(temp, "\tDW $%04x", value & 0xffff);
-                            fprintf(output, "%s\n", temp);
-                            get_lex();
-                        } else {
-                            emit_error("syntax error in DATA");
-                            break;
-                        }
-                        if (lex != C_COMMA)
-                            break;
-                        get_lex();
-                    }
-
-                }
             } else if (strcmp(name, "BITMAP") == 0) {
                 get_lex();
                 if (lex != C_STRING || (name_size != 8 && name_size != 16)) {
@@ -3922,6 +3922,19 @@ void compile_statement(int check_for_else)
                             break;
                     }
                 }
+            } else if (strcmp(name, "ASM") == 0) {
+                int c;
+                
+                c = line_pos;
+                while (c < line_size && isspace(line[c]))
+                    c++;
+                while (c < line_size && !isspace(line[c]))
+                    c++;
+                if (line[c - 1] == ':')
+                    lex_skip_spaces();
+                fprintf(output, "%s\n", &line[line_pos]);
+                line_pos = line_size;
+                get_lex();
             } else {
                 compile_assignment(0);
             }
