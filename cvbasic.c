@@ -1357,6 +1357,7 @@ struct constant *constant_search(char *name)
     while (explore != NULL) {
         if (strcmp(explore->name, name) == 0)
             return explore;
+        explore = explore->next;
     }
     return NULL;
 }
@@ -1394,6 +1395,7 @@ struct label *label_search(char *name)
     while (explore != NULL) {
         if (strcmp(explore->name, name) == 0)
             return explore;
+        explore = explore->next;
     }
     return NULL;
 }
@@ -1432,6 +1434,7 @@ struct label *array_search(char *name)
     while (explore != NULL) {
         if (strcmp(explore->name, name) == 0)
             return explore;
+        explore = explore->next;
     }
     return NULL;
 }
@@ -1503,7 +1506,7 @@ void get_lex(void) {
         line[line_pos] == '#' ||
         (spaces && line[line_pos] == '.') ||
         (line_pos > 0 && line[line_pos - 1] == ',' && line[line_pos] == '.') ||
-        (line_pos > 0 && line[line_pos - 1] == ':' && line[line_pos] == '.')) {  // Name, label or local label
+        (line_pos > 0 && line[line_pos - 1] == ':' && line[line_pos] == '.')) {  /* Name, label or local label */
         if (line[line_pos] == '.') {
             strcpy(name, global_label);
             p = name + strlen(name);
@@ -1534,7 +1537,7 @@ void get_lex(void) {
         line_start = 0;
         return;
     }
-    if (isdigit(line[line_pos])) {  // Decimal number
+    if (isdigit(line[line_pos])) {  /* Decimal number */
         value_special = 0;
         value = 0;
         while (line_pos < line_size && isdigit(line[line_pos]))
@@ -1548,7 +1551,7 @@ void get_lex(void) {
         return;
     }
     if (line[line_pos] == '$' && line_pos + 1 < line_size
-        && isxdigit(line[line_pos + 1])) {  // Hexadecimal number
+        && isxdigit(line[line_pos + 1])) {  /* Hexadecimal number */
         value_special = 0;
         value = 0;
         line_pos++;
@@ -1570,7 +1573,7 @@ void get_lex(void) {
         return;
     }
     if (line[line_pos] == '&' && line_pos + 1 < line_size
-        && (line[line_pos + 1] == '0' || line[line_pos + 1] == '1')) {  // Binary number
+        && (line[line_pos + 1] == '0' || line[line_pos + 1] == '1')) {  /* Binary number */
         value_special = 0;
         value = 0;
         line_pos++;
@@ -1586,7 +1589,7 @@ void get_lex(void) {
         line_start = 0;
         return;
     }
-    if (line[line_pos] == '"') {  // String
+    if (line[line_pos] == '"') {  /* String */
         line_pos++;
         name[0] = '\0';
         p = name;
@@ -2290,7 +2293,7 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_8;
             return tree;
         }
-        if (lex_sneak_peek() == '(') {  // Indexed access
+        if (lex_sneak_peek() == '(') {  /* Indexed access */
             int type2;
             struct node *addr;
             
@@ -2401,7 +2404,7 @@ void compile_assignment(int is_read)
         emit_error("name required for assignment");
         return;
     }
-    if (lex_sneak_peek() == '(') {  // Indexed access
+    if (lex_sneak_peek() == '(') {  /* Indexed access */
         int type2;
         struct node *addr;
         
@@ -2955,7 +2958,7 @@ void compile_statement(int check_for_else)
                 
                 get_lex();
                 
-                // Avoid IF blocks
+                /* Avoid IF blocks */
                 loop_explorer = loops;
                 while (loop_explorer != NULL) {
                     if (loop_explorer->type != 2)
@@ -3455,7 +3458,7 @@ void compile_statement(int check_for_else)
                     z80_1op("CALL", "mode_1");
                 if (value == 2)
                     z80_1op("CALL", "mode_2");
-            } else if (strcmp(name, "SCREEN") == 0) {  // Copy screen
+            } else if (strcmp(name, "SCREEN") == 0) {  /* Copy screen */
                 int label;
                 struct label *array;
                 
@@ -3485,7 +3488,7 @@ void compile_statement(int check_for_else)
                         strcat(assigned, name);
                     }
                     get_lex();
-                    if (lex == C_COMMA) {  // There is a second argument?
+                    if (lex == C_COMMA) {  /* There is a second argument? */
                         struct node *final;
                         struct node *addr;
                         int type;
@@ -3552,7 +3555,6 @@ void compile_statement(int check_for_else)
                             z80_1op("POP", "AF");   /* Extract previous width */
                             z80_1op("PUSH", "AF");  /* Save width */
                             z80_1op("PUSH", "BC");  /* Save height */
-                            z80_1op("PUSH", "AF");  /* Save stride width */
                             z80_1op("CALL", "CPYBLK");
                         }
                     } else {
@@ -3644,7 +3646,7 @@ void compile_statement(int check_for_else)
                         break;
                     }
                     if (lex == C_MINUS) {
-                        // Nothing to do
+                        /* Nothing to do */
                     } else if (arg == 0 && strcmp(name, "REPEAT") == 0) {
                         get_lex();
                         notes = 0xfd;
@@ -3730,7 +3732,7 @@ void compile_statement(int check_for_else)
                 int type;
                 
                 get_lex();
-                if (lex == C_NAME && strcmp(name, "FRAME") == 0) {  // Frame-driven games
+                if (lex == C_NAME && strcmp(name, "FRAME") == 0) {  /* Frame-driven games */
                     get_lex();
                     if (lex != C_NAME || strcmp(name, "GOSUB") != 0) {
                         emit_error("Bad syntax for ON FRAME GOSUB");
@@ -3996,7 +3998,7 @@ void compile_basic(void)
                     emit_error("starting PROCEDURE without ENDing previous PROCEDURE");
                 get_lex();
                 inside_proc = label;
-            } else if (strcmp(name, "END") == 0 && lex_sneak_peek() != 'I') {  // END (and not END IF)
+            } else if (strcmp(name, "END") == 0 && lex_sneak_peek() != 'I') {  /* END (and not END IF) */
                 if (!inside_proc)
                     emit_warning("END without PROCEDURE");
                 /*                    else if (loops.size() > 0)
@@ -4012,7 +4014,7 @@ void compile_basic(void)
                 while (line_pos < line_size && isspace(line[line_pos]))
                     line_pos++;
                 
-                // Separate filename, admit use of quotes
+                /* Separate filename, admit use of quotes */
                 if (line_pos < line_size && line[line_pos] == '"') {
                     quotes = 1;
                     line_pos++;

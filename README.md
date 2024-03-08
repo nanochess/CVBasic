@@ -1,4 +1,4 @@
-# CVBasic compiler v0.2.0
+# CVBasic compiler v0.3.0
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -25,12 +25,12 @@ You need to assemble the output file using Gasm80 available from [http://github.
 
 ### Notes
 
-The current official version is v0.2.0.
+The current official version is v0.3.0.
 
 
 ### Acknowledgments
 
-Thanks to the following member of Atariage for contributing valuable suggestions:
+Thanks to the following members of Atariage for contributing valuable suggestions:
 
     gemintronic
     Kiwi

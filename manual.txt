@@ -505,7 +505,7 @@ The following statements are available:
      bitmaps for the characters. Also, there is a limitation where the color for
      characters is limited to a foreground/background color for each 8 characters.
 
-     VRAM addresses $2000-$201f controls the color for the characters group.
+     VRAM addresses $2000-$201f control the color for the characters group.
 
 
   SCREEN DISABLE
