@@ -3447,7 +3447,7 @@ void compile_statement(int check_for_else)
                 }
             } else if (strcmp(name, "MODE") == 0) {
                 get_lex();
-                if (lex != C_NUM || value != 0 & value != 1 && value != 2) {
+                if (lex != C_NUM || value != 0 && value != 1 && value != 2) {
                     emit_error("bad syntax for MODE");
                     break;
                 }
