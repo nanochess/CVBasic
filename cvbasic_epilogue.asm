@@ -10,6 +10,7 @@
 	; Revision date: Mar/04/2024. Added music player.
 	; Revision date: Mar/05/2024. Added support for Sega SG1000.
 	; Revision date: Mar/12/2024. Added support for MSX.
+	; Revision date: Mar/13/2024. Added Pletter decompressor.
 	;
 
 nmi_handler:
@@ -910,6 +911,190 @@ music_silence:
 	db 8
 	db 0,0,0,0
 	db -2
+    endif
+
+    if CVBASIC_COMPRESSION
+define_char_unpack:
+	ex de,hl
+	pop af
+	pop hl
+	push af
+	add hl,hl	; x2
+	add hl,hl	; x4
+	add hl,hl	; x8
+	ex de,hl
+	ld a,(mode)
+	and 4
+	jp z,unpack3
+	jp unpack
+
+define_color_unpack:
+	ex de,hl
+	pop af
+	pop hl
+	push af
+	add hl,hl	; x2
+	add hl,hl	; x4
+	add hl,hl	; x8
+	ex de,hl
+	set 5,d
+unpack3:
+	call .1
+	call .1
+.1:
+	push de
+	push hl
+	call unpack
+	pop hl
+	pop de
+	ld a,d
+	add a,8	
+	ld d,a
+	ret
+	
+        ;
+        ; Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
+        ;
+unpack:
+; Initialization
+        ld a,(hl)
+        inc hl
+	exx
+        ld de,0
+        add a,a
+        inc a
+        rl e
+        add a,a
+        rl e
+        add a,a
+        rl e
+        rl e
+        ld hl,.modes
+        add hl,de
+        ld c,(hl)
+        inc hl
+        ld b,(hl)
+        push bc
+        pop ix
+        ld e,1
+	exx
+        ld iy,.loop
+
+; Main depack loop
+.literal:
+        ex af,af'
+        call nmi_off
+        ld a,(hl)
+        ex de,hl
+        call WRTVRM
+        ex de,hl
+        inc hl
+        inc de
+        call nmi_on
+        ex af,af'
+.loop:   add a,a
+        call z,.getbit
+        jr nc,.literal
+
+; Compressed data
+	exx
+        ld h,d
+        ld l,e
+.getlen: add a,a
+        call z,.getbitexx
+        jr nc,.lenok
+.lus:    add a,a
+        call z,.getbitexx
+        adc hl,hl
+        ret c   
+        add a,a
+        call z,.getbitexx
+        jr nc,.lenok
+        add a,a
+        call z,.getbitexx
+        adc hl,hl
+        ret c  
+        add a,a
+        call z,.getbitexx
+        jr c,.lus
+.lenok:  inc hl
+	exx
+        ld c,(hl)
+        inc hl
+        ld b,0
+        bit 7,c
+        jr z,.offsok
+        jp (ix)
+
+.mode6:  add a,a
+        call z,.getbit
+        rl b
+.mode5:  add a,a
+        call z,.getbit
+        rl b
+.mode4:  add a,a
+        call z,.getbit
+        rl b
+.mode3:  add a,a
+        call z,.getbit
+        rl b
+.mode2:  add a,a
+        call z,.getbit
+        rl b
+        add a,a
+        call z,.getbit
+        jr nc,.offsok
+        or a
+        inc b
+        res 7,c
+.offsok: inc bc
+        push hl
+	exx
+        push hl
+	exx
+        ld l,e
+        ld h,d
+        sbc hl,bc
+        pop bc
+        ex af,af'
+.loop2: 
+        call nmi_off
+        call RDVRM              ; unpack
+        ex de,hl
+        call WRTVRM
+        ex de,hl        ; 4
+        call nmi_on
+        inc hl          ; 6
+        inc de          ; 6
+        dec bc          ; 6
+        ld a,b          ; 4
+        or c            ; 4
+        jr nz,.loop2     ; 10
+        ex af,af'
+        pop hl
+        jp (iy)
+
+.getbit: ld a,(hl)
+        inc hl
+	rla
+	ret
+
+.getbitexx:
+	exx
+        ld a,(hl)
+        inc hl
+	exx
+	rla
+	ret
+
+.modes:
+        dw      .offsok
+        dw      .mode2
+        dw      .mode3
+        dw      .mode4
+        dw      .mode5
+        dw      .mode6
+
     endif
 
 	org BASE_RAM

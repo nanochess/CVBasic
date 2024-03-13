@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/12/2024.
+Last revision: Mar/13/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -334,6 +334,7 @@ The following statements are available:
        DATA 21,42,63,84,105
 
   DEFINE CHAR char_num,total,label
+  DEFINE CHAR PLETTER char_num,total,label
 
      Loads graphics into VRAM.
 
@@ -351,7 +352,12 @@ The following statements are available:
      Internally, CVBasic will replicate the date along the 3 display areas so
      the defined characters will appear on the whole screen when required.
 
+     Use the optional argument PLETTER to indicate that the data is compressed
+     with the Pletter compressor (TMSColor does the compression if you give the
+     option -z)
+
   DEFINE COLOR char_num,total,label
+  DEFINE COLOR PLETTER char_num,total,label
 
      Loads color into VRAM.
 
@@ -370,7 +376,12 @@ The following statements are available:
      Internally, CVBasic will replicate the date along the 3 display areas so
      the defined characters will appear on the whole screen when required.
 
+     Use the optional argument PLETTER to indicate that the data is compressed
+     with the Pletter compressor (TMSColor does the compression if you give the
+     option -z)
+
   DEFINE SPRITE sprite_num,total,label
+  DEFINE SPRITE PLETTER sprite_num,total,label
 
      Loads sprites into VRAM
 
@@ -384,10 +395,19 @@ The following statements are available:
 
      Each sprite is 16x16 pixels.
 
+     Use the optional argument PLETTER to indicate that the data is compressed
+     with the Pletter compressor (TMSColor does the compression if you give the
+     option -z)
+
   DEFINE VRAM address,length,label
+  DEFINE VRAM PLETTER address,length,label
 
      Copies data from "label" into VRAM address "address".
      The total of bytes is defined by "length".
+
+     Use the optional argument PLETTER to indicate that the data is compressed
+     with the Pletter compressor (TMSColor does the compression if you give the
+     option -z)
 
   SOUND 0,[value 10 bits],[vol 0-15]
   SOUND 1,[value 10 bits],[vol 0-15]
@@ -768,6 +788,12 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
                     label for DATA
   array(expr)=A     Writes data to an array. The array can be defined with DIM.
                     DATA is not writable
+
+  #A=VARPTR B       Gets a pointer to a variable. Useful when linking assembler
+                    routines.
+
+  #A=VARPTR C(0)    Gets a pointer to an array. Can be defined with DIM or label
+                    for DATA.
 
   CONT              Contains the state of both controllers.
   CONT.UP           Non-zero if any controller pointing up

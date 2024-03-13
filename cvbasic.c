@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.0 Mar/12/2024"
+#define VERSION "v0.4.0 Mar/13/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -38,6 +38,7 @@ enum {
 char path[4096];
 
 int music_used;
+int compression_used;
 
 char current_file[MAX_LINE_SIZE];
 int current_line;
@@ -1825,7 +1826,7 @@ int evaluate_expression(int cast, int to_type, int label)
     
     optimized = 0;
     tree = evaluate_level_0(&type);
-    if (cast == 1) {
+    if (cast != 0) {
         if (to_type == TYPE_8 && (type & MAIN_TYPE) == TYPE_16) {
             tree = node_create(N_REDUCE16, 0, tree, NULL);
             type = TYPE_8;
@@ -1853,6 +1854,10 @@ int evaluate_expression(int cast, int to_type, int label)
         node_delete(tree);
         return type;
     }
+    
+    if (cast == 2)
+        return type;
+    
     node_label(tree);
     node_generate(tree, label);
     node_delete(tree);
@@ -3475,33 +3480,73 @@ void compile_statement(int check_for_else)
                     get_lex();
                 }
             } else if (strcmp(name, "DEFINE") == 0) {
+                int pletter = 0;
+                
                 get_lex();
                 if (lex != C_NAME) {
                     emit_error("syntax error in DEFINE");
                 } else if (strcmp(name, "SPRITE") == 0) {
                     get_lex();
-                    type = evaluate_expression(1, TYPE_16, 0);
-                    z80_1op("PUSH", "HL");
-                    if (lex == C_COMMA)
-                        get_lex();
-                    else
-                        emit_error("missing comma in DEFINE");
-                    type = evaluate_expression(1, TYPE_8, 0);
-                    if (lex == C_COMMA)
-                        get_lex();
-                    else
-                        emit_error("missing comma in DEFINE");
-                    if (lex != C_NAME) {
-                        emit_error("missing label in DEFINE");
-                    } else {
-                        strcpy(temp, LABEL_PREFIX);
-                        strcat(temp, name);
-                        z80_2op("LD", "HL", temp);
+                    if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
+                        pletter = 1;
                         get_lex();
                     }
-                    z80_1op("CALL", "define_sprite");
+                    if (pletter) {
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        z80_2op("ADD", "HL", "HL");
+                        z80_2op("ADD", "HL", "HL");
+                        z80_2op("LD", "H", "$07");
+                        z80_2op("ADD", "HL", "HL");
+                        z80_2op("ADD", "HL", "HL");
+                        z80_2op("ADD", "HL", "HL");
+                        z80_2op("EX", "DE", "HL");
+                        if (lex == C_COMMA)
+                            get_lex();
+                        else
+                            emit_error("missing comma in DEFINE");
+                        type = evaluate_expression(2, TYPE_8, 0);
+                        if (lex == C_COMMA)
+                            get_lex();
+                        else
+                            emit_error("missing comma in DEFINE");
+                        if (lex != C_NAME) {
+                            emit_error("missing label in DEFINE");
+                        } else {
+                            strcpy(temp, LABEL_PREFIX);
+                            strcat(temp, name);
+                            z80_2op("LD", "HL", temp);
+                            get_lex();
+                        }
+                        z80_1op("CALL", "unpack");
+                        compression_used = 1;
+                    } else {
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        z80_1op("PUSH", "HL");
+                        if (lex == C_COMMA)
+                            get_lex();
+                        else
+                            emit_error("missing comma in DEFINE");
+                        type = evaluate_expression(1, TYPE_8, 0);
+                        if (lex == C_COMMA)
+                            get_lex();
+                        else
+                            emit_error("missing comma in DEFINE");
+                        if (lex != C_NAME) {
+                            emit_error("missing label in DEFINE");
+                        } else {
+                            strcpy(temp, LABEL_PREFIX);
+                            strcat(temp, name);
+                            z80_2op("LD", "HL", temp);
+                            get_lex();
+                        }
+                        z80_1op("CALL", "define_sprite");
+                    }
                 } else if (strcmp(name, "CHAR") == 0) {
                     get_lex();
+                    if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
+                        pletter = 1;
+                        get_lex();
+                    }
                     type = evaluate_expression(1, TYPE_16, 0);
                     z80_1op("PUSH", "HL");
                     if (lex == C_COMMA)
@@ -3521,9 +3566,18 @@ void compile_statement(int check_for_else)
                         z80_2op("LD", "HL", temp);
                         get_lex();
                     }
-                    z80_1op("CALL", "define_char");
+                    if (pletter) {
+                        z80_1op("CALL", "define_char_unpack");
+                        compression_used = 1;
+                    } else {
+                        z80_1op("CALL", "define_char");
+                    }
                 } else if (strcmp(name, "COLOR") == 0) {
                     get_lex();
+                    if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
+                        pletter = 1;
+                        get_lex();
+                    }
                     type = evaluate_expression(1, TYPE_16, 0);
                     z80_1op("PUSH", "HL");
                     if (lex == C_COMMA)
@@ -3543,9 +3597,18 @@ void compile_statement(int check_for_else)
                         z80_2op("LD", "HL", temp);
                         get_lex();
                     }
-                    z80_1op("CALL", "define_color");
+                    if (pletter) {
+                        z80_1op("CALL", "define_color_unpack");
+                        compression_used = 1;
+                    } else {
+                        z80_1op("CALL", "define_color");
+                    }
                 } else if (strcmp(name, "VRAM") == 0) {
                     get_lex();
+                    if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
+                        pletter = 1;
+                        get_lex();
+                    }
                     type = evaluate_expression(1, TYPE_16, 0);
                     z80_1op("PUSH", "HL");
                     if (lex == C_COMMA)
@@ -3568,9 +3631,14 @@ void compile_statement(int check_for_else)
                         z80_1op("POP", "DE");
                         get_lex();
                     }
-                    z80_1op("CALL", "nmi_off");
-                    z80_1op("CALL", "LDIRVM");
-                    z80_1op("CALL", "nmi_on");
+                    if (pletter) {
+                        z80_1op("CALL", "unpack");
+                        compression_used = 1;
+                    } else {
+                        z80_1op("CALL", "nmi_off");
+                        z80_1op("CALL", "LDIRVM");
+                        z80_1op("CALL", "nmi_on");
+                    }
                 } else {
                     emit_error("syntax error in DEFINE");
                 }
@@ -4607,7 +4675,8 @@ int main(int argc, char *argv[])
     fclose(input);
 
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
-        
+    fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
+    
     prologue = fopen("cvbasic_epilogue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_epilogue.asm.\n");
