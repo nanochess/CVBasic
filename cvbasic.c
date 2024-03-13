@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.3.0 Mar/08/2024"
+#define VERSION "v0.4.0 Mar/12/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -60,7 +60,6 @@ enum lexical_component {
     C_LPAREN, C_RPAREN, C_COLON, C_PERIOD, C_COMMA,
     C_ERR} lex;
 int value;
-int value_special;
 char global_label[MAX_LINE_SIZE];
 char name[MAX_LINE_SIZE];
 int name_size;
@@ -104,6 +103,34 @@ struct constant {
 };
 
 struct constant *constant_hash[HASH_PRIME];
+
+struct macro {
+    struct macro *next;
+    int total_arguments;
+    int in_use;
+    struct macro_def *definition;
+    int length;
+    int max_length;
+    char name[1];
+};
+
+struct macro_arg {
+    struct macro_def *definition;
+    int length;
+    int max_length;
+};
+
+struct macro_def {
+    enum lexical_component lex;
+    int value;
+    char *name;
+};
+
+struct macro *macro_hash[HASH_PRIME];
+
+struct macro_arg accumulated;
+
+int replace_macro(void);
 
 enum node_type {
     N_OR8, N_OR16,
@@ -1462,6 +1489,48 @@ struct label *array_add(char *name)
 }
 
 /*
+ ** Search for a macro
+ */
+struct macro *macro_search(char *name)
+{
+    struct macro *explore;
+    
+    explore = macro_hash[label_hash_value(name)];
+    while (explore != NULL) {
+        if (strcmp(explore->name, name) == 0)
+            return explore;
+        explore = explore->next;
+    }
+    return NULL;
+}
+
+/*
+ ** Add a macro
+ */
+struct macro *macro_add(char *name)
+{
+    struct macro **previous;
+    struct macro *explore;
+    struct macro *new_one;
+    
+    new_one = malloc(sizeof(struct macro) + strlen(name));
+    if (new_one == NULL) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+    new_one->total_arguments = 0;
+    new_one->in_use = 0;
+    new_one->definition = NULL;
+    new_one->length = 0;
+    new_one->max_length = 0;
+    strcpy(new_one->name, name);
+    previous = &macro_hash[label_hash_value(name)];
+    new_one->next = *previous;
+    *previous = new_one;
+    return new_one;
+}
+
+/*
  ** Avoid spaces
  */
 int lex_skip_spaces(void) {
@@ -1480,6 +1549,11 @@ int lex_skip_spaces(void) {
  ** Sneak-peek to next character
  */
 int lex_sneak_peek(void) {
+    if (accumulated.length > 0) {
+        if (accumulated.definition[accumulated.length - 1].lex == C_LPAREN)
+            return '(';
+        return 0;
+    }
     lex_skip_spaces();
     if (line_pos == line_size)
         return '\0';
@@ -1496,7 +1570,16 @@ int lex_sneak_peek(void) {
 void get_lex(void) {
     int spaces;
     char *p;
-    
+
+    if (accumulated.length > 0) {
+        --accumulated.length;
+        lex = accumulated.definition[accumulated.length].lex;
+        strcpy(name, accumulated.definition[accumulated.length].name);
+        value = accumulated.definition[accumulated.length].value;
+        free(accumulated.definition[accumulated.length].name);
+        return;
+    }
+    name[0] = '\0';
     spaces = lex_skip_spaces();
     if (line_pos == line_size) {
         lex = C_END;
@@ -1520,7 +1603,8 @@ void get_lex(void) {
         line_pos++;
         while (line_pos < line_size
                && (isalnum(line[line_pos]) || line[line_pos] == '_' || line[line_pos] == '#')) {
-            *p++ = toupper(line[line_pos]);
+            if (p - name < MAX_LINE_SIZE - 1)
+                *p++ = toupper(line[line_pos]);
             line_pos++;
         }
         *p = '\0';
@@ -1538,13 +1622,12 @@ void get_lex(void) {
         return;
     }
     if (isdigit(line[line_pos])) {  /* Decimal number */
-        value_special = 0;
         value = 0;
         while (line_pos < line_size && isdigit(line[line_pos]))
             value = (value * 10) + line[line_pos++] - '0';
         if (line[line_pos] == '.') {
             line_pos++;
-            value_special = 1;
+            strcpy(name, "1");
         }
         lex = C_NUM;
         line_start = 0;
@@ -1552,7 +1635,6 @@ void get_lex(void) {
     }
     if (line[line_pos] == '$' && line_pos + 1 < line_size
         && isxdigit(line[line_pos + 1])) {  /* Hexadecimal number */
-        value_special = 0;
         value = 0;
         line_pos++;
         while (line_pos < line_size && isxdigit(line[line_pos])) {
@@ -1566,7 +1648,7 @@ void get_lex(void) {
         }
         if (line[line_pos] == '.') {
             line_pos++;
-            value_special = 1;
+            strcpy(name, "1");
         }
         lex = C_NUM;
         line_start = 0;
@@ -1574,7 +1656,6 @@ void get_lex(void) {
     }
     if (line[line_pos] == '&' && line_pos + 1 < line_size
         && (line[line_pos + 1] == '0' || line[line_pos + 1] == '1')) {  /* Binary number */
-        value_special = 0;
         value = 0;
         line_pos++;
         while (line_pos < line_size && (line[line_pos] == '0' || line[line_pos] == '1')) {
@@ -1583,7 +1664,7 @@ void get_lex(void) {
         }
         if (line[line_pos] == '.') {
             line_pos++;
-            value_special = 1;
+            strcpy(name, "1");
         }
         lex = C_NUM;
         line_start = 0;
@@ -1591,7 +1672,6 @@ void get_lex(void) {
     }
     if (line[line_pos] == '"') {  /* String */
         line_pos++;
-        name[0] = '\0';
         p = name;
         while (line_pos < line_size && line[line_pos] != '"') {
             int c;
@@ -1618,8 +1698,10 @@ void get_lex(void) {
             } else {
                 c = line[line_pos++];
             }
-            *p++ = c;
+            if (p - name < MAX_LINE_SIZE - 1)
+                *p++ = c;
         }
+        *p = '\0';
         name_size = p - name;
         if (line_pos < line_size && line[line_pos] == '"') {
             line_pos++;
@@ -2293,6 +2375,11 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_8;
             return tree;
         }
+        if (macro_search(name) != NULL) {  // Function (macro)
+            if (replace_macro())
+                return node_create(N_NUM8, 0, NULL, NULL);
+            return evaluate_level_0(type);
+        }
         if (lex_sneak_peek() == '(') {  /* Indexed access */
             int type2;
             struct node *addr;
@@ -2377,7 +2464,7 @@ struct node *evaluate_level_7(int *type)
         
         temp = value;
         get_lex();
-        if (value_special) {
+        if (name[0] == '1') {
             *type = TYPE_8;
             return node_create(N_NUM8, temp & 0xff, NULL, NULL);
         }
@@ -2387,6 +2474,136 @@ struct node *evaluate_level_7(int *type)
     emit_error("bad syntax por expression");
     *type = TYPE_16;
     return node_create(N_NUM16, 0, NULL, NULL);
+}
+
+/*
+ ** Push into the lexical analyzer buffer
+ */
+void accumulated_push(enum lexical_component lex, int value, char *name)
+{
+    if (accumulated.length >= accumulated.max_length) {
+        accumulated.definition = realloc(accumulated.definition, (accumulated.max_length + 1) * 2 * sizeof(struct macro_def));
+        if (accumulated.definition == NULL) {
+            emit_error("out of memory in accumulated_push");
+            exit(1);
+        }
+        accumulated.max_length = (accumulated.max_length + 1) * 2;
+    }
+    accumulated.definition[accumulated.length].lex = lex;
+    accumulated.definition[accumulated.length].value = value;
+    accumulated.definition[accumulated.length].name = malloc(strlen(name) + 1);
+    if (accumulated.definition[accumulated.length].name == NULL) {
+        emit_error("out of memory in accumulated_push");
+        exit(1);
+    }
+    strcpy(accumulated.definition[accumulated.length].name, name);
+    accumulated.length++;
+}
+
+/*
+** Replace a macro
+*/
+int replace_macro(void)
+{
+    struct macro *macro;
+    char function[MAX_LINE_SIZE];
+    int total_arguments;
+    int c;
+    int d;
+    int level;
+    struct macro_arg *argument;
+    
+    strcpy(function, name);
+    macro = macro_search(function);
+    get_lex();
+    if (macro->in_use) {
+        emit_error("Recursion in FN name");
+        return 1;
+    }
+    macro->in_use = 1;
+    total_arguments = macro->total_arguments;
+    if (total_arguments > 0) {
+        argument = calloc(total_arguments, sizeof(struct macro_arg));
+        if (argument == NULL) {
+            emit_error("out of memory in call to FN");
+            return 1;
+        }
+        if (lex != C_LPAREN) {
+            emit_error("missing left parenthesis in call to FN");
+            return 1;
+        }
+        get_lex();
+        c = 0;
+        level = 0;
+        while (c < total_arguments) {
+            while (1) {
+                if (level == 0 && (lex == C_RPAREN || lex == C_COMMA))
+                    break;
+                if (lex == C_END)   // Avoid possibility of being stuck
+                    break;
+                if (lex == C_LPAREN)
+                    level++;
+                if (lex == C_RPAREN)
+                    level--;
+                if (argument[c].length >= argument[c].max_length) {
+                    argument[c].definition = realloc(argument[c].definition, (argument[c].max_length + 1) * 2 * sizeof(struct macro_def));
+                    if (argument[c].definition == NULL) {
+                        emit_error("out of memory in call to FN");
+                        return 1;
+                    }
+                    argument[c].max_length = (argument[c].max_length + 1) * 2;
+                }
+                argument[c].definition[argument[c].length].lex = lex;
+                argument[c].definition[argument[c].length].value = value;
+                argument[c].definition[argument[c].length].name = malloc(strlen(name) + 1);
+                if (argument[c].definition[argument[c].length].name == NULL) {
+                    emit_error("out of memory in call to FN");
+                    return 1;
+                }
+                strcpy(argument[c].definition[argument[c].length].name, name);
+                argument[c].length++;
+                get_lex();
+            }
+            if (lex == C_COMMA && c + 1 < total_arguments) {
+                get_lex();
+                c++;
+                continue;
+            }
+            if (lex == C_RPAREN && c + 1 == total_arguments) {
+                get_lex();
+                break;
+            }
+            emit_error("syntax error in call to FN");
+            break;
+        }
+    }
+    accumulated_push(lex, value, name); /* The actual one for later */
+    
+    /*
+     ** Push macro into lexical analyzer
+     */
+    for (c = macro->length - 1; c >= 0; c--) {
+        if (macro->definition[c].lex == C_ERR) {
+            struct macro_arg *arg;
+            
+            arg = &argument[macro->definition[c].value];
+            for (d = arg->length - 1; d >= 0; d--) {
+                accumulated_push(arg->definition[d].lex, arg->definition[d].value, arg->definition[d].name);
+            }
+        } else {
+            accumulated_push(macro->definition[c].lex, macro->definition[c].value, macro->definition[c].name);
+        }
+    }
+    for (c = 0; c < total_arguments; c++)
+        free(argument[c].definition);
+    c = --accumulated.length;
+    lex = accumulated.definition[c].lex;
+    value = accumulated.definition[c].value;
+    strcpy(name, accumulated.definition[c].name);
+    free(accumulated.definition[c].name);
+    macro->in_use = 0;
+    fprintf(stderr, "All acumulated...\n");
+    return 0;
 }
 
 /*
@@ -3924,7 +4141,7 @@ void compile_statement(int check_for_else)
                             break;
                     }
                 }
-            } else if (strcmp(name, "ASM") == 0) {
+            } else if (strcmp(name, "ASM") == 0) {  /* ASM statement for inserting assembly code */
                 int c;
                 
                 c = line_pos;
@@ -3937,6 +4154,105 @@ void compile_statement(int check_for_else)
                 fprintf(output, "%s\n", &line[line_pos]);
                 line_pos = line_size;
                 get_lex();
+            } else if (strcmp(name, "DEF") == 0) {     /* Function definition (macro in CVBasic) */
+                char function[MAX_LINE_SIZE];
+                int total_arguments;
+                char *arguments[32];
+                struct macro *macro;
+                int c;
+                
+                get_lex();
+                if (lex != C_NAME || strcmp(name, "FN") != 0) {
+                    emit_error("syntax error for DEF FN");
+                } else {
+                    get_lex();
+                    if (lex != C_NAME) {
+                        emit_error("missing function name for DEF FN");
+                    } else if (macro_search(name) != NULL) {
+                        emit_error("DEF FN name already defined");
+                    } else {
+                        strcpy(function, name);
+                        get_lex();
+                        total_arguments = 0;
+                        if (lex == C_LPAREN) {
+                            get_lex();
+                            while (1) {
+                                if (lex != C_NAME) {
+                                    emit_error("syntax error in argument list for DEF FN");
+                                    break;
+                                }
+                                if (total_arguments == 32) {
+                                    emit_error("More than 32 arguments in DEF FN");
+                                    break;
+                                }
+                                arguments[total_arguments] = malloc(strlen(name) + 1);
+                                if (arguments[total_arguments] == NULL) {
+                                    emit_error("Out of memory in DEF FN");
+                                    break;
+                                }
+                                strcpy(arguments[total_arguments], name);
+                                total_arguments++;
+                                get_lex();
+                                if (lex == C_COMMA) {
+                                    get_lex();
+                                } else if (lex == C_RPAREN) {
+                                    get_lex();
+                                    break;
+                                } else {
+                                    emit_error("syntax error in argument list for DEF FN");
+                                    break;
+                                }
+                            }
+                        }
+                        macro = macro_add(function);
+                        macro->total_arguments = total_arguments;
+                        if (lex != C_EQUAL) {
+                            emit_error("missing = in DEF FN");
+                        } else {
+                            get_lex();
+                            while (lex != C_END) {
+                                if (lex == C_ERR) {
+                                    emit_error("bad syntax inside DEF FN replacement text");
+                                    break;
+                                }
+                                if (lex == C_NAME) {
+                                    for (c = 0; c < total_arguments; c++) {
+                                        if (strcmp(arguments[c], name) == 0)
+                                            break;
+                                    }
+                                    if (c < total_arguments) {
+                                        lex = C_ERR;
+                                        value = c;
+                                        name[0] = '\0';
+                                    }
+                                }
+                                if (macro->length >= macro->max_length) {
+                                    macro->definition = realloc(macro->definition, (macro->max_length + 1) * 2 * sizeof(struct macro_def));
+                                    if (macro->definition == NULL) {
+                                        emit_error("Out of memory in DEF FN");
+                                        break;
+                                    }
+                                    macro->max_length = (macro->max_length + 1) * 2;
+                                }
+                                macro->definition[macro->length].lex = lex;
+                                macro->definition[macro->length].value = value;
+                                macro->definition[macro->length].name = malloc(strlen(name) + 1);
+                                if (macro->definition[macro->length].name == NULL) {
+                                    emit_error("Out of memory in DEF FN");
+                                    break;
+                                }
+                                strcpy(macro->definition[macro->length].name, name);
+                                macro->length++;
+                                get_lex();
+                            }
+                        }
+                    }
+                }
+            } else if (macro_search(name) != NULL) {  // Function (macro)
+                if (!replace_macro()) {
+                    compile_statement(check_for_else);
+                    return;
+                }
             } else {
                 compile_assignment(0);
             }
