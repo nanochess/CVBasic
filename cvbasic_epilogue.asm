@@ -143,6 +143,36 @@ nmi_handler:
 
     endif
     if MSX
+
+	ld a,15
+	call RDPSG
+	and $b0
+	or $4f
+	ld e,a
+	ld a,15
+	call WRTPSG
+	ld a,14
+	call RDPSG
+	ld b,$ff
+	bit 0,a
+	jr nz,$+4
+	res 0,b
+	bit 3,a
+	jr nz,$+4
+	res 1,b
+	bit 1,a
+	jr nz,$+4
+	res 2,b
+	bit 2,a
+	jr nz,$+4
+	res 3,b
+	bit 4,a
+	jr nz,$+4
+	res 6,b
+	bit 5,a
+	jr nz,$+4
+	res 7,b
+
         ld b,$ff
 	in a,($aa)
 	and $f0
@@ -172,6 +202,35 @@ nmi_handler:
 	bit 2,a
 	jr nz,$+4
 	res 7,b
+
+	ld a,15
+	call RDPSG
+	and $b0
+	or $0f
+	ld e,a
+	ld a,15
+	call WRTPSG
+	ld a,14
+	call RDPSG
+	bit 0,a
+	jr nz,$+4
+	res 0,b
+	bit 3,a
+	jr nz,$+4
+	res 1,b
+	bit 1,a
+	jr nz,$+4
+	res 2,b
+	bit 2,a
+	jr nz,$+4
+	res 3,b
+	bit 4,a
+	jr nz,$+4
+	res 6,b
+	bit 5,a
+	jr nz,$+4
+	res 7,b
+
 	ld a,b
 	cpl
 	ld (joy1_data),a

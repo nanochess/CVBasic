@@ -2375,6 +2375,78 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_8;
             return tree;
         }
+        if (strcmp(name, "VARPTR") == 0) {  /* Access to variable/array/label address */
+            *type = TYPE_16;
+            get_lex();
+            if (lex != C_NAME) {
+                emit_error("missing variable name for VARPTR");
+                return node_create(N_NUM16, 0, NULL, NULL);
+            }
+            if (lex_sneak_peek() == '(') {  // Indexed access
+                int type2;
+                struct node *addr;
+
+                label = array_search(name);
+                if (label != NULL) {    /* Found array */
+                } else {
+                    label = label_search(name);
+                    if (label != NULL) {
+                        if (label->used & LABEL_IS_VARIABLE) {
+                            emit_error("using array but not defined");
+                        }
+                    } else {
+                        label = label_add(name);
+                    }
+                }
+                get_lex();
+                if (lex != C_LPAREN)
+                    emit_error("missing left parenthesis in array access");
+                else
+                    get_lex();
+                tree = evaluate_level_0(&type2);
+                if (lex != C_RPAREN)
+                    emit_error("missing right parenthesis in array access");
+                else
+                    get_lex();
+                addr = node_create(N_ADDR, 0, NULL, NULL);
+                addr->label = label;
+                if ((type2 & MAIN_TYPE) == TYPE_8)
+                    tree = node_create(N_EXTEND8, 0, tree, NULL);
+                if (label->name[0] == '#') {
+                    tree = node_create(N_MUL16, 0, tree,
+                                       node_create(N_NUM16, 2, NULL, NULL));
+                }
+                return node_create(N_PLUS16, 0, addr, tree);
+            }
+            constant = constant_search(name);
+            if (constant != NULL) {
+                emit_error("constants doesn't have address for VARPTR");
+                get_lex();
+                return node_create(N_NUM16, 0, NULL, NULL);
+            }
+            label = label_search(name);
+            if (label != NULL && (label->used & LABEL_IS_VARIABLE) == 0) {
+                char buffer[MAX_LINE_SIZE];
+                
+                sprintf(buffer, "variable name '%s' already defined with other purpose", name);
+                emit_error(buffer);
+                label = NULL;
+            }
+            if (label == NULL) {
+                char buffer[MAX_LINE_SIZE];
+                
+                label = label_add(name);
+                if (name[0] == '#')
+                    label->used = TYPE_16;
+                else
+                    label->used = TYPE_8;
+                label->used |= LABEL_IS_VARIABLE;
+            }
+            get_lex();
+            tree = node_create(N_ADDR, 0, NULL, NULL);
+            tree->label = label;
+            return tree;
+        }
         if (macro_search(name) != NULL) {  // Function (macro)
             if (replace_macro())
                 return node_create(N_NUM8, 0, NULL, NULL);

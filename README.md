@@ -29,7 +29,7 @@ The current official version is v0.4.0.
 
 Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative.
 
-MSX currently only supports keyboard for CONT1.
+MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
 TODO:
 * Implement pletter compression in TMSColor and pletter decompression on CVBasic.
