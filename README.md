@@ -1,8 +1,8 @@
-# CVBasic compiler v0.3.0
+# CVBasic compiler v0.4.0
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-BASIC language cross-compiler for the Colecovision.
+BASIC language cross-compiler for the Colecovision/SG1000/MSX.
 
     CVBasic.c               The CVBasic compiler C language source code
     LICENSE                 Source code license
@@ -25,7 +25,14 @@ You need to assemble the output file using Gasm80 available from [http://github.
 
 ### Notes
 
-The current official version is v0.3.0.
+The current official version is v0.4.0.
+
+Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative.
+
+MSX currently only supports keyboard for CONT1.
+
+TODO:
+* Implement pletter compression in TMSColor and pletter decompression on CVBasic.
 
 
 ### Acknowledgments

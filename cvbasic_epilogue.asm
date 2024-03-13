@@ -9,6 +9,7 @@
 	;                             read_pointer variables.
 	; Revision date: Mar/04/2024. Added music player.
 	; Revision date: Mar/05/2024. Added support for Sega SG1000.
+	; Revision date: Mar/12/2024. Added support for MSX.
 	;
 
 nmi_handler:
@@ -26,6 +27,9 @@ nmi_handler:
 
 .1:	push bc
 	push de
+    if SG1000+MSX
+	in a,(VDP+1)
+    endif
 	ld hl,$1b00
 	call SETWRT
 	ld hl,sprites
@@ -138,6 +142,40 @@ nmi_handler:
 	pop af
 
     endif
+    if MSX
+        ld b,$ff
+	in a,($aa)
+	and $f0
+	or $08
+	out ($aa),a
+	in a,($a9)
+	bit 5,a
+	jr nz,$+4
+        res 0,b
+	bit 7,a
+	jr nz,$+4
+        res 1,b
+        bit 6,a
+        jr nz,$+4
+        res 2,b
+        bit 4,a
+        jr nz,$+4
+        res 3,b
+	bit 0,a
+	jr nz,$+4
+	res 6,b
+	in a,($aa)
+	and $f0
+	or $04
+	out ($aa),a
+	in a,($a9)
+	bit 2,a
+	jr nz,$+4
+	res 7,b
+	ld a,b
+	cpl
+	ld (joy1_data),a
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -174,14 +212,19 @@ nmi_handler:
 	pop de
 	pop bc
 	pop hl
+    if COLECO
 	in a,(VDP+1)
 	pop af
-    if COLECO
 	retn
     endif
     if SG1000
+	pop af
         ei
         reti
+    endif
+    if MSX
+	pop af
+        ret
     endif
 
 	;
@@ -204,6 +247,23 @@ music_init:
         out (PSG),a
         ld a,$ec
         out (PSG),a
+    endif
+    if MSX
+WRTPSG:	equ $0093
+RDPSG:	equ $0096
+
+	ld a,$08
+	ld e,$00
+	call WRTPSG
+	ld a,$09
+	ld e,$00
+	call WRTPSG
+	ld a,$0a
+	ld e,$00
+	call WRTPSG
+	ld a,$07
+	ld e,$b8
+	call WRTPSG
     endif
     if CVBASIC_MUSIC_PLAYER
     else
@@ -687,7 +747,59 @@ music_hardware:
         out (PSG),a
         ret
     endif
-        ret
+    if MSX
+	ld a,(music_mode)
+	cp 4		; PLAY SIMPLE?
+	jr c,.8		; Yes, jump.	
+	ld hl,audio_freq1
+	ld bc,$0b00
+	ld a,c
+	ld e,(hl)
+	call WRTPSG
+	inc hl
+	inc c
+	djnz $-7
+	ret
+.8:
+	ld hl,audio_freq1
+	ld bc,$0400
+	ld a,c
+	ld e,(hl)
+	call WRTPSG
+	inc hl
+	inc c
+	djnz $-7
+	inc hl
+	inc hl
+	inc c
+	inc c
+	ld a,(music_mode)
+	and 1
+	jr z,.9
+	ld a,c
+	ld e,(hl)
+	call WRTPSG
+	inc hl
+	inc c
+	ld a,c
+	ld e,(hl)
+	call WRTPSG
+	inc hl
+	inc c
+	jr .10
+.9:	inc hl
+	inc c
+	inc hl
+	inc c
+.10:	ld b,$02
+	ld a,c
+	ld e,(hl)
+	call WRTPSG
+	inc hl
+	inc c
+	djnz $-7
+	ret
+    endif
 
         ;
         ; Enable drum.

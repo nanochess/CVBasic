@@ -2602,7 +2602,6 @@ int replace_macro(void)
     strcpy(name, accumulated.definition[c].name);
     free(accumulated.definition[c].name);
     macro->in_use = 0;
-    fprintf(stderr, "All acumulated...\n");
     return 0;
 }
 
@@ -4063,6 +4062,10 @@ void compile_statement(int check_for_else)
                 if (lex != C_NUM) {
                     emit_error("syntax error in SOUND");
                 } else {
+                    if (value < 3 && machine == MSX)
+                        emit_warning("using SOUND 0-3 with MSX target");
+                    else if (value >= 5 && machine != MSX)
+                        emit_warning("using SOUND 5-9 with non-MSX target");
                     switch (value) {
                         case 0:
                             get_lex();
@@ -4137,6 +4140,101 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 z80_2op("LD", "B", "$f0");
                                 z80_1op("CALL", "sn76489_vol");
+                            }
+                            break;
+                        case 5:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                z80_2op("LD", "A", "$00");
+                                z80_1op("CALL", "ay3_freq");
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                z80_2op("LD", "B", "$08");
+                                z80_1op("CALL", "ay3_reg");
+                            }
+                            break;
+                        case 6:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                z80_2op("LD", "A", "$02");
+                                z80_1op("CALL", "ay3_freq");
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                z80_2op("LD", "B", "$09");
+                                z80_1op("CALL", "ay3_reg");
+                            }
+                            break;
+                        case 7:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                z80_2op("LD", "A", "$04");
+                                z80_1op("CALL", "ay3_freq");
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                z80_2op("LD", "B", "$0a");
+                                z80_1op("CALL", "ay3_reg");
+                            }
+                            break;
+                        case 8:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                z80_2op("LD", "A", "$0b");
+                                z80_1op("CALL", "ay3_freq");
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                z80_2op("LD", "B", "$0d");
+                                z80_1op("CALL", "ay3_reg");
+                            }
+                            break;
+                        case 9:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                z80_2op("LD", "B", "$06");
+                                z80_1op("CALL", "ay3_reg");
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                z80_2op("LD", "B", "$07");
+                                z80_1op("CALL", "ay3_reg");
                             }
                             break;
                     }
@@ -4391,12 +4489,15 @@ int main(int argc, char *argv[])
     if (argc < 3) {
         fprintf(stderr, "Usage:\n");
         fprintf(stderr, "\n");
-        fprintf(stderr, "    cvbasic [--sg1000] input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic [--sg1000] [--msx] input.bas output.asm\n");
         exit(1);
     }
     c = 1;
     if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && memcmp(&argv[c][4], "1000", 5) == 0) {
         machine = SG1000;
+        c++;
+    } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 'm' && tolower(argv[c][3]) == 's' && tolower(argv[c][4]) == 'x' && argv[c][5] == '\0') {
+        machine = MSX;
         c++;
     } else {
         machine = COLECOVISION;
@@ -4488,7 +4589,7 @@ int main(int argc, char *argv[])
     }
     fclose(output);
     fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used,
-            1024 -  /* Total RAM memory */
+            (machine == MSX ? 4096 : 1024) -  /* Total RAM memory */
             64 -    /* Stack requirements */
             (music_used ? 33 : 0) -     /* Music player requirements */
             146);   /* Support variables */

@@ -12,6 +12,7 @@
 	; Revision date: Mar/05/2024. Added support for Sega SG1000.
 	; Revision date: Mar/06/2024. Added ENASCR, DISSCR, and CPYBLK.
 	; Revision date: Mar/08/2024. Added modes 0, 1 and 2.
+	; Revision date: Mar/12/2024. Added support for MSX.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -24,7 +25,7 @@ JOY2:   equ $ff-$22*SG1000
 
 BASE_RAM: equ $e000-$7000*COLECO-$2000*SG1000
 
-STACK:	equ $e400-$7000*COLECO-$2000*SG1000
+STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000
 
     if COLECO
 	org $8000
@@ -73,6 +74,15 @@ STACK:	equ $e400-$7000*COLECO-$2000*SG1000
 	ei		; NMI handler (pause button)
 	retn
 
+    endif
+    if MSX
+	ORG $4000
+	db "AB"
+	dw START
+	dw $0000
+	dw $0000
+	dw $0000
+	dw $0000
     endif
 
 WRTVDP:
@@ -203,7 +213,7 @@ nmi_off:
 	set 0,(hl)
 	pop hl
     endif
-    if SG1000
+    if SG1000+MSX
         di
     endif
 	ret
@@ -220,14 +230,16 @@ nmi_on:
 	pop hl
 	pop af
     endif
-    if SG1000
+    if SG1000+MSX
         ei
     endif
 	ret
 
+    if COLECO
 keypad_table:
         db $0f,$08,$04,$05,$0c,$07,$0a,$02
         db $0d,$0b,$00,$09,$03,$01,$06,$0f
+    endif
 
 cls:
 	ld hl,$1800
@@ -497,6 +509,7 @@ random:
         ret
 
 sn76489_freq:
+    if COLECO+SG1000
 	ld b,a
 	ld a,l
 	and $0f
@@ -509,20 +522,45 @@ sn76489_freq:
 	ld a,h
 	and $3f
 	out (PSG),a
+    endif
 	ret
 
 sn76489_vol:
+    if COLECO+SG1000
 	cpl
 	and $0f
 	or b
 	out (PSG),a
+    endif
 	ret
 
 sn76489_control:
+    if COLECO+SG1000
 	and $0f
 	or $e0
 	out (PSG),a
+    endif
 	ret
+
+ay3_reg:
+    if MSX
+	ld e,a
+	ld a,b
+	jp WRTPSG
+    else
+        ret
+    endif
+
+ay3_freq:
+    if MSX
+	ld e,l
+	call WRTPSG
+	ld e,h
+	inc a
+	jp WRTPSG
+    else
+        ret
+    endif
 
     if SG1000
 	; Required for SG1000 as it doesn't have a BIOS
@@ -650,6 +688,8 @@ mode_0:
 	call WRTVDP
 	ld bc,$0706	; $3800 for sprites bitmaps.
 	call WRTVDP
+	ld bc,$0107
+	call WRTVDP
     if COLECO
 	ld hl,($006c)
 	ld de,-128
@@ -657,6 +697,10 @@ mode_0:
     endif
     if SG1000
 	ld hl,font_bitmaps
+    endif
+    if MSX
+	ld hl,($0004)   
+	inc h
     endif
 	ld de,$0100
 	ld bc,$0300
@@ -702,6 +746,8 @@ mode_1:
 	ld bc,$3605	; $1b00 for sprite attribute table.
 	call WRTVDP
 	ld bc,$0706	; $3800 for sprites bitmaps.
+	call WRTVDP
+	ld bc,$0107
 	call WRTVDP
 	ld hl,$0000
 	ld bc,$1800
@@ -759,6 +805,8 @@ mode_2:
 	call WRTVDP
 	ld bc,$0706	; $3800 for sprites bitmaps.
 	call WRTVDP
+	ld bc,$0107
+	call WRTVDP
     if COLECO
 	ld hl,($006c)
 	ld de,-128
@@ -766,6 +814,10 @@ mode_2:
     endif
     if SG1000
 	ld hl,font_bitmaps
+    endif
+    if MSX
+	ld hl,($0004)   
+	inc h
     endif
 	ld de,$0100
 	ld bc,$0300
@@ -825,6 +877,13 @@ START:
 	ld a,1
 	ld (ntsc),a
     endif
+    if MSX
+	ld a,($002b)
+	cpl
+	rlca
+	and $01
+	ld (ntsc),a
+    endif
 
 	call music_init
 
@@ -839,5 +898,12 @@ START:
 	ld a,$0f
 	ld (key1_data),a
 	ld (key2_data),a
+
+    if MSX
+	ld hl,nmi_handler
+	ld ($fd9b),hl
+	ld a,$c3
+	ld ($fd9a),a
+    endif
 
 	; CVBasic program start.

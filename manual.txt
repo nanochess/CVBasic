@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/08/2024.
+Last revision: Mar/12/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -400,7 +400,7 @@ The following statements are available:
    
          value = 3579545 / 32 / frequency
 
-     Only a constant (0-3) can be used as the first parameter of SOUND.
+     Only a constant can be used as the first parameter of SOUND.
 
      The SN76489 allows four independent tones to be played at the same time.
 
@@ -410,6 +410,26 @@ The following statements are available:
 
      The frequency for the fourth channel is fixed (control is 0,1,2,4,5,6)
      or related to the frequency of the third channel (control is 3,7)
+
+     If you use the music player, the SOUND capabilities are affected. Refer
+     to the PLAY statement later for further information.
+
+  SOUND 5,[VALUE 12 bits],[VOL 0-15]       Channel A
+  SOUND 6,[VALUE 12 bits],[VOL 0-15]       Channel B
+  SOUND 7,[VALUE 12 bits],[VOL 0-15]       Channel C
+  SOUND 8,[VALUE 16 bits],[TYPE 0-15]      Volume envelope (frequency/shape)
+  SOUND 9,[NOISE 5 bits],[MIX]      Noise and mix register ($b8 value by default)
+
+     Allows to generate tones on the AY-3-8910 sound processor (MSX).
+
+     For channels A, B and C, if you use volume 16 the PSG will use the
+     volume envelope (see SOUND 8)
+    
+     If you use the music player, the SOUND capabilities are affected. Refer
+     to the PLAY statement later for further information.
+
+     NOTE: USE ONLY VALUES $80-$BF FOR MIX BECAUSE ANY VALUE OUTSIDE THIS
+           CAN BURN YOUR MSX HARDWARE.
 
   SPRITE index,y,x,f,c
 
@@ -573,14 +593,15 @@ The following statements are available:
   PLAY FULL NO DRUMS
   
     Activates music player and selects the type of music played, SIMPLE only
-    uses two channels, allowing the programmer to use SOUND 2 for sound effects.
+    uses two channels, allowing the programmer to use SOUND 2 for sound effects
+    (or SOUND 7 in MSX).
     
     FULL will use all three channels, so SOUND cannot be used in this context.
     
     The music player plays drums using the noise channel and the mix register.
     You can deactivate this feature using the NO DRUMS syntax, for example, if
     you want to generate explosion sounds with the noise channel, allowing you
-    to use SOUND 4.
+    to use SOUND 3 (or SOUND 9 in MSX).
 
     Notice that the music player will update the sound channels on every video
     frame.
@@ -589,13 +610,19 @@ The following statements are available:
   PLAY NONE
   
     Deactivate the music player. Following this the programmer should turn off all
-    the sound channels, using this code:
+    the sound channels, using this code for Colecovision or SG1000:
     
       SOUND 0,,0
       SOUND 1,,0
       SOUND 2,,0
       SOUND 3,,0
 
+    For MSX you need to do this:
+
+      SOUND 5,,0
+      SOUND 6,,0
+      SOUND 7,,0
+      SOUND 9,,$38
 
   PLAY label
   
@@ -653,6 +680,38 @@ The following statements are available:
   
     Stops music, if music is currently playing.
     
+
+  DEF FN func = RANDOM % 10
+  DEF FN screen_off(row, col) = (row * 32 + col)
+  DEF FN resetsprite(number) = SPRITE number,$d1,0,0,0
+
+    Allows to define functions with any number of arguments.
+    
+    Notice that these are processed like macros: The arguments are replaced
+    as-is and the text of the function is inserted as-is after argument
+    replacement. (because of that are included the extra parenthesis in the
+    screen_off expression)
+
+    For example, the two functions screen_off and resetsprite could be called as:
+    
+          A = func
+          PRINT AT screen_off(4,8),"HELLO!"
+          resetsprite(0)
+
+    Please note that although it's possible to reuse internal function names,
+    when called the internal functions have priority over DEF FN (DEF FN is
+    ignored)
+
+  INCLUDE "filename.bas"
+  
+    Includes the contents of another source file inside the current IntyBASIC
+    program. 
+
+    INCLUDE allows you to include external code anywhere in your program.
+    You could even have half of a procedure in the main file and the rest of it
+    in the included file.
+
+    This is very useful for separating graphics and screen files.
 
   ASM code
   
