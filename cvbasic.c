@@ -261,6 +261,12 @@ void z80_1op(char *mnemonic, char *operand)
                strcmp(mnemonic, "XOR") == 0 ||
                strcmp(mnemonic, "AND") == 0) {
         z80_a_content[0] = '\0';
+    } else if (strcmp(mnemonic, "SRL") == 0) {
+        if (strcmp(operand, "H") == 0)
+            z80_hl_content[0] = '\0';
+    } else if (strcmp(mnemonic, "RR") == 0) {
+        if (strcmp(operand, "L") == 0)
+            z80_hl_content[0] = '\0';
     } else if (strcmp(mnemonic, "INC") == 0) {
         if (strcmp(operand, "H") == 0 ||
             strcmp(operand, "L") == 0 ||
@@ -442,7 +448,39 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 return left;
             }
             break;
-        case N_MOD16:     /* Modulo */
+        case N_MUL16:   /* 16-bit multiplication */
+            if (left->type == N_NUM16 && right->type == N_NUM16) {  /* Optimize constant case */
+                left->value = (left->value * right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_NUM16) {    /* Move constant to right */
+                new_node = left;
+                left = right;
+                right = new_node;
+            }
+            if (right->type == N_NUM16 && right->value == 0) {  /* Nullify zero multiplication */
+                node_delete(left);
+                return right;
+            }
+            break;
+        case N_DIV16:   /* 16-bit unsigned division */
+            if (left->type == N_NUM16 && right->type == N_NUM16) {  /* Optimize constant case */
+                left->value = left->value / right->value;
+                node_delete(right);
+                return left;
+            }
+            if (right->type == N_NUM16 && right->value == 1) {
+                node_delete(right);
+                return left;
+            }
+            break;
+        case N_MOD16:   /* 16-bit unsigned modulo */
+            if (left->type == N_NUM16 && right->type == N_NUM16) {  /* Optimize constant case */
+                left->value = left->value % right->value;
+                node_delete(right);
+                return left;
+            }
             if (right->type == N_NUM16) {   /* Optimize power of 2 constant case */
                 if (right->value == 2 || right->value == 4 || right->value == 8 || right->value == 16
                     || right->value == 32 || right->value == 64 || right->value == 128 || right->value == 256
@@ -486,6 +524,26 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 node_delete(right);
                 return left;
             }
+            
+            /*
+             ** Collapse several additions/subtractions
+             **
+             **         N_PLUS16
+             **           /  \
+             **      N_PLUS16  N_NUM16
+             **       /   \
+             **          N_NUM16
+             */
+            if (left->type == N_PLUS16 && left->right->type == N_NUM16 && right->type == N_NUM16) {
+                left->right->value = (left->right->value + right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_MINUS16 && left->right->type == N_NUM16 && right->type == N_NUM16) {
+                left->right->value = (left->right->value - right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
             if (left->type == N_NUM16) {    /* Move constant to right */
                 new_node = left;
                 left = right;
@@ -499,6 +557,26 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
         case N_MINUS16: /* 16-bit subtraction */
             if (left->type == N_NUM16 && right->type == N_NUM16) {  /* Optimize constant case */
                 left->value = (left->value - right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+
+            /*
+             ** Collapse several additions/subtractions
+             **
+             **         N_MINUS16
+             **           /  \
+             **     N_MINUS16  N_NUM16
+             **       /   \
+             **          N_NUM16
+             */
+            if (left->type == N_PLUS16 && left->right->type == N_NUM16 && right->type == N_NUM16) {
+                left->right->value = (left->right->value - right->value) & 0xffff;
+                node_delete(right);
+                return left;
+            }
+            if (left->type == N_MINUS16 && left->right->type == N_NUM16 && right->type == N_NUM16) {
+                left->right->value = (left->right->value + right->value) & 0xffff;
                 node_delete(right);
                 return left;
             }
@@ -1179,6 +1257,20 @@ void node_generate(struct node *node, int decision)
                             c /= 2;
                         }
                     }
+                    return;
+                }
+            }
+            if (node->type == N_DIV16) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                    int c;
+                    
+                    node_generate(node->left, 0);
+                    c = node->right->value;
+                    do {
+                        z80_1op("SRL", "H");
+                        z80_1op("RR", "L");
+                        c /= 2;
+                    } while (c > 1) ;
                     return;
                 }
             }
@@ -2525,6 +2617,7 @@ struct node *evaluate_level_7(int *type)
                 emit_error("missing right parenthesis in POS");
             else
                 get_lex();
+            *type = TYPE_16;
             return node_create(N_MINUS16, 0, node_create(N_POS, 0, NULL, NULL), node_create(N_NUM16, 0x1800, NULL, NULL));
         }
         if (macro_search(name) != NULL) {  // Function (macro)
@@ -3555,9 +3648,6 @@ void compile_statement(int check_for_else)
                         type = evaluate_expression(1, TYPE_16, 0);
                         z80_1op("CALL", "print_number");
                     }
-                    if (lex != C_COMMA)
-                        break;
-                    get_lex();
                 }
             } else if (strcmp(name, "DEFINE") == 0) {
                 int pletter = 0;
