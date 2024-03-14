@@ -1159,23 +1159,25 @@ void node_generate(struct node *node, int decision)
                     explore = node->right;
                 else
                     explore = NULL;
-                if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 4 || explore->value == 8 || explore->value == 16 || explore->value == 32 || explore->value == 64 || explore->value == 128 || explore->value == 256)) {
+                if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 4 || explore->value == 8 || explore->value == 16 || explore->value == 32 || explore->value == 64 || explore->value == 128 || explore->value == 256 || explore->value == 512 || explore->value == 1024 || explore->value == 2048 || explore->value == 4096 || explore->value == 8192 || explore->value == 16384 || explore->value == 32768)) {
                     int c = explore->value;
                     
-                    if (node->left != explore)
-                        node_generate(node->left, 0);
-                    else
-                        node_generate(node->right, 0);
-                    if (c == 1) {
-                        
-                    } else if (c == 256) {
-                        z80_2op("LD", "H", "L");
-                        z80_2op("LD", "L", "0");
+                    if (c == 0) {
+                        z80_2op("LD", "HL", "0");
                     } else {
-                        do {
+                        if (node->left != explore)
+                            node_generate(node->left, 0);
+                        else
+                            node_generate(node->right, 0);
+                        if (c >= 256) {
+                            z80_2op("LD", "H", "L");
+                            z80_2op("LD", "L", "0");
+                            c /= 256;
+                        }
+                        while (c > 1) {
                             z80_2op("ADD", "HL", "HL");
                             c /= 2;
-                        } while (c > 1) ;
+                        }
                     }
                     return;
                 }
