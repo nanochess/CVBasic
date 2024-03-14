@@ -146,9 +146,9 @@ enum node_type {
     N_ASSIGN8, N_ASSIGN16,
     N_READ8, N_READ16,
     N_NUM8, N_NUM16,
-    N_PEEK8, N_PEEK16, N_VPEEK, N_INP, N_ABS16,
+    N_PEEK8, N_PEEK16, N_VPEEK, N_INP, N_ABS16, N_SGN16,
     N_JOY1, N_JOY2, N_KEY1, N_KEY2,
-    N_RANDOM, N_FRAME, N_MUSIC, N_NTSC,
+    N_RANDOM, N_FRAME, N_MUSIC, N_NTSC, N_POS,
     N_ADDR,
 };
 
@@ -755,6 +755,13 @@ void node_generate(struct node *node, int decision)
         case N_ABS16:
             node_generate(node->left, 0);
             z80_1op("CALL", "_abs16");
+            break;
+        case N_SGN16:
+            node_generate(node->left, 0);
+            z80_1op("CALL", "_sgn16");
+            break;
+        case N_POS:
+            z80_2op("LD", "HL", "(cursor)");
             break;
         case N_EXTEND8:
             node_generate(node->left, 0);
@@ -2138,6 +2145,19 @@ struct node *evaluate_level_7(int *type)
             get_lex();
         return tree;
     }
+    if (lex == C_STRING) {
+        int temp;
+        
+        if (name_size == 0) {
+            emit_error("empty string");
+            temp = 0;
+        } else {
+            temp = name[0] & 0xff;
+        }
+        get_lex();
+        *type = TYPE_8;
+        return node_create(N_NUM8, temp, NULL, NULL);
+    }
     if (lex == C_NAME) {
         if (strcmp(name, "INP") == 0) {
             get_lex();
@@ -2190,6 +2210,38 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_8;
             return tree;
         }
+        if (strcmp(name, "ABS") == 0) {
+            get_lex();
+            if (lex != C_LPAREN)
+                emit_error("missing left parenthesis in ABS");
+            get_lex();
+            tree = evaluate_level_0(type);
+            if ((*type & MAIN_TYPE) == TYPE_8)
+                tree = node_create(N_EXTEND8, 0, tree, NULL);
+            tree = node_create(N_ABS16, 0, tree, NULL);
+            if (lex != C_RPAREN) {
+                emit_error("missing right parenthesis in ABS");
+            }
+            get_lex();
+            *type = TYPE_16;
+            return tree;
+        }
+        if (strcmp(name, "SGN") == 0) {
+            get_lex();
+            if (lex != C_LPAREN)
+                emit_error("missing left parenthesis in SGN");
+            get_lex();
+            tree = evaluate_level_0(type);
+            if ((*type & MAIN_TYPE) == TYPE_8)
+                tree = node_create(N_EXTEND8, 0, tree, NULL);
+            tree = node_create(N_SGN16, 0, tree, NULL);
+            if (lex != C_RPAREN) {
+                emit_error("missing right parenthesis in SGN");
+            }
+            get_lex();
+            *type = TYPE_16;
+            return tree;
+        }
         if (strcmp(name, "CONT") == 0) {
             get_lex();
             if (lex == C_PERIOD) {
@@ -2199,32 +2251,32 @@ struct node *evaluate_level_7(int *type)
                 } else if (strcmp(name, "UP") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 1, NULL, NULL));
                 } else if (strcmp(name, "RIGHT") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 2, NULL, NULL));
                 } else if (strcmp(name, "DOWN") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 4, NULL, NULL));
                 } else if (strcmp(name, "LEFT") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 8, NULL, NULL));
                 } else if (strcmp(name, "BUTTON") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x40, NULL, NULL));
                 } else if (strcmp(name, "BUTTON2") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x80, NULL, NULL));
                 } else if (strcmp(name, "KEY") == 0) {
                     get_lex();
@@ -2233,7 +2285,7 @@ struct node *evaluate_level_7(int *type)
                 }
             } else {
                 tree = node_create(N_JOY1, 0, NULL, NULL);
-                tree = node_create(N_AND8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
             }
             *type = TYPE_8;
             return tree;
@@ -2316,22 +2368,6 @@ struct node *evaluate_level_7(int *type)
                 tree = node_create(N_JOY2, 0, NULL, NULL);
             }
             *type = TYPE_8;
-            return tree;
-        }
-        if (strcmp(name, "ABS") == 0) {
-            get_lex();
-            if (lex != C_LPAREN)
-                emit_error("missing left parenthesis in ABS");
-            get_lex();
-            tree = evaluate_level_0(type);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                tree = node_create(N_EXTEND8, 0, tree, NULL);
-            tree = node_create(N_ABS16, 0, tree, NULL);
-            if (lex != C_RPAREN) {
-                emit_error("missing right parenthesis in ABS");
-            }
-            get_lex();
-            *type = TYPE_16;
             return tree;
         }
         if (strcmp(name, "RANDOM") == 0) {
@@ -2451,6 +2487,43 @@ struct node *evaluate_level_7(int *type)
             tree = node_create(N_ADDR, 0, NULL, NULL);
             tree->label = label;
             return tree;
+        }
+        if (strcmp(name, "LEN") == 0) { /* Access to string length */
+            int c;
+            
+            get_lex();
+            if (lex != C_LPAREN)
+                emit_error("missing left parenthesis in LEN");
+            else
+                get_lex();
+            if (lex != C_STRING) {
+                c = 0;
+                emit_error("missing string inside LEN");
+            } else {
+                c = name_size;
+                get_lex();
+            }
+            if (lex != C_RPAREN)
+                emit_error("missing right parenthesis in LEN");
+            else
+                get_lex();
+            return node_create(N_NUM16, c, NULL, NULL);
+        }
+        if (strcmp(name, "POS") == 0) { // Access to current screen position
+            int type2;
+            
+            get_lex();
+            if (lex != C_LPAREN)
+                emit_error("missing left parenthesis in POS");
+            else
+                get_lex();
+            tree = evaluate_level_0(&type2);
+            node_delete(tree);
+            if (lex != C_RPAREN)
+                emit_error("missing right parenthesis in POS");
+            else
+                get_lex();
+            return node_create(N_MINUS16, 0, node_create(N_POS, 0, NULL, NULL), node_create(N_NUM16, 0x1800, NULL, NULL));
         }
         if (macro_search(name) != NULL) {  // Function (macro)
             if (replace_macro())
@@ -3431,18 +3504,23 @@ void compile_statement(int check_for_else)
                 int label;
                 int label2;
                 int c;
+                int start;
                 
                 get_lex();
+                start = 1;
                 if (lex == C_NAME && strcmp(name, "AT") == 0) {
                     get_lex();
                     type = evaluate_expression(1, TYPE_16, 0);
                     z80_2op("LD", "(cursor)", "HL");
-                    if (lex == C_COMMA)
-                        get_lex();
-                    else
-                        emit_error("missing comma");
+                    start = 0;
                 }
                 while (1) {
+                    if (!start) {
+                        if (lex != C_COMMA)
+                            break;
+                        get_lex();
+                    }
+                    start = 0;
                     if (lex == C_STRING) {
                         if (name_size) {
                             label = next_local++;

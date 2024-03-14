@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/13/2024.
+Last revision: Mar/14/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -773,6 +773,7 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   A=$1000           Hexadecimal number
   A=&10101          Binary number
                     
+  A="C"             ASCII code for letter (8 bits)
   A=B               Simple assignment
   A=A+B             Simple addition
   A=A-B             Simple subtraction
@@ -800,6 +801,7 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
                     VPEEK always reads 8-bit data than can be processed in
                     an expression.
   A=ABS(expr)       Gets absolute value of expression (non-negative)
+  A=SGN(expr)       Gets sign of expression (-1, 0 or 1)
   A=array(expr)     Accesses an array. The array can be defined with DIM or
                     label for DATA
   array(expr)=A     Writes data to an array. The array can be defined with DIM.
@@ -846,7 +848,16 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   RANDOM(range)
     Produces a pseudo-random value between 0 and range-1.
     The value produced is different each time.
-    
+
+  LEN(string)
+    Returns the length of a string. Very useful in combination
+    with DEF FN, for example, for creating strings centered on
+    the screen.   
+
+  POS(expr)
+    Returns the current screen position (useful for PRINT AT)
+    The expression is analyzed but no code generated.
+
   FRAME
     Returns the current frame number (0-65535, it cycles back to
     0 after reaching 65535)

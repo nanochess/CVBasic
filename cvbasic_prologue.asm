@@ -13,6 +13,7 @@
 	; Revision date: Mar/06/2024. Added ENASCR, DISSCR, and CPYBLK.
 	; Revision date: Mar/08/2024. Added modes 0, 1 and 2.
 	; Revision date: Mar/12/2024. Added support for MSX.
+	; Revision date: Mar/14/2024. Added _sgn16.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -472,6 +473,17 @@ _abs16:
 	ld a,l
 	cpl
 	ld l,a
+	inc hl
+	ret
+
+_sgn16:
+	ld a,h
+	or l
+	ret z
+	bit 7,h
+	ld hl,$ffff
+	ret nz
+	inc hl
 	inc hl
 	ret
 
