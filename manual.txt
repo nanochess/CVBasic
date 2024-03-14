@@ -334,6 +334,7 @@ The following statements are available:
        DATA 21,42,63,84,105
 
   DEFINE CHAR char_num,total,label
+  DEFINE CHAR char_num,total,VARPTR array(expr)
   DEFINE CHAR PLETTER char_num,total,label
 
      Loads graphics into VRAM.
@@ -352,11 +353,15 @@ The following statements are available:
      Internally, CVBasic will replicate the date along the 3 display areas so
      the defined characters will appear on the whole screen when required.
 
+     The VARPTR expression allows character definition from an offset inside an
+     array so you can do animation easily.
+
      Use the optional argument PLETTER to indicate that the data is compressed
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
   DEFINE COLOR char_num,total,label
+  DEFINE COLOR char_num,total,VARPTR array(expr)
   DEFINE COLOR PLETTER char_num,total,label
 
      Loads color into VRAM.
@@ -376,11 +381,15 @@ The following statements are available:
      Internally, CVBasic will replicate the date along the 3 display areas so
      the defined characters will appear on the whole screen when required.
 
+     The VARPTR expression allows color definition from an offset inside an
+     array so you can do animation easily.
+
      Use the optional argument PLETTER to indicate that the data is compressed
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
   DEFINE SPRITE sprite_num,total,label
+  DEFINE SPRITE sprite_num,total,VARPTR array(expr)
   DEFINE SPRITE PLETTER sprite_num,total,label
 
      Loads sprites into VRAM
@@ -395,15 +404,22 @@ The following statements are available:
 
      Each sprite is 16x16 pixels.
 
+     The VARPTR expression allows sprite definition from an offset inside an
+     array so you can do animation easily.
+
      Use the optional argument PLETTER to indicate that the data is compressed
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
   DEFINE VRAM address,length,label
+  DEFINE VRAM address,length,VARPTR array(expr)
   DEFINE VRAM PLETTER address,length,label
 
      Copies data from "label" into VRAM address "address".
      The total of bytes is defined by "length".
+
+     The VARPTR expression allows choosing the origin from an offset inside an
+     array so you can do animation easily.
 
      Use the optional argument PLETTER to indicate that the data is compressed
      with the Pletter compressor (TMSColor does the compression if you give the

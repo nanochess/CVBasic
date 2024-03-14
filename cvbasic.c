@@ -3533,6 +3533,10 @@ void compile_statement(int check_for_else)
                             emit_error("missing comma in DEFINE");
                         if (lex != C_NAME) {
                             emit_error("missing label in DEFINE");
+                        } else if (strcmp(name, "VARPTR") == 0) {
+                            z80_1op("PUSH", "AF");
+                            type = evaluate_expression(1, TYPE_16, 0);
+                            z80_1op("POP", "AF");
                         } else {
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
@@ -3560,6 +3564,10 @@ void compile_statement(int check_for_else)
                         emit_error("missing comma in DEFINE");
                     if (lex != C_NAME) {
                         emit_error("missing label in DEFINE");
+                    } else if (!pletter && strcmp(name, "VARPTR") == 0) {
+                        z80_1op("PUSH", "AF");
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        z80_1op("POP", "AF");
                     } else {
                         strcpy(temp, LABEL_PREFIX);
                         strcat(temp, name);
@@ -3591,6 +3599,10 @@ void compile_statement(int check_for_else)
                         emit_error("missing comma in DEFINE");
                     if (lex != C_NAME) {
                         emit_error("missing label in DEFINE");
+                    } else if (!pletter && strcmp(name, "VARPTR") == 0) {
+                        z80_1op("PUSH", "AF");
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        z80_1op("POP", "AF");
                     } else {
                         strcpy(temp, LABEL_PREFIX);
                         strcat(temp, name);
@@ -3623,6 +3635,10 @@ void compile_statement(int check_for_else)
                         emit_error("missing comma in DEFINE");
                     if (lex != C_NAME) {
                         emit_error("missing label in DEFINE");
+                    } else if (!pletter && strcmp(name, "VARPTR") == 0) {
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        z80_1op("POP", "BC");
+                        z80_1op("POP", "DE");
                     } else {
                         strcpy(temp, LABEL_PREFIX);
                         strcat(temp, name);
