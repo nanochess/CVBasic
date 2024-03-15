@@ -1,4 +1,4 @@
-# CVBasic compiler v0.4.0
+# CVBasic compiler v0.4.1
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -17,22 +17,35 @@ BASIC language cross-compiler for the Colecovision/SG1000/MSX.
 
 ### Usage guide
 
+Using CVBasic to compile a Colecovision program:
+
     cvbasic game.bas game.asm
     gasm80 game.asm -o game.rom -l game.lst
 
 You need to assemble the output file using Gasm80 available from [http://github.com/nanochess/gasm80](http://github.com/nanochess/gasm80)
 
+Using CVBasic to compile a Sega SG1000 program:
+
+    cvbasic --sg1000 game.bas game.asm
+
+Using CVBasic to compile a MSX program:
+
+    cvbasic --msx game.bas game.asm
+
 
 ### Notes
 
-The current official version is v0.4.0.
+The current official version is v0.4.1.
 
 Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
 TODO:
-* Implement pletter compression in TMSColor and pletter decompression on CVBasic.
+* Implement bank-switching for Colecovision (Megacart)
+* Implement bank-switching for MSX (ASCII-16)
+* Implement upper 16KB mapper for MSX.
+* Implement bank-switching for Sega SG1000 (Sega Mappers, casually also 16KB)
 
 
 ### Acknowledgments

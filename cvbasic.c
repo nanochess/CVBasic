@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.0 Mar/13/2024"
+#define VERSION "v0.4.1 Mar/14/2024"
 
 #define FALSE           0
 #define TRUE            1
