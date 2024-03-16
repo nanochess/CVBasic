@@ -173,6 +173,9 @@ nmi_handler:
 	bit 5,a
 	jr nz,$+4
 	res 7,b
+	ld a,b
+	cpl
+	ld (joy2_data),a
 
         ld b,$ff
 	in a,($aa)
@@ -629,9 +632,8 @@ music_clarinet:
 .2:     ld a,c
         add a,24
         ld c,a
-        adc a,b
-        sub c
-        ld b,a
+	jr nc,$+3
+	inc b
         ld a,(bc)
         ret
 
@@ -666,9 +668,8 @@ music_flute:
         ld a,c
         add a,24
         ld c,a
-        adc a,b
-        sub c
-        ld b,a
+	jr nc,$+3
+	inc b
         ld a,(bc)
         ret
 
@@ -720,7 +721,7 @@ music_hardware:
         ld a,h
         out (PSG),a
         ld a,(audio_vol1)
-        add a,ay2sn and 255
+        add a,ay2sn&255
         ld l,a
         adc a,ay2sn>>8
         sub l
@@ -745,7 +746,7 @@ music_hardware:
         ld a,h
         out (PSG),a
         ld a,(audio_vol2)
-        add a,ay2sn and 255
+        add a,ay2sn&255
         ld l,a
         adc a,ay2sn>>8
         sub l
@@ -774,7 +775,7 @@ music_hardware:
         ld a,h
         out (PSG),a
         ld a,(audio_vol3)
-        add a,ay2sn and 255
+        add a,ay2sn&255
         ld l,a
         adc a,ay2sn>>8
         sub l

@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.1 Mar/14/2024"
+#define VERSION "v0.4.2 Mar/15/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -334,8 +334,11 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
             z80_a_content[0] = '\0';
         } else if (strcmp(operand1, "(HL)") == 0 && strcmp(operand2, "A") == 0) {
             /* A keeps its value */
-        } else if (strcmp(operand1, "A") == 0 && (isdigit(operand2[0]) || operand2[0] == '(')) {
-            strcpy(z80_a_content, operand2);
+        } else if (strcmp(operand1, "A") == 0) {
+            if (isdigit(operand2[0]) || operand2[0] == '(')
+                strcpy(z80_a_content, operand2);
+            else
+                z80_a_content[0] = '\0';
         } else if (strcmp(operand2, "A") == 0 && operand1[0] == '(') {
             strcpy(z80_a_content, operand1);
         }
@@ -3997,7 +4000,7 @@ void compile_statement(int check_for_else)
                 }
             } else if (strcmp(name, "MODE") == 0) {
                 get_lex();
-                if (lex != C_NUM || value != 0 && value != 1 && value != 2) {
+                if (lex != C_NUM || (value != 0 && value != 1 && value != 2)) {
                     emit_error("bad syntax for MODE");
                     break;
                 }

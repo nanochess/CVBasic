@@ -14,6 +14,7 @@
 	; Revision date: Mar/08/2024. Added modes 0, 1 and 2.
 	; Revision date: Mar/12/2024. Added support for MSX.
 	; Revision date: Mar/14/2024. Added _sgn16.
+	; Revision date: Mar/15/2024. Added upper 16k enable for MSX.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -858,6 +859,53 @@ mode_2:
 	call WRTVDP
 	jp nmi_on
 
+    if MSX
+ENASLT: EQU $0024       ; Select slot (H=Addr, A=Slot)
+RSLREG: EQU $0138       ; Read slot status in A
+
+        ;
+        ; Get slot mapping
+        ; B = 16K bank (0 for $0000, 1 for $4000, 2 for $8000, 3 for $c000)
+        ; A = Current slot selection status (CALL RSLREG)
+        ;
+get_slot_mapping:
+        call rotate_slot
+        ld c,a
+        add a,$C1       ; EXPTBL
+        ld l,a
+        ld h,$FC
+        ld a,(hl)
+        and $80         ; Get expanded flag
+        or c
+        ld c,a
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        ld a,(hl)       ; SLTTBL
+        call rotate_slot
+        rlca
+        rlca
+        or c            ; A contains bit 7 = Marks expanded
+                        ;            bit 6 - 4 = Doesn't care
+                        ;            bit 3 - 2 = Secondary mapper
+                        ;            bit 1 - 0 = Primary mapper
+        ret
+
+rotate_slot:
+        push bc
+        dec b
+        inc b
+        jr z,.1
+.0:     rrca
+        rrca
+        djnz .0
+.1:     and 3
+        pop bc
+        ret
+
+    endif
+
 START:
 	di
 	ld sp,STACK
@@ -895,6 +943,12 @@ START:
 	rlca
 	and $01
 	ld (ntsc),a
+
+        call RSLREG
+        ld b,1          ; $4000-$7fff
+        call get_slot_mapping
+        ld h,$80
+        call ENASLT     ; Map into $8000-$BFFF
     endif
 
 	call music_init
