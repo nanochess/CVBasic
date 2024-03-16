@@ -328,10 +328,15 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
             strcpy(z80_hl_content, operand2);
         else if (strcmp(operand2, "HL") == 0)
             strcpy(z80_hl_content, operand1);
-        if (strcmp(operand1, "A") == 0 && (isdigit(operand2[0]) || operand2[0] == '('))
+        if (strcmp(operand1, "A") == 0 && strcmp(operand2, "(HL)") == 0) {
+            z80_a_content[0] = '\0';
+        } else if (strcmp(operand1, "(HL)") == 0 && strcmp(operand2, "A") == 0) {
+            /* A keeps its value */
+        } else if (strcmp(operand1, "A") == 0 && (isdigit(operand2[0]) || operand2[0] == '(')) {
             strcpy(z80_a_content, operand2);
-        else if (strcmp(operand2, "A") == 0 && operand1[0] == '(')
+        } else if (strcmp(operand2, "A") == 0 && operand1[0] == '(') {
             strcpy(z80_a_content, operand1);
+        }
     } else {
         fprintf(stderr, "z80_2op: not found mnemonic %s\n", mnemonic);
     }
@@ -2657,8 +2662,9 @@ struct node *evaluate_level_7(int *type)
                 get_lex();
             addr = node_create(N_ADDR, 0, NULL, NULL);
             addr->label = label;
-            if ((type2 & MAIN_TYPE) == TYPE_8)
+            if ((type2 & MAIN_TYPE) == TYPE_8) {
                 tree = node_create(N_EXTEND8, 0, tree, NULL);
+            }
             if (*type == TYPE_16) {
                 tree = node_create(N_MUL16, 0, tree,
                                    node_create(N_NUM16, 2, NULL, NULL));

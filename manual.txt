@@ -472,8 +472,8 @@ The following statements are available:
      The first parameter indicates the number of the sprite (0-31).
 
      Y contains the Y-coordinate for the top row of the sprite.
-     The final result is one pixel below the expect pixel row, so you
-     typically must subtract one pixel.
+     The final result is one pixel below the expected pixel row, so you
+     must subtract one.
 
      X contains the X-coordinate for the sprite (0-255)
 
@@ -485,6 +485,16 @@ The following statements are available:
      to the left. Allowing it to blend inside the screen from the left.
 
      Sprites are updated on the vertical retrace.
+
+     The Y-coordinate visible range for sprites is 240 to 255, and 0
+     to 190. 240-254 allows the sprite to enter smoothly from the top,
+     255 is the top pixel row of the screen, and 0-190 is the whole
+     vertical range of the screen (190 being the bottom pixel row of
+     the screen). Values 191-239 makes the sprite invisible.
+
+     Additionally, the value 208 for the Y-coordinate disables sprite
+     processing starting on that very sprite. For example,
+     SPRITE 0,$d0,0,0,0 forces SPRITES 1-31 to disappear even if active. 
 
   OUT port,data
 
