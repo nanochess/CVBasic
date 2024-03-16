@@ -283,6 +283,8 @@ void z80_1op(char *mnemonic, char *operand)
         else if (strcmp(operand, "A") == 0 ||
                  strcmp(operand, "(HL)") == 0)
             z80_a_content[0] = '\0';
+    } else if (strcmp(mnemonic, "DW") == 0) {
+        /* Nothing to do */
     } else {
         fprintf(stderr, "z80_1op: not found mnemonic %s\n", mnemonic);
     }
