@@ -1,4 +1,4 @@
-# CVBasic compiler v0.4.1
+# CVBasic compiler v0.4.3
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -35,7 +35,7 @@ Using CVBasic to compile a MSX program:
 
 ### Notes
 
-The current official version is v0.4.1.
+The current official version is v0.4.3.
 
 Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative.
 
@@ -44,7 +44,6 @@ MSX controller support only handles the two joysticks and keyboard arrows (plus 
 TODO:
 * Implement bank-switching for Colecovision (Megacart)
 * Implement bank-switching for MSX (ASCII-16)
-* Implement upper 16KB mapper for MSX.
 * Implement bank-switching for Sega SG1000 (Sega Mappers, casually also 16KB)
 
 
@@ -52,6 +51,7 @@ TODO:
 
 Thanks to the following members of Atariage for contributing valuable suggestions:
 
+    ARTRAG
     gemintronic
     Kiwi
     pixelboy

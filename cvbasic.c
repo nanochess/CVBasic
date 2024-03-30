@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.2 Mar/15/2024"
+#define VERSION "v0.4.3 Mar/29/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -2578,8 +2578,6 @@ struct node *evaluate_level_7(int *type)
                 label = NULL;
             }
             if (label == NULL) {
-                char buffer[MAX_LINE_SIZE];
-                
                 label = label_add(name);
                 if (name[0] == '#')
                     label->used = TYPE_16;
@@ -3544,6 +3542,8 @@ void compile_statement(int check_for_else)
                     get_lex();
                 }
             } else if (strcmp(name, "DATA") == 0) {
+                struct node *tree;
+                
                 get_lex();
                 if (lex == C_NAME && strcmp(name, "BYTE") == 0) {
                     get_lex();
@@ -3563,13 +3563,17 @@ void compile_statement(int check_for_else)
                                 }
                             }
                             get_lex();
-                        } else if (lex == C_NUM) {
+                        } else {
+                            tree = evaluate_level_0(&type);
+                            if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                                emit_error("not a constant expression in CONST");
+                            } else {
+                                value = tree->value;
+                            }
+                            node_delete(tree);
+                            tree = NULL;
                             sprintf(temp, "\tDB $%02x", value & 0xff);
                             fprintf(output, "%s\n", temp);
-                            get_lex();
-                        } else {
-                            emit_error("syntax error in DATA");
-                            break;
                         }
                         if (lex != C_COMMA)
                             break;
@@ -3577,13 +3581,89 @@ void compile_statement(int check_for_else)
                     }
                 } else {
                     while (1) {
-                        if (lex == C_NUM) {
+                        if (lex == C_NAME && strcmp(name, "VARPTR") == 0) {  /* Access to variable/array/label address */
+                            int index;
+                            int type2;
+                            
+                            get_lex();
+                            if (lex != C_NAME) {
+                                emit_error("missing variable name for VARPTR");
+                            } else {
+                                if (lex_sneak_peek() == '(') {  // Indexed access
+                                    struct node *tree;
+                                    int index;
+                                    struct label *label;
+                                    
+                                    label = array_search(name);
+                                    if (label != NULL) {    /* Found array */
+                                    } else {
+                                        label = label_search(name);
+                                        if (label != NULL) {
+                                            if (label->used & LABEL_IS_VARIABLE) {
+                                                emit_error("using array but not defined");
+                                            }
+                                        } else {
+                                            label = label_add(name);
+                                        }
+                                    }
+                                    get_lex();
+                                    if (lex != C_LPAREN)
+                                        emit_error("missing left parenthesis in array access");
+                                    else
+                                        get_lex();
+                                    tree = evaluate_level_0(&type2);
+                                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                                        index = 0;
+                                        emit_error("not a constant expression in array access");
+                                    } else {
+                                        index = tree->value;
+                                    }
+                                    if (lex != C_RPAREN)
+                                        emit_error("missing right parenthesis in array access");
+                                    else
+                                        get_lex();
+                                    sprintf(temp, "\tDW %s%s+%d", label->length ? ARRAY_PREFIX : LABEL_PREFIX, label->name, label->name[0] == '#' ? index * 2 : index);
+                                    fprintf(output, "%s\n", temp);
+                                    node_delete(tree);
+                                    tree = NULL;
+                                } else {
+                                    if (constant_search(name) != NULL) {
+                                        emit_error("constants doesn't have address for VARPTR");
+                                        get_lex();
+                                    } else {
+                                        label = label_search(name);
+                                        if (label != NULL && (label->used & LABEL_IS_VARIABLE) == 0) {
+                                            char buffer[MAX_LINE_SIZE];
+                                            
+                                            sprintf(buffer, "variable name '%s' already defined with other purpose", name);
+                                            emit_error(buffer);
+                                            label = NULL;
+                                        }
+                                        if (label == NULL) {
+                                            label = label_add(name);
+                                            if (name[0] == '#')
+                                                label->used = TYPE_16;
+                                            else
+                                                label->used = TYPE_8;
+                                            label->used |= LABEL_IS_VARIABLE;
+                                        }
+                                        get_lex();
+                                        sprintf(temp, "\tDW %s%s", LABEL_PREFIX, label->name);
+                                        fprintf(output, "%s\n", temp);
+                                    }
+                                }
+                            }
+                        } else {
+                            tree = evaluate_level_0(&type);
+                            if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                                emit_error("not a constant expression in CONST");
+                            } else {
+                                value = tree->value;
+                            }
+                            node_delete(tree);
+                            tree = NULL;
                             sprintf(temp, "\tDW $%04x", value & 0xffff);
                             fprintf(output, "%s\n", temp);
-                            get_lex();
-                        } else {
-                            emit_error("syntax error in DATA");
-                            break;
                         }
                         if (lex != C_COMMA)
                             break;

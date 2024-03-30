@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/14/2024.
+Last revision: Mar/29/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,7 +22,7 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Description
 
-CVBasic is an integer BASIC compiler for Colecovision. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, and Sega SG1000. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
 Platforms requirements:
   o PC with Windows XP or better.
@@ -35,6 +35,8 @@ The current limitations are:
 Usage:
   
   cvbasic in.bas output.asm
+  cvbasic --sg1000 in.bas output.asm
+  cvbasic --msx in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and these set important variables and helper code:
 
@@ -311,11 +313,14 @@ The following statements are available:
 
      It can also read an 8-bit value and put it into the variable var.
 
-     Make sure you pair correctly READ/DATA and READ BYTE/DATA BYTE.
+     Make sure you pair correctly READ/DATA and READ BYTE/DATA BYTE,
+     as otherwise the internal pointer will get desynchronized.
 
-  DATA value[,value]
-  DATA BYTE value[,value]
+  DATA constant_expr[,constant_expr]
+  DATA BYTE constant_expr[,constant_expr]
   DATA BYTE string
+  DATA VARPTR a
+  DATA VARPTR b(constant_expr)
 
      Defines 16-bit data to be stored in program memory, or also 8-bit data.
 

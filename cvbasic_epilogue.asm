@@ -11,6 +11,7 @@
 	; Revision date: Mar/05/2024. Added support for Sega SG1000.
 	; Revision date: Mar/12/2024. Added support for MSX.
 	; Revision date: Mar/13/2024. Added Pletter decompressor.
+	; Revision date: Mar/19/2024. Added support for sprite flicker.
 	;
 
 nmi_handler:
@@ -31,12 +32,40 @@ nmi_handler:
     if SG1000+MSX
 	in a,(VDP+1)
     endif
+	ld bc,$8000+VDP
+	bit 2,(hl)
+	jr z,.4
+
 	ld hl,$1b00
 	call SETWRT
 	ld hl,sprites
-	ld bc,$8000+VDP
 	outi
 	jp nz,$-2
+	jr .5
+
+.4:
+	ld hl,$1b00
+	call SETWRT
+	ld a,(flicker)
+	add a,$04
+	ld (flicker),a
+	ld l,a
+	ld h,sprites>>8
+	ld de,24
+	ld b,128
+.6:
+	res 7,l
+	outi
+	jp $+3
+	outi
+	jp $+3
+	outi
+	jp $+3
+	outi
+	jp $+3
+	add hl,de
+	jp nz,.6
+.5:
 
     if COLECO
 	out (JOYSEL),a
@@ -1113,6 +1142,8 @@ cursor:
 lfsr:
 	rb 2
 mode:
+	rb 1
+flicker:
 	rb 1
 joy1_data:
 	rb 1
