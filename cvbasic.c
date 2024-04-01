@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.3 Mar/29/2024"
+#define VERSION "v0.4.3 Mar/31/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -793,6 +793,24 @@ void node_label(struct node *node)
 }
 
 /*
+ ** Get the assembler label for the CVBasic label.
+ */
+void node_get_label(struct node *node, int parenthesis)
+{
+    temp[0] = '\0';
+    if (parenthesis)
+        strcat(temp, "(");
+    if (node->label->length) {
+        strcat(temp, ARRAY_PREFIX);
+    } else {
+        strcat(temp, LABEL_PREFIX);
+    }
+    strcat(temp, node->label->name);
+    if (parenthesis)
+        strcat(temp, ")");
+}
+
+/*
  ** Argument reg is not yet used, nor sorted evaluation order.
  */
 void node_generate(struct node *node, int decision)
@@ -802,16 +820,8 @@ void node_generate(struct node *node, int decision)
     
     switch (node->type) {
         case N_ADDR:
-            label = node->label;
-            if (label->length) {
-                strcpy(temp, ARRAY_PREFIX);
-                strcat(temp, node->label->name);
-                z80_2op("LD", "HL", temp);
-            } else {
-                strcpy(temp, LABEL_PREFIX);
-                strcat(temp, node->label->name);
-                z80_2op("LD", "HL", temp);
-            }
+            node_get_label(node, 0);
+            z80_2op("LD", "HL", temp);
             break;
         case N_NEG8:
             node_generate(node->left, 0);
@@ -900,10 +910,52 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "HL", temp);
             break;
         case N_PEEK8:
+            if (node->left->type == N_ADDR) {
+                node_get_label(node->left, 1);
+                z80_2op("LD", "A", temp);
+                break;
+            }
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16) && node->left->left->type == N_ADDR && node->left->right->type == N_NUM16) {
+                char *p;
+                    
+                node_get_label(node->left->left, 1);
+                p = temp;
+                while (*p)
+                    p++;
+                p--;    /* Eat right parenthesis */
+                if (node->left->type == N_PLUS16)
+                    *p++ = '+';
+                else
+                    *p++ = '-';
+                sprintf(p, "%d)", node->left->right->value);
+                z80_2op("LD", "A", temp);
+                break;
+            }
             node_generate(node->left, 0);
             z80_2op("LD", "A", "(HL)");
             break;
         case N_PEEK16:
+            if (node->left->type == N_ADDR) {
+                node_get_label(node->left, 1);
+                z80_2op("LD", "HL", temp);
+                break;
+            }
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16) && node->left->left->type == N_ADDR && node->left->right->type == N_NUM16) {
+                char *p;
+                
+                node_get_label(node->left->left, 1);
+                p = temp;
+                while (*p)
+                    p++;
+                p--;    /* Eat right parenthesis */
+                if (node->left->type == N_PLUS16)
+                    *p++ = '+';
+                else
+                    *p++ = '-';
+                sprintf(p, "%d)", node->left->right->value);
+                z80_2op("LD", "HL", temp);
+                break;
+            }
             node_generate(node->left, 0);
             z80_2op("LD", "A", "(HL)");
             z80_1op("INC", "HL");
@@ -974,20 +1026,20 @@ void node_generate(struct node *node, int decision)
                     c = node->right->value & 0xff;
                     node_generate(node->left, 0);
                     if (node->type == N_OR8 && c == 0)
-                        return;
+                        break;
                     if (node->type == N_AND8 && c == 255)
-                        return;
+                        break;
                     if (node->type == N_PLUS8 && c == 0)
-                        return;
+                        break;
                     if (node->type == N_MINUS8 && c == 0)
-                        return;
+                        break;
                     if (node->type == N_PLUS8 && c == 1) {
                         z80_1op("INC", "A");
-                        return;
+                        break;
                     }
                     if (node->type == N_MINUS8 && c == 1) {
                         z80_1op("DEC", "A");
-                        return;
+                        break;
                     }
                     sprintf(temp, "%d", c);
                 } else {
@@ -1116,14 +1168,97 @@ void node_generate(struct node *node, int decision)
             }
             break;
         case N_ASSIGN8:
+            if (node->right->type == N_ADDR) {
+                node_generate(node->left, 0);
+                node_get_label(node->right, 1);
+                z80_2op("LD", temp, "A");
+                break;
+            }
+            if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
+                char *p;
+                
+                node_generate(node->left, 0);
+                node_get_label(node->right->left, 1);
+                p = temp;
+                while (*p)
+                    p++;
+                p--;    /* Eat right parenthesis */
+                if (node->right->type == N_PLUS16)
+                    *p++ = '+';
+                else
+                    *p++ = '-';
+                sprintf(p, "%d)", node->right->right->value);
+                z80_2op("LD", temp, "A");
+                break;
+            }
             node_generate(node->right, 0);
             z80_1op("PUSH", "HL");
             node_generate(node->left, 0);
             z80_1op("POP", "HL");
             z80_2op("LD", "(HL)", "A");
             break;
+        case N_ASSIGN16:
+            if (node->right->type == N_ADDR) {
+                node_generate(node->left, 0);
+                node_get_label(node->right, 1);
+                z80_2op("LD", temp, "HL");
+                break;
+            }
+            if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
+                char *p;
+                
+                node_generate(node->left, 0);
+                node_get_label(node->right->left, 1);
+                p = temp;
+                while (*p)
+                    p++;
+                p--;    /* Eat right parenthesis */
+                if (node->right->type == N_PLUS16)
+                    *p++ = '+';
+                else
+                    *p++ = '-';
+                sprintf(p, "%d)", node->right->right->value);
+                z80_2op("LD", temp, "HL");
+                break;
+            }
+            node_generate(node->right, 0);
+            z80_1op("PUSH", "HL");
+            node_generate(node->left, 0);
+            z80_1op("POP", "DE");
+            z80_2op("LD", "A", "L");
+            z80_2op("LD", "(DE)", "A");
+            z80_1op("INC", "DE");
+            z80_2op("LD", "A", "H");
+            z80_2op("LD", "(DE)", "A");
+            break;
         default:
+            if (node->type == N_PLUS16 || node->type == N_MINUS16) {
+                if (node->left->type == N_ADDR) {
+                    if (node->right->type == N_NUM16) {
+                        char *p;
+                        
+                        node_get_label(node->left, 0);
+                        if (node->type == N_PLUS16)
+                            strcat(temp, "+");
+                        else
+                            strcat(temp, "-");
+                        p = temp;
+                        while (*p)
+                            p++;
+                        sprintf(p, "%d", node->right->value);
+                        z80_2op("LD", "HL", temp);
+                        break;
+                    }
+                }
+            }
             if (node->type == N_PLUS16) {
+                if (node->left->type == N_ADDR) {
+                    node_generate(node->right, 0);
+                    node_get_label(node->left, 0);
+                    z80_2op("LD", "DE", temp);
+                    z80_2op("ADD", "HL", "DE");
+                    break;
+                }
                 if (node->left->type == N_NUM16)
                     explore = node->left;
                 else if (node->right->type == N_NUM16)
@@ -1141,25 +1276,17 @@ void node_generate(struct node *node, int decision)
                         z80_1op("INC", "HL");
                         c--;
                     }
-                    return;
-                }
-                if (node->left->type == N_ADDR) {
-                    node_generate(node->right, 0);
-                    label = node->left->label;
-                    if (label->length) {
-                        strcpy(temp, ARRAY_PREFIX);
-                        strcat(temp, label->name);
-                        z80_2op("LD", "DE", temp);
-                    } else {
-                        strcpy(temp, LABEL_PREFIX);
-                        strcat(temp, label->name);
-                        z80_2op("LD", "DE", temp);
-                    }
-                    z80_2op("ADD", "HL", "DE");
-                    return;
+                    break;
                 }
             }
             if (node->type == N_MINUS16) {
+                if (node->left->type == N_ADDR) {
+                    node_generate(node->right, 0);
+                    node_get_label(node->left, 0);
+                    z80_2op("LD", "DE", temp);
+                    z80_2op("ADD", "HL", "DE");
+                    break;
+                }
                 if (node->right->type == N_NUM16)
                     explore = node->right;
                 else
@@ -1175,7 +1302,7 @@ void node_generate(struct node *node, int decision)
                         z80_1op("DEC", "HL");
                         c--;
                     }
-                    return;
+                    break;
                 }
             }
             if (node->type == N_OR16 || node->type == N_AND16 || node->type == N_XOR16) {
@@ -1237,7 +1364,7 @@ void node_generate(struct node *node, int decision)
                         z80_1op(mnemonic, temp);
                         z80_2op("LD", "H", "A");
                     }
-                    return;
+                    break;
                 }
             }
             if (node->type == N_MUL16) {
@@ -1267,7 +1394,7 @@ void node_generate(struct node *node, int decision)
                             c /= 2;
                         }
                     }
-                    return;
+                    break;
                 }
             }
             if (node->type == N_DIV16) {
@@ -1281,7 +1408,7 @@ void node_generate(struct node *node, int decision)
                         z80_1op("RR", "L");
                         c /= 2;
                     } while (c > 1) ;
-                    return;
+                    break;
                 }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
@@ -1447,12 +1574,6 @@ void node_generate(struct node *node, int decision)
                 z80_1op("CALL", "_div16");
             } else if (node->type == N_MOD16) {
                 z80_1op("CALL", "_mod16");
-            } else if (node->type == N_ASSIGN16) {
-                z80_2op("LD", "A", "L");
-                z80_2op("LD", "(DE)", "A");
-                z80_1op("INC", "DE");
-                z80_2op("LD", "A", "H");
-                z80_2op("LD", "(DE)", "A");
             }
             break;
     }

@@ -26,11 +26,15 @@ CVBasic is an integer BASIC compiler for Colecovision, MSX, and Sega SG1000. It 
 
 Platforms requirements:
   o PC with Windows XP or better.
+  o macOS X 10.6 or better (universal 32/64-bit binary)
+  o Linux.
 
 The current limitations are:
   o CVBasic won't warn you if you exceed the 1K of RAM of Colecovision.
   o Division and modulo are unsigned.
   o All comparisons are unsigned.
+  o ASM cannot be used inside DEF FN.
+  o Using PRINT for numbers always show numbers as unsigned from 0 to 65535.
 
 Usage:
   
@@ -38,7 +42,7 @@ Usage:
   cvbasic --sg1000 in.bas output.asm
   cvbasic --msx in.bas output.asm
 
-The following modules are automatically included as the prologue and epilogue of your generated code and these set important variables and helper code:
+The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
   cvbasic_prologue.asm
   cvbasic_epilogue.asm
@@ -76,13 +80,13 @@ You can use a period before a label name to mark a local label. The local label'
 
 A variable name starts with a letter or # and is followed by letters, numbers, or the underscore character.
 
-Variables and arrays can be 8-bit or 16-bit. Variables and arrays are 8-bit by default. To define a 16-bit variable or array use # as the initial character of the variable's name.
+Variables and arrays (see DIM) can be 8-bit or 16-bit. Variables and arrays are 8-bit, if you want a 16-bit variable or array use # as the initial character of the variable's name.
 
     x
     y
     #score
     
-Note that if you use the # prefix you should use it everywhere in your program. Variables with the same name but without the # prefix are treated as different 8-bit variables.
+Notice that if you use the # prefix you should use it everywhere in your program. Variables with the same name but without the # prefix are treated as different 8-bit variables.
     
 All variables are initialized with the value 0 (zero) when they are created.
 
@@ -191,15 +195,15 @@ The following statements are available:
 
   EXIT FOR
     
-     Exits current FOR loop, jumps directly to the line that follows NEXT.
+     Exits current FOR loop. It jumps directly to the line that follows NEXT.
 
   EXIT WHILE
   
-     Exits current WHILE loop, jumps directly to the line that follows WEND.
+     Exits current WHILE loop. It jumps directly to the line that follows WEND.
      
   EXIT DO
      
-     Exits current DO loop, jumps directly to the line that follows LOOP.
+     Exits current DO loop. It jumps directly to the line that follows LOOP.
 
   IF expr GOTO [label]
   IF expr THEN [statement]
@@ -507,9 +511,9 @@ The following statements are available:
 
   CLS
 
-     Clears the screen. The screen buffer is set to 32.
+     Clears the screen. The screen buffer is filled with the value 32 (equivalent to ASCII space character).
 
-     Also it resets the internal cursor position.
+     Also, it resets the internal cursor position to the top-left corner of the screen.
 
   PRINT [AT [expr]][,]["string"]
 
@@ -871,7 +875,7 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
 
   POS(expr)
     Returns the current screen position (useful for PRINT AT)
-    The expression is analyzed but no code generated.
+    The expression is analyzed but no code is generated.
 
   FRAME
     Returns the current frame number (0-65535, it cycles back to
