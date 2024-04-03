@@ -117,7 +117,7 @@ The following statements are available:
 
      It's erroneous to jump from inside a PROCEDURE to outside of the same
      PROCEDURE. 
-'
+
   GOSUB label       
   
      Go to a subroutine located at label (must be a PROCEDURE).
@@ -134,7 +134,7 @@ The following statements are available:
 
   RETURN            
   
-     Return from subroutine (PROCEDURE). Also can be used to return early from a
+     Return from subroutine (PROCEDURE). Also can be used for an early return from a
      PROCEDURE.
 
   FOR A=start TO end [STEP increment]
@@ -154,7 +154,7 @@ The following statements are available:
   
      Looping statement.
      
-     The start, end and step expressions can be complex expressions, instead of
+     The start, end, and step expressions can be complex expressions, instead of
      only constants or variables.
 
      Notice that you can only use regular variables for the loop variable, not
@@ -233,7 +233,9 @@ The following statements are available:
     [statement]
   END IF
 
-     Decision statement
+     Decision statement. The first statement is taken if the expression result
+     is non-zero.
+
 
   ON expr GOTO [label],[label],[label]
   ON expr GOTO [label],,[label]
@@ -273,7 +275,7 @@ The following statements are available:
      The only valid assumption is that every single variable is zero after
      booting.
 
-     Also, it's your responsibility that the code doesn't take too long to
+     It's your responsibility that the code doesn't take too long to
      execute, otherwise video frame interrupts will accumulate, and your memory
      stack will overflow.
 
@@ -292,17 +294,18 @@ The following statements are available:
 
   DIM var(size)
   
-     Creates an array of data called 'var' of size 'size' elements.
+     Creates an array of data called 'var' of 'size' elements.
      Counting starts on zero, so DIM A(10) creates an array of 0 to 9.
      
-     Also you can create arrays of 16-bits numbers, using DIM #BIG(10)
+     Also you can create arrays of 16-bits numbers, using the # sign
+     as the first letter of the array name DIM #BIG(10)
 
      The array can be accessed as follows:
      
          A(1)=A(1)+5
          A(X)=A(Y)-2
          
-     The DIM statement is like a directive, meaning it doesn't generate code
+     The DIM statement is like a directive, it doesn't generate code
      and it can appear anywhere in the program. The definition will start
      from the line of the DIM statement.
 
@@ -356,7 +359,7 @@ The following statements are available:
      of characters to load, and "label" should point to a label containing
      BITMAP statements or DATA BYTE statements.
 
-     Each character is a 8x8 pixel bitmap (represented as 8 BITMAP statements or
+     Each character is an 8x8 pixel bitmap (represented as 8 BITMAP statements or
      8 constants in a DATA BYTE statement).
 
      Internally, CVBasic will replicate the date along the 3 display areas so
@@ -387,7 +390,7 @@ The following statements are available:
      Each character is composed of 8 rows, and each row can have a foreground
      color (upper nibble), and a background color (lower nibble).
 
-     Internally, CVBasic will replicate the date along the 3 display areas so
+     Internally, CVBasic will replicate the data along the 3 display areas so
      the defined characters will appear on the whole screen when required.
 
      The VARPTR expression allows color definition from an offset inside an
@@ -409,7 +412,7 @@ The following statements are available:
 
      It replaces the definitions for "sprite_num", "total" means the total number
      of sprites to load, and "label" should point to a label containing
-     BITMAP statements with the sprite or sprites representation.
+     BITMAP or DATA BYTE statements with the sprite or sprites representation.
 
      Each sprite is 16x16 pixels.
 
@@ -439,7 +442,9 @@ The following statements are available:
   SOUND 2,[value 10 bits],[vol 0-15]
   SOUND 3,[control 4 bits],[vol 0-15]
 
-     Allows to generate tones on the SN76489 sound processor.
+     Allows to generate tones on the SN76489 sound processor. Volume values
+     are 0 for no sound and 15 for the highest sound.
+
 
      The desired frequency value can be calculated this way:
    
@@ -465,7 +470,9 @@ The following statements are available:
   SOUND 8,[VALUE 16 bits],[TYPE 0-15]      Volume envelope (frequency/shape)
   SOUND 9,[NOISE 5 bits],[MIX]      Noise and mix register ($b8 value by default)
 
-     Allows to generate tones on the AY-3-8910 sound processor (MSX).
+     Allows to generate tones on the AY-3-8910 sound processor (MSX). Volume
+     values are 0 for no sound and 15 for the highest sound.
+
 
      For channels A, B and C, if you use volume 16 the PSG will use the
      volume envelope (see SOUND 8)
@@ -498,12 +505,12 @@ The following statements are available:
      The Y-coordinate visible range for sprites is 240 to 255, and 0
      to 190. 240-254 allows the sprite to enter smoothly from the top,
      255 is the top pixel row of the screen, and 0-190 is the whole
-     vertical range of the screen (190 being the bottom pixel row of
-     the screen). Values 191-239 makes the sprite invisible.
+     vertical range of the screen (190 is the bottom pixel row of
+     the screen). Values 191-239 make the sprite invisible.
 
      Additionally, the value 208 for the Y-coordinate disables sprite
      processing starting on that very sprite. For example,
-     SPRITE 0,$d0,0,0,0 forces SPRITES 1-31 to disappear even if active. 
+     SPRITE 0,$d0,0,0,0 forces sprites 1-31 to disappear even if active. 
 
   OUT port,data
 
@@ -521,7 +528,7 @@ The following statements are available:
      selected via the AT value 0 to 767).
 
      The string is processed in ASCII, and CVBasic automatically
-     defines the ASCII charset to be used at the start. You can
+     defines the ASCII charset to be available at the start. You can
      redefine all the characters if required.
 
      If you want to use a character beyond the printable ones, you
@@ -540,8 +547,7 @@ The following statements are available:
 
   PRINT [expr]
 
-     Illustrates the expression as an ASCII number using
-     characters between 48 and 57.
+     Displays expr as an ASCII number using characters between 48 and 57.
 
   BORDER color
 
@@ -580,7 +586,7 @@ The following statements are available:
      bitmaps for the characters. Also, there is a limitation where the color for
      characters is limited to a foreground/background color for each 8 characters.
 
-     VRAM addresses $2000-$201f control the color for the characters group.
+     VRAM addresses $2000-$201f contain the color for the characters group.
 
 
   SCREEN DISABLE
@@ -610,14 +616,14 @@ The following statements are available:
     cols is the horizontal size (number of columns) of your copy.
     rows is the vertical size (number of rows) of your copy.
     origin_width is the origin data width, useful to copy a sub-portion of a
-                 big graphic screen, like a map or when scrolling horizontally.
-                 If this parameter is not used, the default value is same
+                 big graphic screen, like a map, or when scrolling horizontally.
+                 If this parameter is not used, the default value is the same
                  as "cols".
     
     This can serve to move large elements in video or to display beautiful 
     graphics screens.
     
-    Label can be also a 16-bits array for dynamically drawn elements.
+    Label can be also a 8-bit array for dynamically drawn elements.
     
         DIM tile(4)
         
@@ -631,12 +637,13 @@ The following statements are available:
   
     Allows you to draw using binary.
 
-    For characters you should use 8 BITMAP statements containing 8 pixels each one
+    For characters, you should use 8 BITMAP statements containing 8 pixels each
     to form a graphic definition.
 
-    For sprites you should use 16 BITMAP statements containing 16 pixels each one.
+    For sprites, you should use 16 BITMAP statements containing 16 pixels each.
     
-    This is most useful when attaching a label and using with DEFINE CHAR and DEFINE SPRITE.
+    This is most useful when attaching a label and using it with DEFINE CHAR and
+    DEFINE SPRITE.
     
     Characters taken as zero include: "0" "_" " " "."
 
@@ -823,12 +830,12 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   A=A<=B
   A=A>=B
   A=PEEK(expr)      Reads a memory location
-                    PEEK always reads 8-bit data than can be processed in
+                    PEEK always reads 8-bit data that can be processed in
                     an expression.
   A=VPEEK(expr)     Reads a VRAM memory location
-                    VPEEK always reads 8-bit data than can be processed in
+                    VPEEK always reads 8-bit data that can be processed in
                     an expression.
-  A=ABS(expr)       Gets absolute value of expression (non-negative)
+  A=ABS(expr)       Gets the absolute value of the expression (non-negative)
   A=SGN(expr)       Gets sign of expression (-1, 0 or 1)
   A=array(expr)     Accesses an array. The array can be defined with DIM or
                     label for DATA
@@ -853,8 +860,8 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT.RIGHT        Non-zero if any controller pointing right
   CONT.BUTTON       Non-zero if any controller left button is pressed.
   CONT.BUTTON2      Non-zero if any controller right button is pressed.
-  CONT.KEY          Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
-                    In any controller.
+  CONT.KEY          Current pressed key in any controller (0-9 for numbers,
+                    10-*, 11-#, 15-Not pressed)
 
   CONT1             Contains the state of the first controller.
   CONT1.UP          Non-zero if controller pointing up
