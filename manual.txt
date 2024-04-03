@@ -759,7 +759,7 @@ The following statements are available:
 
   INCLUDE "filename.bas"
   
-    Includes the contents of another source file inside the current IntyBASIC
+    Includes the contents of another source file inside the current CVBasic
     program. 
 
     INCLUDE allows you to include external code anywhere in your program.
@@ -767,6 +767,15 @@ The following statements are available:
     in the included file.
 
     This is very useful for separating graphics and screen files.
+
+  CALL NAME       
+   
+    Calls assembly function NAME without arguments. Note CVBasic will put the
+    NAME all in uppercase.
+
+  CALL NAME(expr)  
+
+    Calls assembly function NAME with one argument in HL.
 
   ASM code
   
@@ -825,6 +834,11 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
                     label for DATA
   array(expr)=A     Writes data to an array. The array can be defined with DIM.
                     DATA is not writable
+
+  A=USR NAME        Calls assembly function NAME (all in uppercase) without
+                    arguments, and expects a result in HL.
+  A=USR NAME(expr)  Calls assembly function NAME with one argument in HL, and
+                    expects a result in HL.
 
   #A=VARPTR B       Gets a pointer to a variable. Useful when linking assembler
                     routines.

@@ -105,6 +105,8 @@ struct constant {
 
 struct constant *constant_hash[HASH_PRIME];
 
+struct label *function_hash[HASH_PRIME];
+
 struct macro {
     struct macro *next;
     int total_arguments;
@@ -132,6 +134,7 @@ struct macro *macro_hash[HASH_PRIME];
 struct macro_arg accumulated;
 
 int replace_macro(void);
+struct node *process_usr(int);
 
 enum node_type {
     N_OR8, N_OR16,
@@ -150,6 +153,7 @@ enum node_type {
     N_JOY1, N_JOY2, N_KEY1, N_KEY2,
     N_RANDOM, N_FRAME, N_MUSIC, N_NTSC, N_POS,
     N_ADDR,
+    N_USR,
 };
 
 struct node {
@@ -819,6 +823,11 @@ void node_generate(struct node *node, int decision)
     struct node *explore;
     
     switch (node->type) {
+        case N_USR:
+            if (node->left != NULL)
+                node_generate(node->left, 0);
+            z80_1op("CALL", node->label->name);
+            break;
         case N_ADDR:
             node_get_label(node, 0);
             z80_2op("LD", "HL", temp);
@@ -1604,6 +1613,45 @@ int label_hash_value(char *name)
         value += *name++;
     }
     return value % HASH_PRIME;
+}
+
+/*
+ ** Search for a function
+ */
+struct label *function_search(char *name)
+{
+    struct label *explore;
+    
+    explore = function_hash[label_hash_value(name)];
+    while (explore != NULL) {
+        if (strcmp(explore->name, name) == 0)
+            return explore;
+        explore = explore->next;
+    }
+    return NULL;
+}
+
+/*
+ ** Add a constant
+ */
+struct label *function_add(char *name)
+{
+    struct label **previous;
+    struct label *explore;
+    struct label *new_one;
+    
+    new_one = malloc(sizeof(struct label) + strlen(name));
+    if (new_one == NULL) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+    new_one->used = 0;
+    new_one->length = 0;
+    strcpy(new_one->name, name);
+    previous = &function_hash[label_hash_value(name)];
+    new_one->next = *previous;
+    *previous = new_one;
+    return new_one;
 }
 
 /*
@@ -2641,6 +2689,12 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_8;
             return tree;
         }
+        if (strcmp(name, "USR") == 0) {  /* Call to function written in assembler */
+            get_lex();
+            tree = process_usr(0);
+            *type = TYPE_16;
+            return tree;
+        }
         if (strcmp(name, "VARPTR") == 0) {  /* Access to variable/array/label address */
             *type = TYPE_16;
             get_lex();
@@ -2849,6 +2903,41 @@ struct node *evaluate_level_7(int *type)
     emit_error("bad syntax por expression");
     *type = TYPE_16;
     return node_create(N_NUM16, 0, NULL, NULL);
+}
+
+/*
+** Process call to assembly language
+*/
+struct node *process_usr(int is_call)
+{
+    struct node *tree;
+    struct label *function;
+    int type2;
+    
+    if (lex != C_NAME) {
+        if (is_call)
+            emit_error("missing function name in CALL");
+        else
+            emit_error("missing function name in USR");
+    }
+    function = function_search(name);
+    if (function == NULL)
+        function = function_add(name);
+    get_lex();
+    tree = NULL;
+    if (lex == C_LPAREN) {
+        get_lex();
+        tree = evaluate_level_0(&type2);
+        if ((type2 & MAIN_TYPE) == TYPE_8)
+            tree = node_create(N_EXTEND8, 0, tree, NULL);
+        if (lex == C_RPAREN)
+            get_lex();
+        else
+            emit_error("missing right parenthesis");
+    }
+    tree = node_create(N_USR, 0, tree, NULL);
+    tree->label = function;
+    return tree;
 }
 
 /*
@@ -4777,6 +4866,14 @@ void compile_statement(int check_for_else)
                             break;
                     }
                 }
+            } else if (strcmp(name, "CALL") == 0) {        // Call assembly language
+                struct node *tree;
+                
+                get_lex();
+                tree = process_usr(1);
+                node_label(tree);
+                node_generate(tree, 0);
+                node_delete(tree);
             } else if (strcmp(name, "ASM") == 0) {  /* ASM statement for inserting assembly code */
                 int c;
                 
