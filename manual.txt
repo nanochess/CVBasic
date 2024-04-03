@@ -915,6 +915,86 @@ The screen is a 32x24 grid located at the VRAM address $1800-$1aff. It can be ac
 See the included example viboritas.bas for examples.
 
 
+>>>>>>>>>>>>>>  Assembly language interfacing
+
+The USR expression and the CALL statement allow you to call assembly language
+modules from inside CVBasic programs. Note the label name for assembly
+language modules is translated to uppercase.
+
+CVBasic expect the following conventions to be preserved:
+
+    Before calling:
+    
+    HL = Value of first argument (or trash)
+
+    After calling:
+
+    HL = Value from assembly language module (only USR expression)
+
+If your module changes the address of the Stack Pointer (SP) then there is
+a high probability that the CVBasic program will crash.
+
+How your function should look:
+
+    ASM MYFUNCTION:    
+    ASM                ; ... your code...
+    ASM                RET
+    
+    
+>>>>>>>>>>>>>>  Some further notes
+
+A program’s execution is sequential unless interrupted by GOTO or GOSUB. In any
+of your programs, you should put GOTO at the end of the main block, otherwise
+execution could run in undesirable ways. For example:
+
+Example 1:
+
+    A = 5
+  stop:	GOTO stop	' Prevents CVBasic running out of ROM
+
+
+Example 2:
+
+    A = 5
+  stop:   GOTO stop	' Prevents execution running inside procedure
+
+  test:	PROCEDURE
+		END
+        
+If you insert PROCEDURE, DATA, or MUSIC data in the middle of the
+execution sequence, the Z80 processor will do strange things. So you
+must put your data at the end of the program or where the execution doesn't
+reach it.
+
+Example 3:
+
+    A = 6
+    DATA 5,6,7      ' Bad, this gets executed! move it after the GOTO
+  stop:    GOTO stop
+        
+By default, CVBasic programs can be so big as 32 kilobytes. The starting
+address for Colecovision is $8000, MSX is $4000, and SG1000 is $0000.
+
+You can measure your program by checking the generated LST file created by
+the assembler.
+         
+     
+>>>>>>>>>>>>>>  Permissions in Mac OS X and Linux
+
+The provided executables for both Mac OS X and Linux probably will not have
+the right permissions when uncompressed.
+
+So is suggested to run these commands in your CVBasic directory:
+
+  chmod 755 cvbasic
+  chmod 755 cvbasic_linux
+
+If your CVBasic directory is not in the current path you can run it using this
+while at CVBasic directory:
+
+  ./cvbasic game.bas game.asm
+
+
 >>>>>>>>>>>>>>  Useful links
 
 CoolCV emulator
@@ -926,6 +1006,7 @@ CoolCV emulator
 
 Thanks to following members of Atariage for contributing valuable suggestions:
 
+  ARTRAG
   gemintronic
   Kiwi
   pixelboy
