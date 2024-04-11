@@ -5257,10 +5257,16 @@ int main(int argc, char *argv[])
     for (c = 0; c < HASH_PRIME; c++) {
         label = label_hash[c];
         while (label != NULL) {
-            strcpy(temp, LABEL_PREFIX);
-            strcat(temp, label->name);
-            strcat(temp, ":\t");
+            if ((label->used & (LABEL_CALLED_BY_GOTO & LABEL_IS_PROCEDURE)) == (LABEL_CALLED_BY_GOTO | LABEL_IS_PROCEDURE)) {
+                fprintf(stderr, "Error: PROCEDURE '%s' jumped in by GOTO\n", label->name);
+            }
+            if ((label->used & (LABEL_CALLED_BY_GOSUB & LABEL_IS_PROCEDURE)) == LABEL_CALLED_BY_GOSUB) {
+                fprintf(stderr, "Error: Common label '%s' jumped in by GOSUB\n", label->name);
+            }
             if (label->used & LABEL_IS_VARIABLE) {
+                strcpy(temp, LABEL_PREFIX);
+                strcat(temp, label->name);
+                strcat(temp, ":\t");
                 if ((label->used & MAIN_TYPE) == TYPE_8) {
                     strcat(temp, "rb 1");
                     bytes_used++;
