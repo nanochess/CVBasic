@@ -572,9 +572,9 @@ ay3_reg:
     if COLECO
 	push af
 	ld a,b
-	out (PSG),a
+	out ($50),a
 	pop af
-	out (PSG+1),a
+	out ($51),a
 	ret
     endif
     if SG1000
@@ -590,17 +590,17 @@ ay3_reg:
 
 ay3_freq:
     if COLECO
-	out (PSG),a
+	out ($50),a
 	push af
 	ld a,l
-	out (PSG+1),a
+	out ($51),a
 	pop af
 	inc a
-	out (PSG),a
+	out ($50),a
 	push af
 	ld a,h
 	and $0f
-	out (PSG+1),a
+	out ($51),a
 	pop af
 	ret
     endif
