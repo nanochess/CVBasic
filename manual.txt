@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/29/2024.
+Last revision: Apr/04/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -545,9 +545,15 @@ The following statements are available:
          PRINT AT 736,"A"  ' Bottom-left corner
          PRINT AT 767,"A"  ' Bottom-right corner
 
-  PRINT [expr]
+  PRINT expr
+  PRINT <const>expr     ' Right-aligned with zeroes to 'const' size.
+  PRINT <.const>expr    ' Right-aligned with spaces to 'const' size.
 
      Displays expr as an ASCII number using characters between 48 and 57.
+
+     Example:
+
+        PRINT AT 8,"Score:",<5>#score,"00"
 
   BORDER color
 
@@ -897,6 +903,9 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   POS(expr)
     Returns the current screen position (useful for PRINT AT)
     The expression is analyzed but no code is generated.
+
+  INP(expr)
+    Reads 8-bit data from the I/O port expr.
 
   FRAME
     Returns the current frame number (0-65535, it cycles back to

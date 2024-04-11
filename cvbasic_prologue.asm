@@ -15,6 +15,7 @@
 	; Revision date: Mar/12/2024. Added support for MSX.
 	; Revision date: Mar/14/2024. Added _sgn16.
 	; Revision date: Mar/15/2024. Added upper 16k enable for MSX.
+	; Revision date: Apr/11/2024. Added support for formatting numbers.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -273,21 +274,27 @@ print_string:
 
 print_number:
 	ld b,0
-	ld de,10000
 	call nmi_off
-	call .1
+print_number5:
+	ld de,10000
+	call print_digit
+print_number4:
 	ld de,1000
-	call .1
+	call print_digit
+print_number3:
 	ld de,100
-	call .1
+	call print_digit
+print_number2:
 	ld de,10
-	call .1
+	call print_digit
+print_number1:
 	ld de,1
-	inc b
-	call .1
+	ld b,e
+	call print_digit
 	jp nmi_on
 
-.1:	ld a,$2f
+print_digit:
+	ld a,$2f
 	or a
 .2:	inc a
 	sbc hl,de
@@ -298,20 +305,25 @@ print_number:
 	ld a,b
 	or a
 	ret z
+	dec a
+	jr z,.4
+	ld a,c
+	jr .5	
+.4:
 	ld a,$30
-.3:	push hl
+.3:	ld b,1
+.5:	push hl
 	ld hl,(cursor)
-	ld c,a
+	ex af,af'
 	ld a,h
 	and $03
 	or $18
 	ld h,a
-	ld a,c
+	ex af,af'
 	call WRTVRM
 	inc hl
 	ld (cursor),hl
 	pop hl
-	ld b,1
 	ret
 
 define_sprite:

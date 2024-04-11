@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.3 Mar/31/2024"
+#define VERSION "v0.4.3 Apr/11/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -2435,7 +2435,7 @@ struct node *evaluate_level_7(int *type)
         if (strcmp(name, "INP") == 0) {
             get_lex();
             if (lex != C_LPAREN) {
-                emit_error("missing left parenthesis in PEEK");
+                emit_error("missing left parenthesis in INP");
             }
             get_lex();
             tree = evaluate_level_0(type);
@@ -2443,7 +2443,7 @@ struct node *evaluate_level_7(int *type)
                 tree = node_create(N_EXTEND8, 0, tree, NULL);
             tree = node_create(N_INP, 0, tree, NULL);
             if (lex != C_RPAREN) {
-                emit_error("missing right parenthesis in PEEK");
+                emit_error("missing right parenthesis in INP");
             }
             get_lex();
             *type = TYPE_8;
@@ -3945,6 +3945,55 @@ void compile_statement(int check_for_else)
                             z80_label(temp);
                         }
                         get_lex();
+                    } else if (lex == C_LESS || lex == C_NOTEQUAL) {
+                        int format = 0;
+                        int size = 1;
+                        
+                        if (lex == C_NOTEQUAL) {    /* IntyBASIC compatibility */
+                            get_lex();
+                        } else {
+                            get_lex();
+                            if (lex == C_PERIOD) {
+                                get_lex();
+                                format = 1;
+                                if (lex != C_NUM) {
+                                    emit_error("missing size for number");
+                                } else {
+                                    size = value;
+                                    get_lex();
+                                }
+                            } else if (lex == C_NUM) {
+                                format = 2;
+                                if (lex != C_NUM) {
+                                    emit_error("missing size for number");
+                                } else {
+                                    size = value;
+                                    get_lex();
+                                }
+                            }
+                            if (lex == C_GREATER)
+                                get_lex();
+                            else
+                                emit_error("missing > in PRINT for number");
+                        }
+                        if (size < 1)
+                            size = 1;
+                        if (size > 5)
+                            size = 5;
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        if (format == 0) {
+                            z80_1op("CALL", "print_number");
+                        } else if (format == 1) {
+                            z80_1op("CALL", "nmi_off");
+                            z80_2op("LD", "BC", "$0220");
+                            sprintf(temp, "print_number%d", size);
+                            z80_1op("CALL", temp);
+                        } else if (format == 2) {
+                            z80_1op("CALL", "nmi_off");
+                            z80_2op("LD", "BC", "$0230");
+                            sprintf(temp, "print_number%d", size);
+                            z80_1op("CALL", temp);
+                        }
                     } else {
                         type = evaluate_expression(1, TYPE_16, 0);
                         z80_1op("CALL", "print_number");
