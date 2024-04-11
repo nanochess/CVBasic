@@ -734,7 +734,7 @@ mode_0:
 	call nmi_off
 	ld hl,$2000
 	ld bc,$1800
-	ld a,$f1
+	ld a,$f0
 	call FILVRM
 	call nmi_on
 	call cls
@@ -782,7 +782,7 @@ mode_1:
 	call nmi_off
 	ld hl,$2000
 	ld bc,$1800
-	ld a,$f1
+	ld a,$f0
 	call FILVRM
 	call nmi_on
 	ld hl,$1800
@@ -851,7 +851,7 @@ mode_2:
 	call nmi_off
 	ld hl,$2000
 	ld bc,$0020
-	ld a,$f1
+	ld a,$f0
 	call FILVRM
 	call nmi_on
 	call cls

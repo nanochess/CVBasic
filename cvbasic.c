@@ -90,6 +90,10 @@ struct label {
 #define LABEL_IS_VARIABLE   0x200
 #define LABEL_IS_ARRAY      0x400
 
+#define LABEL_VAR_READ  0x0800
+#define LABEL_VAR_WRITE 0x1000
+#define LABEL_VAR_ACCESS (LABEL_VAR_READ | LABEL_VAR_WRITE)
+
 struct label *label_hash[HASH_PRIME];
 
 struct label *array_hash[HASH_PRIME];
@@ -2879,6 +2883,7 @@ struct node *evaluate_level_7(int *type)
                 label->used = TYPE_8;
             label->used |= LABEL_IS_VARIABLE;
         }
+        label->used |= LABEL_VAR_READ;
         get_lex();
         if ((label->used & MAIN_TYPE) == TYPE_8)
             tree = node_create(N_LOAD8, 0, NULL, NULL);
@@ -3161,6 +3166,7 @@ void compile_assignment(int is_read)
             label->used = TYPE_8;
         label->used |= LABEL_IS_VARIABLE;
     }
+    label->used |= LABEL_VAR_WRITE;
     get_lex();
     if (is_read) {
         tree = node_create(is_read == 1 ? N_READ16 : N_READ8, 0, NULL, NULL);
@@ -3374,6 +3380,7 @@ void compile_statement(int check_for_else)
                     }
                 }
             } else if (strcmp(name, "FOR") == 0) {
+                struct label *label;
                 struct loop *new_loop;
                 int label_loop;
                 char loop[MAX_LINE_SIZE];
@@ -3389,6 +3396,12 @@ void compile_statement(int check_for_else)
                 
                 get_lex();
                 compile_assignment(0);
+                
+                /* Avoid unnecessary warnings */
+                label = label_search(assigned);
+                if (label != NULL && (label->used & LABEL_IS_VARIABLE) != 0)
+                    label->used |= LABEL_VAR_READ;
+                
                 new_loop = malloc(sizeof(struct loop) + strlen(assigned) + 1);
                 if (new_loop == NULL) {
                     fprintf(stderr, "Out of memory");
@@ -5166,6 +5179,7 @@ int main(int argc, char *argv[])
     int size;
     char *p;
     int bytes_used;
+    int available_bytes;
     
     fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
     fprintf(stderr, "(c) 2024 Oscar Toledo G. https://nanochess.org/\n\n");
@@ -5255,6 +5269,15 @@ int main(int argc, char *argv[])
                     bytes_used += 2;
                 }
                 fprintf(output, "%s\n", temp);
+                
+                /* Warns of variables only read or only written */
+                if ((label->used & LABEL_VAR_ACCESS) == LABEL_VAR_READ) {
+                    fprintf(stderr, "Warning: variable '%s' read but never assigned\n", label->name);
+                }
+                if ((label->used & LABEL_VAR_ACCESS) == LABEL_VAR_WRITE) {
+                    fprintf(stderr, "Warning: variable '%s' assigned but never read\n", label->name);
+                }
+                
             }
             label = label->next;
         }
@@ -5273,11 +5296,13 @@ int main(int argc, char *argv[])
         }
     }
     fclose(output);
-    fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used,
-            (machine == MSX ? 4096 : 1024) -  /* Total RAM memory */
-            64 -    /* Stack requirements */
-            (music_used ? 33 : 0) -     /* Music player requirements */
-            146);   /* Support variables */
+    available_bytes = (machine == MSX ? 4096 : 1024) -  /* Total RAM memory */
+                        64 -                    /* Stack requirements */
+                    (music_used ? 33 : 0) -     /* Music player requirements */
+                        146;                    /* Support variables */
+    if (bytes_used > available_bytes)
+        fprintf(stderr, "ERROR: ");
+    fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used, available_bytes);
     fprintf(stderr, "Compilation finished.\n\n");
     exit(0);
 }
