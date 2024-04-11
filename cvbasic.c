@@ -35,6 +35,8 @@ enum {
     COLECOVISION, SG1000, MSX
 } machine;
 
+int err_code;
+
 char path[4096];
 
 int music_used;
@@ -206,6 +208,7 @@ int bitmap_byte;
 void emit_error(char *string)
 {
     fprintf(stderr, "ERROR: %s at line %d (%s)\n", string, current_line, current_file);
+    err_code = 1;
 }
 
 /*
@@ -5201,16 +5204,17 @@ int main(int argc, char *argv[])
         machine = COLECOVISION;
     }
     strcpy(current_file, argv[c]);
+    err_code = 0;
     input = fopen(current_file, "r");
     if (input == NULL) {
         fprintf(stderr, "Couldn't open '%s' source file.\n", current_file);
-        exit(1);
+        exit(2);
     }
     c++;
     output = fopen(argv[c], "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
-        exit(1);
+        exit(2);
     }
     c++;
     fprintf(output, "COLECO:\tequ %d\n", (machine == COLECOVISION) ? 1 : 0);
@@ -5220,7 +5224,7 @@ int main(int argc, char *argv[])
     prologue = fopen("cvbasic_prologue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
-        exit(1);
+        exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
         fputs(line, output);
@@ -5238,7 +5242,7 @@ int main(int argc, char *argv[])
     prologue = fopen("cvbasic_epilogue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_epilogue.asm.\n");
-        exit(1);
+        exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
         p = line;
@@ -5259,9 +5263,11 @@ int main(int argc, char *argv[])
         while (label != NULL) {
             if ((label->used & (LABEL_CALLED_BY_GOTO & LABEL_IS_PROCEDURE)) == (LABEL_CALLED_BY_GOTO | LABEL_IS_PROCEDURE)) {
                 fprintf(stderr, "Error: PROCEDURE '%s' jumped in by GOTO\n", label->name);
+                err_code = 1;
             }
             if ((label->used & (LABEL_CALLED_BY_GOSUB & LABEL_IS_PROCEDURE)) == LABEL_CALLED_BY_GOSUB) {
                 fprintf(stderr, "Error: Common label '%s' jumped in by GOSUB\n", label->name);
+                err_code = 1;
             }
             if (label->used & LABEL_IS_VARIABLE) {
                 strcpy(temp, LABEL_PREFIX);
@@ -5306,10 +5312,12 @@ int main(int argc, char *argv[])
                         64 -                    /* Stack requirements */
                     (music_used ? 33 : 0) -     /* Music player requirements */
                         146;                    /* Support variables */
-    if (bytes_used > available_bytes)
+    if (bytes_used > available_bytes) {
         fprintf(stderr, "ERROR: ");
+        err_code = 1;
+    }
     fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used, available_bytes);
     fprintf(stderr, "Compilation finished.\n\n");
-    exit(0);
+    exit(err_code);
 }
 
