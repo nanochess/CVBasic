@@ -32,7 +32,7 @@
  ** Supported platforms.
  */
 enum {
-    COLECOVISION, SG1000, MSX
+    COLECOVISION, SG1000, MSX, COLECOVISION_SGM,
 } machine;
 
 int err_code;
@@ -4756,7 +4756,7 @@ void compile_statement(int check_for_else)
                 } else {
                     if (value < 3 && machine == MSX)
                         emit_warning("using SOUND 0-3 with MSX target");
-                    else if (value >= 5 && machine != MSX)
+                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM)
                         emit_warning("using SOUND 5-9 with non-MSX target");
                     switch (value) {
                         case 0:
@@ -5190,7 +5190,17 @@ int main(int argc, char *argv[])
     if (argc < 3) {
         fprintf(stderr, "Usage:\n");
         fprintf(stderr, "\n");
-        fprintf(stderr, "    cvbasic [--sg1000] [--msx] input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic [--sg1000] [--msx] [--sgm] input.bas output.asm\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "    By default, it will create assembler files for Colecovision,\n");
+        fprintf(stderr, "    the options allow to compile for Sega SG-1000, MSX,\n");
+        fprintf(stderr, "    and the Super Game Module for Colecovision.\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "    It will return a zero error code if compilation was\n");
+        fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
+        fprintf(stderr, "Many thanks to Albert, artrag, carlsson, CrazyBoss, gemintronic,\n");
+        fprintf(stderr, "Jess Ragan, Kiwi, pixelboy, Tarzilla, and youki\n");
+        fprintf(stderr, "\n");
         exit(1);
     }
     c = 1;
@@ -5199,6 +5209,9 @@ int main(int argc, char *argv[])
         c++;
     } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 'm' && tolower(argv[c][3]) == 's' && tolower(argv[c][4]) == 'x' && argv[c][5] == '\0') {
         machine = MSX;
+        c++;
+    } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && tolower(argv[c][4]) == 'm' && argv[c][5] == '\0') {
+        machine = COLECOVISION_SGM;
         c++;
     } else {
         machine = COLECOVISION;
@@ -5217,9 +5230,11 @@ int main(int argc, char *argv[])
         exit(2);
     }
     c++;
-    fprintf(output, "COLECO:\tequ %d\n", (machine == COLECOVISION) ? 1 : 0);
+    fprintf(output, "COLECO:\tequ %d\n",
+            (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
     fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
+    fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
 
     prologue = fopen("cvbasic_prologue.asm", "r");
     if (prologue == NULL) {
@@ -5308,9 +5323,17 @@ int main(int argc, char *argv[])
         }
     }
     fclose(output);
-    available_bytes = (machine == MSX ? 4096 : 1024) -  /* Total RAM memory */
-                        64 -                    /* Stack requirements */
-                    (music_used ? 33 : 0) -     /* Music player requirements */
+    if (machine == COLECOVISION)
+        available_bytes = 1024;
+    else if (machine == SG1000)
+        available_bytes = 1024;
+    else if (machine == MSX)
+        available_bytes = 4096;
+    else if (machine == COLECOVISION_SGM)
+        available_bytes = 24576 - 1024;
+    if (machine != COLECOVISION_SGM)
+        available_bytes -= 64 +                    /* Stack requirements */
+                    (music_used ? 33 : 0) +     /* Music player requirements */
                         146;                    /* Support variables */
     if (bytes_used > available_bytes) {
         fprintf(stderr, "ERROR: ");

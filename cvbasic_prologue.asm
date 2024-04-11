@@ -15,7 +15,8 @@
 	; Revision date: Mar/12/2024. Added support for MSX.
 	; Revision date: Mar/14/2024. Added _sgn16.
 	; Revision date: Mar/15/2024. Added upper 16k enable for MSX.
-	; Revision date: Apr/11/2024. Added support for formatting numbers.
+	; Revision date: Apr/11/2024. Added support for formatting numbers. Added
+	;                             support for Super Game Module.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -26,9 +27,9 @@ PSG:    equ $ff-$80*SG1000
 JOY1:   equ $fc-$20*SG1000
 JOY2:   equ $ff-$22*SG1000
 
-BASE_RAM: equ $e000-$7000*COLECO-$2000*SG1000
+BASE_RAM: equ $e000-$7000*COLECO-$2000*SG1000+$0c00*SGM
 
-STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000
+STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000+$0c00*SGM
 
     if COLECO
 	org $8000
@@ -568,23 +569,50 @@ sn76489_control:
 	ret
 
 ay3_reg:
+    if COLECO
+	push af
+	ld a,b
+	out (PSG),a
+	pop af
+	out (PSG+1),a
+	ret
+    endif
+    if SG1000
+        ret
+    endif
     if MSX
 	ld e,a
 	ld a,b
 	jp WRTPSG
-    else
+    endif
         ret
     endif
 
 ay3_freq:
+    if COLECO
+	out (PSG),a
+	push af
+	ld a,l
+	out (PSG+1),a
+	pop af
+	inc a
+	out (PSG),a
+	push af
+	ld a,h
+	and $0f
+	out (PSG+1),a
+	pop af
+	ret
+    endif
+    if SG1000
+	ret
+    endif
     if MSX
 	ld e,l
 	call WRTPSG
 	ld e,h
 	inc a
 	jp WRTPSG
-    else
-        ret
     endif
 
     if SG1000
@@ -963,6 +991,81 @@ START:
         call ENASLT     ; Map into $8000-$BFFF
     endif
 
+    if SGM
+WRITE_REGISTER:	equ $1fd9
+FILL_VRAM:	equ $1f82
+WRITE_VRAM:	equ $1fdf
+
+        ld b,$00	; First step.
+.0:     ld hl,$2000	; RAM at $2000.
+.1:     ld (hl),h	; Try to write a byte.
+        inc h
+        jp p,.1		; Repeat until reaching $8000.
+        ld h,$20	; Go back at $2000.
+.2:     ld a,(hl)	; Read back byte.
+        cp h		; Is it correct?
+        jr nz,.3	; No, jump.
+        inc h
+        jp p,.2		; Repeat until reaching $8000.
+        jp .4		; Memory valid!
+
+.3:     ld a,$01        ; Enable SGM
+        out ($53),a
+        inc b
+        bit 1,b         ; Already enabled?
+        jr z,.0		; No, test RAM again.
+
+        ld bc,$0000
+        call WRITE_REGISTER
+        ld bc,$0180
+        call WRITE_REGISTER
+        ld bc,$0206
+        call WRITE_REGISTER
+        ld bc,$0380
+        call WRITE_REGISTER
+        ld bc,$0400
+        call WRITE_REGISTER
+        ld bc,$0536
+        call WRITE_REGISTER
+        ld bc,$0607
+        call WRITE_REGISTER
+        ld bc,$070D
+        call WRITE_REGISTER
+        ld bc,$03F0
+        ld de,$00E8 
+        ld hl,$158B     ; Note! direct access to Colecovision ROM
+        call WRITE_VRAM
+        ld hl,$2000
+        ld de,32 
+        ld a,$FD
+        call FILL_VRAM
+        ld hl,$1B00
+        ld de,128
+        ld a,$D1
+        call FILL_VRAM
+        ld hl,$1800
+        ld de,769
+        ld a,$20
+        call FILL_VRAM
+        ld bc,$0020
+        ld de,$1980 
+        ld hl,.5
+        call WRITE_VRAM
+        ld bc,$01C0
+        call WRITE_REGISTER
+        jr $
+
+.5:     db " SUPER GAME MODULE NOT DETECTED "
+
+.4:
+	ld ix,(lfsr)
+        ld hl,$2000
+        ld de,$2001
+        ld bc,$5FFF
+        ld (hl),0
+        ldir
+	ld (lfsr),ix
+    endif
 	call music_init
 
 	xor a

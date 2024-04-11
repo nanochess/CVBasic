@@ -32,6 +32,10 @@ Using CVBasic to compile a MSX program:
 
     cvbasic --msx game.bas game.asm
 
+Using CVBasic to compile a Colecovision Super Game Module program:
+
+    cvbasic --sgm game.bas game.asm
+
 
 ### Notes
 
@@ -52,9 +56,13 @@ TODO:
 Thanks to the following members of Atariage for contributing valuable suggestions:
 
     ARTRAG
+    carlsson
+    CrazyBoss
     gemintronic
+    Jess Ragan
     Kiwi
     pixelboy
+    Tarzilla
     youki
 
 ### Supporting the developer

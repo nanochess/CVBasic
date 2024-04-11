@@ -12,6 +12,7 @@
 	; Revision date: Mar/12/2024. Added support for MSX.
 	; Revision date: Mar/13/2024. Added Pletter decompressor.
 	; Revision date: Mar/19/2024. Added support for sprite flicker.
+	; Revision date: Apr/11/2024. Added support for Super Game Module.
 	;
 
 nmi_handler:
@@ -1188,4 +1189,8 @@ audio_vol3:		rb 1
 
 audio_control:		rb 1
 audio_vol4hw:		rb 1
+    endif
+
+    if SGM
+	org $2000	; Start for variables.
     endif
