@@ -5075,7 +5075,15 @@ void compile_basic(void)
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
+
         line_size = strlen(line);
+        if (line_size > 0 && line[line_size - 1] == '\n')
+            line[--line_size] = '\0';
+        if (line_size > 0 && line[line_size - 1] == '\r')
+            line[--line_size] = '\0';
+
+        fprintf(output, "\t; %s\n", line);
+
         line_start = 1;
         line_pos = 0;
         label_exists = 0;
