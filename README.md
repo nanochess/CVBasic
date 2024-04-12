@@ -60,6 +60,7 @@ Thanks to the following members of Atariage for contributing valuable suggestion
     CrazyBoss
     gemintronic
     Jess Ragan
+    Kamshaft
     Kiwi
     pixelboy
     Tarzilla

@@ -948,6 +948,9 @@ rotate_slot:
 
 START:
 	di
+    if SG1000
+	im 1
+    endif
 	ld sp,STACK
 	in a,(VDP+1)
 	ld bc,$8201

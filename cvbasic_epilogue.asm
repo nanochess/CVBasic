@@ -358,6 +358,18 @@ RDPSG:	equ $0096
 	ld e,$b8
 	call WRTPSG
     endif
+    if SGM
+	ld b,$08
+	xor a
+	call ay3_reg
+	ld b,$09
+	call ay3_reg
+	ld b,$0a
+	call ay3_reg
+	ld b,$07
+	ld a,$b8
+	call ay3_reg
+    endif
     if CVBASIC_MUSIC_PLAYER
     else
 	ret
