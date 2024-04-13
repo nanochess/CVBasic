@@ -17,6 +17,8 @@
 	; Revision date: Mar/15/2024. Added upper 16k enable for MSX.
 	; Revision date: Apr/11/2024. Added support for formatting numbers. Added
 	;                             support for Super Game Module.
+	; Revision date: Apr/13/2024. Saved bytes in SG-1000 ROMs. Faster LDIRVM.
+	;                             Shorter mode setting subroutines.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -52,8 +54,10 @@ STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000+$0c00*SGM
     endif
     if SG1000
 	org $0000
+	di
+	im 1
 	jp START
-	db $ff,$ff,$ff,$ff,$ff
+	db $ff,$ff
 	jp 0
 	db $ff,$ff,$ff,$ff,$ff
 	jp 0
@@ -67,17 +71,6 @@ STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000+$0c00*SGM
 	jp 0
 	db $ff,$ff,$ff,$ff,$ff
 	jp nmi_handler	; It should be called int_handler.
-	
-	db $ff,$ff,$ff,$ff,$ff
-	db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-	db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-	db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-	db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-	db $ff,$ff,$ff,$ff,$ff,$ff
-
-	ei		; NMI handler (pause button)
-	retn
-
     endif
     if MSX
 	ORG $4000
@@ -120,6 +113,14 @@ WRTVRM:
 	out (VDP),a
 	ret
 
+    if SG1000
+	db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+
+	; Located at $0066
+	ei		; NMI handler (pause button)
+	retn
+    endif
+
 RDVRM:
         push af
         call SETRD
@@ -144,14 +145,18 @@ FILVRM:
 
 LDIRVM:
         EX DE,HL
-.1:     LD A,(DE)
-        CALL WRTVRM
-        INC DE
-        INC HL
+        CALL SETWRT
+        EX DE,HL
         DEC BC
+        INC C
         LD A,B
-        OR C
-        JR NZ,.1
+        LD B,C
+        INC A
+        LD C,VDP
+.1:     OUTI
+        JP NZ,.1
+        DEC A
+        JP NZ,.1
         RET
 
 LDIRVM3:
@@ -585,8 +590,6 @@ ay3_reg:
 	ld a,b
 	jp WRTPSG
     endif
-        ret
-    endif
 
 ay3_freq:
     if COLECO
@@ -723,26 +726,32 @@ font_bitmaps:
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
     endif
 
-mode_0:
-	ld hl,mode
-	res 2,(hl)
+vdp_generic_mode:
 	call nmi_off
-	ld bc,$0200
 	call WRTVDP
 	ld bc,$a201
 	call WRTVDP
 	ld bc,$0602	; $1800 for pattern table.
 	call WRTVDP
-	ld bc,$ff03	; $2000 for color table.
+	ld b,d
+	ld c,$03	; for color table.
 	call WRTVDP
-	ld bc,$0304	; $0000 for bitmap table.
+	ld b,e
+	ld c,$04	; for bitmap table.
 	call WRTVDP
 	ld bc,$3605	; $1b00 for sprite attribute table.
 	call WRTVDP
 	ld bc,$0706	; $3800 for sprites bitmaps.
 	call WRTVDP
 	ld bc,$0107
-	call WRTVDP
+	jp WRTVDP
+
+mode_0:
+	ld hl,mode
+	res 2,(hl)
+	ld bc,$0200
+	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
+	call vdp_generic_mode
     if COLECO
 	ld hl,($006c)
 	ld de,-128
@@ -766,6 +775,7 @@ mode_0:
 	call FILVRM
 	call nmi_on
 	call cls
+vdp_generic_sprites:
 	call nmi_off
 	ld hl,$1b00
 	ld bc,$0080
@@ -785,23 +795,9 @@ mode_0:
 mode_1:
 	ld hl,mode
 	res 2,(hl)
-	call nmi_off
 	ld bc,$0200
-	call WRTVDP
-	ld bc,$a201
-	call WRTVDP
-	ld bc,$0602	; $1800 for pattern table.
-	call WRTVDP
-	ld bc,$ff03	; $2000 for color table.
-	call WRTVDP
-	ld bc,$0304	; $0000 for bitmap table.
-	call WRTVDP
-	ld bc,$3605	; $1b00 for sprite attribute table.
-	call WRTVDP
-	ld bc,$0706	; $3800 for sprites bitmaps.
-	call WRTVDP
-	ld bc,$0107
-	call WRTVDP
+	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
+	call vdp_generic_mode
 	ld hl,$0000
 	ld bc,$1800
 	xor a
@@ -824,42 +820,14 @@ mode_1:
 	ld a,h
 	cp $1b
 	jp nz,.1
-	call nmi_off
-	ld hl,$1b00
-	ld bc,$0080
-	ld a,$d1
-	call FILVRM
-	ld hl,sprites
-	ld de,sprites+1
-	ld bc,127
-	ld (hl),$d1
-	ldir
-	call nmi_on
-	call nmi_off
-	ld bc,$e201	; Enable screen and interrupts.
-	call WRTVDP
-	jp nmi_on
+	jp vdp_generic_sprites
 
 mode_2:
 	ld hl,mode
 	set 2,(hl)
-	call nmi_off
 	ld bc,$0000
-	call WRTVDP
-	ld bc,$a201
-	call WRTVDP
-	ld bc,$0602	; $1800 for pattern table.
-	call WRTVDP
-	ld bc,$8003	; $2000 for color table.
-	call WRTVDP
-	ld bc,$0004	; $0000 for bitmap table.
-	call WRTVDP
-	ld bc,$3605	; $1b00 for sprite attribute table.
-	call WRTVDP
-	ld bc,$0706	; $3800 for sprites bitmaps.
-	call WRTVDP
-	ld bc,$0107
-	call WRTVDP
+	ld de,$8000	; $2000 for color table, $0000 for bitmaps.
+	call vdp_generic_mode
     if COLECO
 	ld hl,($006c)
 	ld de,-128
@@ -883,21 +851,7 @@ mode_2:
 	call FILVRM
 	call nmi_on
 	call cls
-	call nmi_off
-	ld hl,$1b00
-	ld bc,$0080
-	ld a,$d1
-	call FILVRM
-	ld hl,sprites
-	ld de,sprites+1
-	ld bc,127
-	ld (hl),$d1
-	ldir
-	call nmi_on
-	call nmi_off
-	ld bc,$e201	; Enable screen and interrupts.
-	call WRTVDP
-	jp nmi_on
+	jp vdp_generic_sprites
 
     if MSX
 ENASLT: EQU $0024       ; Select slot (H=Addr, A=Slot)
@@ -947,9 +901,9 @@ rotate_slot:
     endif
 
 START:
-	di
     if SG1000
-	im 1
+    else
+	di
     endif
 	ld sp,STACK
 	in a,(VDP+1)
