@@ -148,7 +148,7 @@ enum node_type {
     N_AND8, N_AND16,
     N_EQUAL8, N_EQUAL16, N_NOTEQUAL8, N_NOTEQUAL16, N_LESS8, N_LESS16, N_LESSEQUAL8, N_LESSEQUAL16, N_GREATER8, N_GREATER16, N_GREATEREQUAL8, N_GREATEREQUAL16,
     N_PLUS8, N_PLUS16, N_MINUS8, N_MINUS16,
-    N_MUL16, N_DIV16, N_MOD16,
+    N_MUL8, N_MUL16, N_DIV16, N_MOD16,
     N_NEG8, N_NEG16, N_NOT8, N_NOT16,
     N_EXTEND8, N_REDUCE16,
     N_LOAD8, N_LOAD16,
@@ -359,6 +359,19 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
 }
 
 /*
+ ** Check if a number is a power of two
+ */
+int is_power_of_two(int value)
+{
+    if (value == 2 || value == 4 || value == 8 || value == 16
+     || value == 32 || value == 64 || value == 128 || value == 256
+     || value == 512 || value == 1024 || value == 2048 || value == 4096
+     || value == 8192 || value == 16384 || value == 32768)
+        return 1;
+    return 0;
+}
+
+/*
  ** Node creation.
  ** It also optimizes common patterns of expression node trees.
  */
@@ -384,11 +397,13 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
              **        |
              **    N_EXTEND8
              */
-            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16) && (left->left->type == N_EXTEND8) && (left->right->type == N_NUM16)) {
+            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16 || (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) && left->left->type == N_EXTEND8 && left->right->type == N_NUM16) {
                 if (left->type == N_PLUS16)
                     left->type = N_PLUS8;
                 else if (left->type == N_MINUS16)
                     left->type = N_MINUS8;
+                else if (left->type == N_MUL16)
+                    left->type = N_MUL8;
                 else if (left->type == N_AND16)
                     left->type = N_AND8;
                 else if (left->type == N_OR16)
@@ -408,12 +423,14 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
             /*
              ** Optimize expressions to avoid 16-bit operations when 8-bit are enough.
              */
-            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16) && (left->right->type == N_NUM16)) {
+            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16 || (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) && (left->right->type == N_NUM16)) {
                 
                 if (left->type == N_PLUS16)
                     left->type = N_PLUS8;
                 else if (left->type == N_MINUS16)
                     left->type = N_MINUS8;
+                else if (left->type == N_MUL16)
+                    left->type = N_MUL8;
                 else if (left->type == N_AND16)
                     left->type = N_AND8;
                 else if (left->type == N_OR16)
@@ -503,10 +520,7 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 return left;
             }
             if (right->type == N_NUM16) {   /* Optimize power of 2 constant case */
-                if (right->value == 2 || right->value == 4 || right->value == 8 || right->value == 16
-                    || right->value == 32 || right->value == 64 || right->value == 128 || right->value == 256
-                    || right->value == 512 || right->value == 1024 || right->value == 2048 || right->value == 4096
-                    || right->value == 8192 || right->value == 16384 || right->value == 32768) {
+                if (is_power_of_two(right->value)) {
                     right->value--;
                     type = N_AND16;
                 }
@@ -1024,47 +1038,65 @@ void node_generate(struct node *node, int decision)
         case N_GREATEREQUAL8:
         case N_PLUS8:
         case N_MINUS8:
+        case N_MUL8:
+            if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
+                int c;
+                
+                node_generate(node->left, 0);
+                c = node->right->value;
+                while (c > 1) {
+                    z80_2op("ADD", "A", "A");
+                    c /= 2;
+                }
+                break;
+            }
             if (node->type == N_LESSEQUAL8 || node->type == N_GREATER8) {
                 if (node->left->type == N_NUM8) {
                     node_generate(node->right, 0);
                     sprintf(temp, "%d", node->left->value & 0xff);
                 } else {
                     node_generate(node->left, 0);
-                    z80_1op("PUSH", "AF");
-                    node_generate(node->right, 0);
-                    z80_1op("POP", "BC");
+                    if (node->right->type == N_NUM8 || node->right->type == N_LOAD8
+                     || node->right->type == N_JOY1 || node->right->type == N_JOY2
+                     || node->right->type == N_KEY1 || node->right->type == N_KEY2
+                     || node->right->type == N_NTSC || node->right->type == N_MUSIC) {
+                        z80_2op("LD", "B", "A");
+                        node_generate(node->right, 0);
+                    } else {
+                        z80_1op("PUSH", "AF");
+                        node_generate(node->right, 0);
+                        z80_1op("POP", "BC");
+                    }
                     strcpy(temp, "B");
                 }
+            } else if (node->right->type == N_NUM8) {
+                int c;
+                
+                c = node->right->value & 0xff;
+                node_generate(node->left, 0);
+                if (node->type == N_PLUS8 && c == 1) {
+                    z80_1op("INC", "A");
+                    break;
+                }
+                if (node->type == N_MINUS8 && c == 1) {
+                    z80_1op("DEC", "A");
+                    break;
+                }
+                sprintf(temp, "%d", c);
             } else {
-                if (node->right->type == N_NUM8) {
-                    int c;
-
-                    c = node->right->value & 0xff;
+                node_generate(node->right, 0);
+                if (node->left->type == N_NUM8 || node->left->type == N_LOAD8
+                    || node->left->type == N_JOY1 || node->left->type == N_JOY2
+                    || node->left->type == N_KEY1 || node->left->type == N_KEY2
+                    || node->left->type == N_NTSC || node->left->type == N_MUSIC) {
+                    z80_2op("LD", "B", "A");
                     node_generate(node->left, 0);
-                    if (node->type == N_OR8 && c == 0)
-                        break;
-                    if (node->type == N_AND8 && c == 255)
-                        break;
-                    if (node->type == N_PLUS8 && c == 0)
-                        break;
-                    if (node->type == N_MINUS8 && c == 0)
-                        break;
-                    if (node->type == N_PLUS8 && c == 1) {
-                        z80_1op("INC", "A");
-                        break;
-                    }
-                    if (node->type == N_MINUS8 && c == 1) {
-                        z80_1op("DEC", "A");
-                        break;
-                    }
-                    sprintf(temp, "%d", c);
                 } else {
-                    node_generate(node->right, 0);
                     z80_1op("PUSH", "AF");
                     node_generate(node->left, 0);
                     z80_1op("POP", "BC");
-                    strcpy(temp, "B");
                 }
+                strcpy(temp, "B");
             }
             if (node->type == N_OR8) {
                 z80_1op("OR", temp);
@@ -1390,7 +1422,7 @@ void node_generate(struct node *node, int decision)
                     explore = node->right;
                 else
                     explore = NULL;
-                if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 4 || explore->value == 8 || explore->value == 16 || explore->value == 32 || explore->value == 64 || explore->value == 128 || explore->value == 256 || explore->value == 512 || explore->value == 1024 || explore->value == 2048 || explore->value == 4096 || explore->value == 8192 || explore->value == 16384 || explore->value == 32768)) {
+                if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
                     int c = explore->value;
                     
                     if (c == 0) {
