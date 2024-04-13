@@ -13,6 +13,7 @@
 	; Revision date: Mar/13/2024. Added Pletter decompressor.
 	; Revision date: Mar/19/2024. Added support for sprite flicker.
 	; Revision date: Apr/11/2024. Added support for Super Game Module.
+	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
 	;
 
 nmi_handler:
@@ -279,6 +280,11 @@ nmi_handler:
 	ld hl,(frame)
 	inc hl
 	ld (frame),hl
+
+	ld hl,lfsr	; Make LFSR more random
+	inc (hl)
+	inc (hl)
+	inc (hl)
 
     if CVBASIC_MUSIC_PLAYER
 	;
