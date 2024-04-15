@@ -902,6 +902,10 @@ rotate_slot:
 
 START:
     if SG1000
+	ld a,$92	; Setup 8255 for SC3000.
+	out ($df),a
+	ld a,$07	; Read joysticks instead of keyboard.
+	out ($de),a
     else
 	di
     endif
