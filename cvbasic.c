@@ -5238,8 +5238,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
-        fprintf(stderr, "Many thanks to Albert, artrag, carlsson, CrazyBoss, gemintronic,\n");
-        fprintf(stderr, "Jess Ragan, Kamshaft, Kiwi, pixelboy, Tarzilla, and youki\n");
+        fprintf(stderr, "Many thanks to Albert, aotta, artrag, carlsson, CrazyBoss,\n");
+        fprintf(stderr, "gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, Tarzilla,\n");
+        fprintf(stderr, "and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }

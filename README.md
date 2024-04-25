@@ -55,6 +55,7 @@ TODO:
 
 Thanks to the following members of Atariage for contributing valuable suggestions:
 
+    aotta
     ARTRAG
     carlsson
     CrazyBoss
