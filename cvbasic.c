@@ -235,7 +235,7 @@ void z80_label(char *label)
 /*
  ** Reset A register (technically a null label)
  */
-void z80_reset(void)
+void z80_empty(void)
 {
     z80_a_content[0] = '\0';
 }
@@ -315,7 +315,7 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
             if (strcmp(operand2, z80_a_content) == 0)
                 return;
         } else if (strcmp(operand1, "HL") == 0) {
-            if (strcmp(operand2, z80_a_content) == 0)
+            if (strcmp(operand2, z80_hl_content) == 0)
                 return;
         }
     }
@@ -774,6 +774,34 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
         default:
             break;
     }
+    switch (type) {
+        case N_LESSEQUAL8:  /* 8-bit <= */
+            if (right->type == N_NUM8 && right->value < 255) {
+                type = N_LESS8;
+                right->value++;
+            }
+            break;
+        case N_GREATER8:  /* 8-bit > */
+            if (right->type == N_NUM8 && right->value < 255) {
+                type = N_GREATEREQUAL8;
+                right->value++;
+            }
+            break;
+        case N_LESSEQUAL16:  /* 16-bit <= */
+            if (right->type == N_NUM16 && right->value < 65535) {
+                type = N_LESS16;
+                right->value++;
+            }
+            break;
+        case N_GREATER16:  /* 16-bit > */
+            if (right->type == N_NUM16 && right->value < 65535) {
+                type = N_GREATEREQUAL16;
+                right->value++;
+            }
+            break;
+        default:
+            break;
+    }
     new_node = malloc(sizeof(struct node));
     if (new_node == NULL) {
         emit_error("out of memory");
@@ -1132,7 +1160,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NZ", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_NOTEQUAL8) {
                 if (strcmp(temp, "0") == 0)
@@ -1147,7 +1175,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "Z", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_LESS8) {
                 if (strcmp(temp, "0") == 0)
@@ -1162,7 +1190,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_LESSEQUAL8) {
                 if (strcmp(temp, "0") == 0)
@@ -1177,7 +1205,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_GREATER8) {
                 if (strcmp(temp, "0") == 0)
@@ -1192,7 +1220,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_GREATEREQUAL8) {
                 if (strcmp(temp, "0") == 0)
@@ -1207,7 +1235,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_PLUS8) {
                 z80_2op("ADD", "A", temp);
@@ -1240,10 +1268,15 @@ void node_generate(struct node *node, int decision)
                 break;
             }
             node_generate(node->right, 0);
-            z80_1op("PUSH", "HL");
-            node_generate(node->left, 0);
-            z80_1op("POP", "HL");
-            z80_2op("LD", "(HL)", "A");
+            if (node->left->type == N_NUM8) {
+                sprintf(temp, "%d", node->left->value);
+                z80_2op("LD", "(HL)", temp);
+            } else {
+                z80_1op("PUSH", "HL");
+                node_generate(node->left, 0);
+                z80_1op("POP", "HL");
+                z80_2op("LD", "(HL)", "A");
+            }
             break;
         case N_ASSIGN16:
             if (node->right->type == N_ADDR) {
@@ -1476,6 +1509,38 @@ void node_generate(struct node *node, int decision)
                     node_generate(node->right, 0);
                     z80_1op("POP", "DE");
                 }
+            } else if ((node->type == N_EQUAL16 || node->type == N_NOTEQUAL16) && node->right->type == N_NUM16 && (node->right->value == 65535 || node->right->value == 0 || node->right->value == 1)) {
+                node_generate(node->left, 0);
+                if (node->right->value == 65535)
+                    z80_1op("INC", "HL");
+                else if (node->right->value == 1)
+                    z80_1op("DEC", "HL");
+                z80_2op("LD", "A", "H");
+                z80_1op("OR", "L");
+                if (node->type == N_EQUAL16) {
+                    if (decision) {
+                        optimized = 1;
+                        sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                        z80_2op("JP", "NZ", temp);
+                    } else {
+                        z80_2op("LD", "A", "0");
+                        z80_2op("JR", "NZ", "$+3");
+                        z80_1op("DEC", "A");
+                        z80_empty();
+                    }
+                } else if (node->type == N_NOTEQUAL16) {
+                    if (decision) {
+                        optimized = 1;
+                        sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                        z80_2op("JP", "Z", temp);
+                    } else {
+                        z80_2op("LD", "A", "0");
+                        z80_2op("JR", "Z", "$+3");
+                        z80_1op("DEC", "A");
+                        z80_empty();
+                    }
+                }
+                break;
             } else {
                 if (node->right->type == N_NUM16) {
                     node_generate(node->left, 0);
@@ -1487,6 +1552,10 @@ void node_generate(struct node *node, int decision)
                     strcat(temp, node->right->label->name);
                     strcat(temp, ")");
                     z80_2op("LD", "DE", temp);
+                } else if (node->left->type == N_LOAD16 || node->left->type == N_NUM16) {
+                    node_generate(node->right, 0);
+                    z80_2op("EX", "DE", "HL");
+                    node_generate(node->left, 0);
                 } else {
                     node_generate(node->right, 0);
                     z80_1op("PUSH", "HL");
@@ -1544,7 +1613,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NZ", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_NOTEQUAL16) {
                 z80_1op("OR", "A");
@@ -1557,7 +1626,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "Z", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_LESS16) {
                 z80_1op("OR", "A");
@@ -1570,7 +1639,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_LESSEQUAL16) {
                 z80_1op("OR", "A");
@@ -1583,7 +1652,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_GREATER16) {
                 z80_1op("OR", "A");
@@ -1596,7 +1665,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "NC", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_GREATEREQUAL16) {
                 z80_1op("OR", "A");
@@ -1609,7 +1678,7 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "A", "0");
                     z80_2op("JR", "C", "$+3");
                     z80_1op("DEC", "A");
-                    z80_reset();
+                    z80_empty();
                 }
             } else if (node->type == N_PLUS16) {
                 z80_2op("ADD", "HL", "DE");
@@ -3534,11 +3603,14 @@ void compile_statement(int check_for_else)
                             z80_2op("LD", temp, "A");
                         }
                         if (final != NULL) {
+                            optimized = 0;
                             node_label(final);
-                            node_generate(final, 0);
-                            z80_1op("OR", "A");
-                            sprintf(temp, INTERNAL_PREFIX "%d", label_loop);
-                            z80_2op("JP", "Z", temp);
+                            node_generate(final, label_loop);
+                            if (!optimized) {
+                                z80_1op("OR", "A");
+                                sprintf(temp, INTERNAL_PREFIX "%d", label_loop);
+                                z80_2op("JP", "Z", temp);
+                            }
                             node_delete(final);
                         }
                         if (step != NULL) {
@@ -5239,8 +5311,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
         fprintf(stderr, "Many thanks to Albert, aotta, artrag, carlsson, CrazyBoss,\n");
-        fprintf(stderr, "gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, Tarzilla,\n");
-        fprintf(stderr, "and youki.\n");
+        fprintf(stderr, "gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD,\n");
+        fprintf(stderr, "Tarzilla, and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }

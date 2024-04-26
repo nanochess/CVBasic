@@ -64,6 +64,7 @@ Thanks to the following members of Atariage for contributing valuable suggestion
     Kamshaft
     Kiwi
     pixelboy
+    SiRioKD
     Tarzilla
     youki
 
