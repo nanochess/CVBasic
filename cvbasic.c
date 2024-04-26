@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.3 Apr/11/2024"
+#define VERSION "v0.4.5 Apr/26/2024"
 
 #define FALSE           0
 #define TRUE            1
@@ -872,24 +872,24 @@ void node_generate(struct node *node, int decision)
     struct node *explore;
     
     switch (node->type) {
-        case N_USR:
+        case N_USR:     /* Assembly language function with result */
             if (node->left != NULL)
                 node_generate(node->left, 0);
             z80_1op("CALL", node->label->name);
             break;
-        case N_ADDR:
+        case N_ADDR:    /* Get address of variable */
             node_get_label(node, 0);
             z80_2op("LD", "HL", temp);
             break;
-        case N_NEG8:
+        case N_NEG8:    /* Negate 8-bit value */
             node_generate(node->left, 0);
             z80_noop("NEG");
             break;
-        case N_NOT8:
+        case N_NOT8:    /* Complement 8-bit value */
             node_generate(node->left, 0);
             z80_noop("CPL");
             break;
-        case N_NEG16:
+        case N_NEG16:   /* Negate 16-bit value */
             node_generate(node->left, 0);
             z80_2op("LD", "A", "H");
             z80_noop("CPL");
@@ -899,7 +899,7 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "L", "A");
             z80_1op("INC", "HL");
             break;
-        case N_NOT16:
+        case N_NOT16:   /* Complement 16-bit value */
             node_generate(node->left, 0);
             z80_2op("LD", "A", "H");
             z80_noop("CPL");
@@ -908,33 +908,45 @@ void node_generate(struct node *node, int decision)
             z80_noop("CPL");
             z80_2op("LD", "L", "A");
             break;
-        case N_ABS16:
+        case N_ABS16:   /* Get absolute 16-bit value */
             node_generate(node->left, 0);
             z80_1op("CALL", "_abs16");
             break;
-        case N_SGN16:
+        case N_SGN16:   /* Get sign of 16-bit value */
             node_generate(node->left, 0);
             z80_1op("CALL", "_sgn16");
             break;
-        case N_POS:
+        case N_POS:     /* Get screen cursor position */
             z80_2op("LD", "HL", "(cursor)");
             break;
-        case N_EXTEND8:
+        case N_EXTEND8: /* Extend 8-bit value to 16-bit */
+            if (node->left->type == N_PEEK8) {    /* If reading 8-bit memory */
+                if (node->left->left->type == N_ADDR) {
+                    /* Cannot optimize it */
+                } else if ((node->left->left->type == N_PLUS16 || node->left->left->type == N_MINUS16) && node->left->left->left->type == N_ADDR && node->left->left->right->type == N_NUM16) {
+                    /* Cannot optimize it */
+                } else {    /* Optimize to avoid LD A,(HL) / LD L,A */
+                    node_generate(node->left->left, 0);
+                    z80_2op("LD", "L", "(HL)");
+                    z80_2op("LD", "H", "0");
+                    break;
+                }
+            }
             node_generate(node->left, 0);
             z80_2op("LD", "L", "A");
             z80_2op("LD", "H", "0");
             break;
-        case N_REDUCE16:
+        case N_REDUCE16:    /* Reduce 16-bit value to 8-bit */
             node_generate(node->left, 0);
             z80_2op("LD", "A", "L");
             break;
-        case N_READ8:
+        case N_READ8:   /* Read 8-bit value */
             z80_2op("LD", "HL", "(read_pointer)");
             z80_2op("LD", "A", "(HL)");
             z80_1op("INC", "HL");
             z80_2op("LD", "(read_pointer)", "HL");
             break;
-        case N_READ16:
+        case N_READ16:  /* Read 16-bit value */
             z80_2op("LD", "HL", "(read_pointer)");
             z80_2op("LD", "E", "(HL)");
             z80_1op("INC", "HL");
@@ -943,19 +955,19 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "(read_pointer)", "HL");
             z80_2op("EX", "DE", "HL");
             break;
-        case N_LOAD8:
+        case N_LOAD8:   /* Load 8-bit value from address */
             strcpy(temp, "(" LABEL_PREFIX);
             strcat(temp, node->label->name);
             strcat(temp, ")");
             z80_2op("LD", "A", temp);
             break;
-        case N_LOAD16:
+        case N_LOAD16:  /* Load 16-bit value from address */
             strcpy(temp, "(" LABEL_PREFIX);
             strcat(temp, node->label->name);
             strcat(temp, ")");
             z80_2op("LD", "HL", temp);
             break;
-        case N_NUM8:
+        case N_NUM8:    /* Load 8-bit constant */
             if (node->value == 0) {
                 z80_1op("SUB", "A");
             } else {
@@ -963,17 +975,19 @@ void node_generate(struct node *node, int decision)
                 z80_2op("LD", "A", temp);
             }
             break;
-        case N_NUM16:
+        case N_NUM16:   /* Load 16-bit constant */
             sprintf(temp, "%d", node->value);
             z80_2op("LD", "HL", temp);
             break;
-        case N_PEEK8:
-            if (node->left->type == N_ADDR) {
+        case N_PEEK8:   /* Load 8-bit content */
+            if (node->left->type == N_ADDR) {   /* Optimize address */
                 node_get_label(node->left, 1);
                 z80_2op("LD", "A", temp);
                 break;
             }
-            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16) && node->left->left->type == N_ADDR && node->left->right->type == N_NUM16) {
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
+                && node->left->left->type == N_ADDR
+                && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
                 char *p;
                     
                 node_get_label(node->left->left, 1);
@@ -992,13 +1006,15 @@ void node_generate(struct node *node, int decision)
             node_generate(node->left, 0);
             z80_2op("LD", "A", "(HL)");
             break;
-        case N_PEEK16:
-            if (node->left->type == N_ADDR) {
+        case N_PEEK16:  /* Load 16-bit content */
+            if (node->left->type == N_ADDR) {   /* Optimize address */
                 node_get_label(node->left, 1);
                 z80_2op("LD", "HL", temp);
                 break;
             }
-            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16) && node->left->left->type == N_ADDR && node->left->right->type == N_NUM16) {
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
+                && node->left->left->type == N_ADDR
+                && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
                 char *p;
                 
                 node_get_label(node->left->left, 1);
@@ -1020,53 +1036,53 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "H", "(HL)");
             z80_2op("LD", "L", "A");
             break;
-        case N_VPEEK:
+        case N_VPEEK:   /* Read VRAM */
             node_generate(node->left, 0);
             z80_1op("CALL", "nmi_off");
             z80_1op("CALL", "RDVRM");
             z80_1op("CALL", "nmi_on");
             break;
-        case N_INP:
+        case N_INP:     /* Read port */
             node_generate(node->left, 0);
             z80_2op("LD", "C", "L");
             z80_2op("IN", "A", "(C)");
             break;
-        case N_JOY1:
+        case N_JOY1:    /* Read joystick 1 */
             z80_2op("LD", "A", "(joy1_data)");
             break;
-        case N_JOY2:
+        case N_JOY2:    /* Read joystick 2 */
             z80_2op("LD", "A", "(joy2_data)");
             break;
-        case N_KEY1:
+        case N_KEY1:    /* Read keypad 1 */
             z80_2op("LD", "A", "(key1_data)");
             break;
-        case N_KEY2:
+        case N_KEY2:    /* Read keypad 2 */
             z80_2op("LD", "A", "(key2_data)");
             break;
-        case N_RANDOM:
+        case N_RANDOM:  /* Read pseudorandom generator */
             z80_1op("CALL", "random");
             break;
-        case N_FRAME:
+        case N_FRAME:   /* Read current frame number */
             z80_2op("LD", "HL", "(frame)");
             break;
-        case N_MUSIC:
+        case N_MUSIC:   /* Read music playing status */
             z80_2op("LD", "A", "(music_playing)");
             break;
-        case N_NTSC:
+        case N_NTSC:    /* Read NTSC flag */
             z80_2op("LD", "A", "(ntsc)");
             break;
-        case N_OR8:
-        case N_XOR8:
-        case N_AND8:
-        case N_EQUAL8:
-        case N_NOTEQUAL8:
-        case N_LESS8:
-        case N_LESSEQUAL8:
-        case N_GREATER8:
-        case N_GREATEREQUAL8:
-        case N_PLUS8:
-        case N_MINUS8:
-        case N_MUL8:
+        case N_OR8:     /* 8-bit OR */
+        case N_XOR8:    /* 8-bit XOR */
+        case N_AND8:    /* 8-bit AND */
+        case N_EQUAL8:  /* 8-bit = */
+        case N_NOTEQUAL8:   /* 8-bit <> */
+        case N_LESS8:   /* 8-bit < */
+        case N_LESSEQUAL8:  /* 8-bit <= */
+        case N_GREATER8:    /* 8-bit > */
+        case N_GREATEREQUAL8:   /* 8-bit >= */
+        case N_PLUS8:   /* 8-bit + */
+        case N_MINUS8:  /* 8-bit - */
+        case N_MUL8:    /* 8-bit * */
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 int c;
                 
@@ -1243,7 +1259,7 @@ void node_generate(struct node *node, int decision)
                 z80_1op("SUB", temp);
             }
             break;
-        case N_ASSIGN8:
+        case N_ASSIGN8: /* 8-bit assignment */
             if (node->right->type == N_ADDR) {
                 node_generate(node->left, 0);
                 node_get_label(node->right, 1);
@@ -1278,7 +1294,7 @@ void node_generate(struct node *node, int decision)
                 z80_2op("LD", "(HL)", "A");
             }
             break;
-        case N_ASSIGN16:
+        case N_ASSIGN16:    /* 16-bit assignment */
             if (node->right->type == N_ADDR) {
                 node_generate(node->left, 0);
                 node_get_label(node->right, 1);
@@ -1312,7 +1328,7 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "A", "H");
             z80_2op("LD", "(DE)", "A");
             break;
-        default:
+        default:    /* Every other node, all remaining are 16-bit operations */
             if (node->type == N_PLUS16 || node->type == N_MINUS16) {
                 if (node->left->type == N_ADDR) {
                     if (node->right->type == N_NUM16) {
