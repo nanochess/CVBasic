@@ -273,11 +273,12 @@ The following statements are available:
      before your initialization routines are executed.
 
      The only valid assumption is that every single variable is zero after
-     booting.
-
-     It's your responsibility that the code doesn't take too long to
+     booting. It's your responsibility that the code doesn't take too long to
      execute, otherwise video frame interrupts will accumulate, and your memory
      stack will overflow.
+
+     If you are using bank-switching the procedure should be located in bank 0
+     (this is after BANK ROM and before any BANK number statement).
 
   POKE address,data
   
@@ -755,6 +756,9 @@ The following statements are available:
 
     CVBasic will detect automatically PAL/NTSC Colecovision and will adjust 
     music timing and frequencies accordingly.
+
+    If you are using bank-switching you can play music from a different bank
+    (see BANK SELECT).
 
   PLAY OFF
   

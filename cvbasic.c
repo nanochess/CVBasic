@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.5.0 Apr/26/2024"
+#define VERSION "v0.5.0 Apr/27/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -369,7 +369,9 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
     fprintf(output, "\t%s %s,%s\n", mnemonic, operand1, operand2);
     if (strcmp(mnemonic, "JP") == 0 ||
         strcmp(mnemonic, "JR") == 0 ||
-        strcmp(mnemonic, "OUT") == 0) {
+        strcmp(mnemonic, "OUT") == 0 ||
+        strcmp(mnemonic, "RES") == 0 ||
+        strcmp(mnemonic, "SET") == 0) {
         /* No affected registers */
     } else if (strcmp(mnemonic, "EX") == 0) {
         z80_hl_content[0] = '\0';

@@ -19,6 +19,8 @@
 	;                             support for Super Game Module.
 	; Revision date: Apr/13/2024. Saved bytes in SG-1000 ROMs. Faster LDIRVM.
 	;                             Shorter mode setting subroutines.
+	; Revision date: Apr/26/2024. Interruption handler saves current bank.
+	; Revision date: Apr/27/2024. Music player now supports bank switching.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -1318,20 +1320,19 @@ music_play:
         ld (music_note_counter),a
 	inc a
 	ld (music_playing),a
+  if CVBASIC_BANK_SWITCHING
+    if COLECO
+	ld a,($ffbf)
+    endif
+    if SG1000
+        ld a,($7fff)
+    endif
+    if MSX
+        ld a,($bfff)
+    endif
+        ld (music_bank),a
+  endif
         jp nmi_on
-
-        ;
-        ; Reads 4 bytes.
-        ;
-music_four:
-        ld b,(hl)
-        inc hl
-        ld c,(hl)
-        inc hl
-        ld d,(hl)
-        inc hl
-        ld e,(hl)
-        ret
 
         ;
         ; Generates music.
@@ -1354,7 +1355,27 @@ music_generate:
         jp nz,.6
         ld hl,(music_pointer)
 .15:    push hl
-        call music_four
+  if CVBASIC_BANK_SWITCHING
+	ld a,(music_bank)
+    if COLECO
+	ld e,a
+	ld d,$ff
+	ld a,(de)
+    endif
+    if SG1000
+        ld ($fffd),a
+    endif
+    if MSX
+	ld ($7000),a
+    endif
+  endif
+        ld b,(hl)
+        inc hl
+        ld c,(hl)
+        inc hl
+        ld d,(hl)
+        inc hl
+        ld e,(hl)
         pop hl
         ld a,(music_timing)
         rlca

@@ -14,6 +14,8 @@
 	; Revision date: Mar/19/2024. Added support for sprite flicker.
 	; Revision date: Apr/11/2024. Added support for Super Game Module.
 	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
+	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
+	;                             can remain accessible in bank 0 (bank switching).
 	;
 
 	org BASE_RAM
@@ -49,6 +51,9 @@ ntsc:
 music_tick:             rb 1
 music_mode:             rb 1
 
+    if CVBASIC_BANK_SWITCHING
+music_bank:             rb 1
+    endif
 music_start:		rb 2
 music_pointer:		rb 2
 music_playing:		rb 1
