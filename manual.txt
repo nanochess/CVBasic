@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Apr/04/2024.
+Last revision: Apr/27/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -512,6 +512,18 @@ The following statements are available:
      processing starting on that very sprite. For example,
      SPRITE 0,$d0,0,0,0 forces sprites 1-31 to disappear even if active. 
 
+  SPRITE FLICKER ON
+  SPRITE FLICKER OFF
+
+     Turns sprite flicker on and off. By default, CVBasic will start with
+     SPRITE FLICKER ON, this enables a code snippet that cycles sprites on
+     the screen to circumvent the VDP limitation of 4 sprites in a row.
+
+     If you turn it off, you can use the VDP limitation to make certain
+     tricks, for example, putting black sprites for masking sprites in
+     borders, overlapping sprites in different depths, or using the
+     SPRITE 0,$d0,0,0,0 trick.
+
   OUT port,data
 
      It outputs "data" in the hardware port "port".
@@ -598,8 +610,8 @@ The following statements are available:
   SCREEN DISABLE
 
     Disables the video output. The current color of the border will fill the
-    screen (can be set up using the BORDER sentence). The video can be enabled
-    again with SCREEN ENABLE or using a MODE sentence.
+    screen (can be set up using the BORDER statement). The video can be enabled
+    again with SCREEN ENABLE or using a MODE statement.
 
   SCREEN ENABLE
 
@@ -797,6 +809,42 @@ The following statements are available:
     to include assembly code modules, like this:
     
         ASM INCLUDE "yourfile.asm"
+
+  BANK ROM 128
+  BANK ROM 256
+  BANK ROM 512
+  BANK ROM 1024
+
+    This statement allows you to use 128K-1024K cartridges for your program
+    (Opcode's Megacart for the Colecovision, ASCII 16K mapper for MSX, and
+    SMS Sega Mapper for SG1000).
+    
+    It should be the very first statement in your program. 128 allows for
+    8 banks, 256 allows for 16 banks, 512 allows for 32 banks, and 1024 allows
+    for 64 banks. Each bank measures 16 kilobytes.
+
+    After this statement, your CVBasic program will continue at bank 0 (the
+    global bank).
+
+    In bank 0 you should have global procedures and data that are shared by
+    all your banks.
+
+  BANK 1-63
+
+    Select the bank for the following code/data of your program. Each bank can
+    contain up to 16319 bytes, and it is located in a separate area from the
+    bank 0.
+
+    Although you can use banks in any order, you cannot repeat bank numbers or
+    use BANK 0 (this is done for you when using BANK ROM).
+
+  BANK SELECT 1-63
+
+    Selects a bank to access for the following statements. You can call
+    procedures in the bank, or access data from the bank.
+
+    BANK SELECT only can be used inside bank 0, otherwise, CVBasic will
+    crash (like trying to change a carpet while standing over it).
         
 
 >>>>>>>>>>>>>>  Expression syntax

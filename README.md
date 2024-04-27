@@ -1,4 +1,4 @@
-# CVBasic compiler v0.4.3
+# CVBasic compiler v0.5.0
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -39,16 +39,11 @@ Using CVBasic to compile a Colecovision Super Game Module program:
 
 ### Notes
 
-The current official version is v0.4.3.
+The current official version is v0.5.0.
 
 Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
-
-TODO:
-* Implement bank-switching for Colecovision (Megacart)
-* Implement bank-switching for MSX (ASCII-16)
-* Implement bank-switching for Sega SG1000 (Sega Mappers, casually also 16KB)
 
 
 ### Acknowledgments

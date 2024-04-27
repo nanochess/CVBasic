@@ -17,7 +17,9 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.4.5 Apr/26/2024"
+#define VERSION "v0.5.0 Apr/26/2024"
+
+#define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
 #define FALSE           0
 #define TRUE            1
@@ -41,6 +43,9 @@ char path[4096];
 
 int music_used;
 int compression_used;
+int bank_switching;
+int bank_rom_size;
+int bank_current;
 
 char current_file[MAX_LINE_SIZE];
 int current_line;
@@ -219,6 +224,47 @@ void emit_warning(char *string)
     fprintf(stderr, "Warning: %s at line %d (%s)\n", string, current_line, current_file);
 }
 
+/*
+ ** Finish a bank
+ */
+void bank_finish(void)
+{
+    if (machine == SG1000) {
+        if (bank_current == 0) {
+            fprintf(output, "\tTIMES $3fff-$ DB $ff\n");
+        } else {
+            fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
+        }
+        fprintf(output, "\tDB $%02x\n", bank_current);
+    } else if (machine == MSX) {
+        if (bank_current == 0) {
+            fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
+        } else {
+            fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
+        }
+        fprintf(output, "\tDB $%02x\n", bank_current);
+    } else {
+        int c;
+        
+        if (bank_current == 0) {
+            fprintf(output, "\tTIMES $bfbf-$ DB $ff\n");
+        } else {
+            fprintf(output, "\tTIMES $ffbf-$ DB $ff\n");
+        }
+        c = (bank_current - 1) & 0x3f;
+        if (bank_rom_size == 128)
+            c |= 0xf8;
+        else if (bank_rom_size == 256)
+            c |= 0xf0;
+        else if (bank_rom_size == 512)
+            c |= 0xe0;
+        else if (bank_rom_size == 1024)
+            c |= 0xc0;
+        fprintf(output, "\tDB $%02x\n", c);
+        fprintf(output, "\tTIMES $40 DB $ff\n");
+    }
+}
+
 char z80_a_content[MAX_LINE_SIZE];
 char z80_hl_content[MAX_LINE_SIZE];
 
@@ -294,7 +340,7 @@ void z80_1op(char *mnemonic, char *operand)
         else if (strcmp(operand, "A") == 0 ||
                  strcmp(operand, "(HL)") == 0)
             z80_a_content[0] = '\0';
-    } else if (strcmp(mnemonic, "DW") == 0) {
+    } else if (strcmp(mnemonic, "DW") == 0 || strcmp(mnemonic, "ORG") == 0 || strcmp(mnemonic, "FORG") == 0) {
         /* Nothing to do */
     } else {
         fprintf(stderr, "z80_1op: not found mnemonic %s\n", mnemonic);
@@ -4316,32 +4362,45 @@ void compile_statement(int check_for_else)
                 }
             } else if (strcmp(name, "SPRITE") == 0) {
                 get_lex();
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("PUSH", "AF");
-                if (lex == C_COMMA)
+                if (lex == C_NAME && strcmp(name, "FLICKER") == 0) {
                     get_lex();
-                else
-                    emit_error("missing comma in SPRITE");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("PUSH", "AF");
-                if (lex == C_COMMA)
-                    get_lex();
-                else
-                    emit_error("missing comma in SPRITE");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("PUSH", "AF");
-                if (lex == C_COMMA)
-                    get_lex();
-                else
-                    emit_error("missing comma in SPRITE");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("PUSH", "AF");
-                if (lex == C_COMMA)
-                    get_lex();
-                else
-                    emit_error("missing comma in SPRITE");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("CALL", "update_sprite");
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        z80_2op("LD", "HL", "mode");
+                        z80_2op("RES", "2", "(HL)");
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        z80_2op("LD", "HL", "mode");
+                        z80_2op("SET", "2", "(HL)");
+                    } else {
+                        emit_error("only allowed SPRITE FLICKER ON/OFF");
+                    }
+                } else {
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    z80_1op("PUSH", "AF");
+                    if (lex == C_COMMA)
+                        get_lex();
+                    else
+                        emit_error("missing comma in SPRITE");
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    z80_1op("PUSH", "AF");
+                    if (lex == C_COMMA)
+                        get_lex();
+                    else
+                        emit_error("missing comma in SPRITE");
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    z80_1op("PUSH", "AF");
+                    if (lex == C_COMMA)
+                        get_lex();
+                    else
+                        emit_error("missing comma in SPRITE");
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    z80_1op("PUSH", "AF");
+                    if (lex == C_COMMA)
+                        get_lex();
+                    else
+                        emit_error("missing comma in SPRITE");
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    z80_1op("CALL", "update_sprite");
+                }
             } else if (strcmp(name, "BITMAP") == 0) {
                 get_lex();
                 if (lex != C_STRING || (name_size != 8 && name_size != 16)) {
@@ -4455,6 +4514,7 @@ void compile_statement(int check_for_else)
                             break;
                         }
                         c = tree->value;
+                        node_delete(tree);
                         if (lex != C_RPAREN) {
                             emit_error("missing right parenthesis in DIM");
                         } else {
@@ -5166,6 +5226,108 @@ void compile_statement(int check_for_else)
                         }
                     }
                 }
+            } else if (strcmp(name, "BANK") == 0) {
+                get_lex();
+                if (lex == C_NAME && strcmp(name, "ROM") == 0) {
+                    get_lex();
+                    if (lex != C_NUM) {
+                        emit_error("Bad syntax for BANK ROM");
+                    } else if (value != 128 && value != 256 && value != 512 && value != 1024) {
+                        emit_error("BANK ROM not 128, 256, 512 or 1024");
+                        get_lex();
+                    } else if (bank_switching != 0) {
+                        emit_error("BANK ROM used twice");
+                        get_lex();
+                    } else {
+                        bank_switching = 1;
+                        bank_rom_size = value;
+                        bank_current = 0;
+                        get_lex();
+                    }
+                } else if (lex == C_NAME && strcmp(name, "SELECT") == 0) {
+                    int c;
+                    struct node *tree;
+                    int type;
+                    
+                    get_lex();
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("not a constant expression in BANK SELECT");
+                        break;
+                    }
+                    c = tree->value;
+                    node_delete(tree);
+                    if (bank_switching == 0)
+                        emit_error("Using BANK SELECT without BANK ROM");
+                    if (machine == COLECOVISION || machine == COLECOVISION_SGM)
+                        c--;
+                    if (bank_rom_size == 128)
+                        c &= 0x07;
+                    else if (bank_rom_size == 256)
+                        c &= 0x0f;
+                    else if (bank_rom_size == 512)
+                        c &= 0x1f;
+                    else
+                        c &= 0x3f;
+                    if (machine == SG1000) {
+                        sprintf(temp, "%d", c & 0x3f);
+                        z80_2op("LD", "A", temp);
+                        z80_2op("LD", "($fffd)", "A");
+                    } else if (machine == MSX) {
+                        sprintf(temp, "%d", c & 0x3f);
+                        z80_2op("LD", "A", temp);
+                        z80_2op("LD", "($7000)", "A");
+                    } else {
+                        if (bank_rom_size == 128)
+                            c |= 0xfff8;
+                        else if (bank_rom_size == 256)
+                            c |= 0xfff0;
+                        else if (bank_rom_size == 512)
+                            c |= 0xffe0;
+                        else
+                            c |= 0xffc0;
+                        sprintf(temp, "($%04x)", c);
+                        z80_2op("LD", "A", temp);
+                    }
+                } else {
+                    int c;
+                    int d;
+                    struct node *tree;
+                    int type;
+
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("not a constant expression in BANK SELECT");
+                        break;
+                    }
+                    c = tree->value;
+                    node_delete(tree);
+                    if (bank_switching == 0)
+                        emit_error("Using BANK without BANK ROM");
+                    d = c;
+                    if (machine == COLECOVISION || machine == COLECOVISION_SGM)
+                        c--;
+                    if (bank_rom_size == 128)
+                        c &= 0x07;
+                    else if (bank_rom_size == 256)
+                        c &= 0x0f;
+                    else if (bank_rom_size == 512)
+                        c &= 0x1f;
+                    else
+                        c &= 0x3f;
+                    bank_finish();
+                    sprintf(temp, "$%05x", c << 14);
+                    z80_1op("FORG", temp);
+                    if (machine == SG1000) {
+                        z80_1op("ORG", "$4000");
+                    } else if (machine == MSX) {
+                        z80_1op("ORG", "$8000");
+                    } else {
+                        z80_1op("ORG", "$c000");
+                    }
+                    bank_current = d;
+                    z80_empty();
+                }
             } else if (macro_search(name) != NULL) {  // Function (macro)
                 if (!replace_macro()) {
                     compile_statement(check_for_else);
@@ -5353,6 +5515,21 @@ int main(int argc, char *argv[])
         exit(2);
     }
     c++;
+
+    output = fopen(TEMPORARY_ASSEMBLER, "w");
+    if (output == NULL) {
+        fprintf(stderr, "Couldn't open '%s' temporary file.\n", TEMPORARY_ASSEMBLER);
+        exit(2);
+    }
+    bank_switching = 0;
+    inside_proc = NULL;
+    frame_drive = NULL;
+    compile_basic();
+    if (bank_switching)
+        bank_finish();
+    fclose(input);
+    fclose(output);
+    
     output = fopen(argv[c], "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
@@ -5364,7 +5541,17 @@ int main(int argc, char *argv[])
     fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
     fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
-
+    fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
+    fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
+    fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
+    
+    if (bank_switching) {
+        if (machine == COLECOVISION) {
+            fprintf(output, "\tforg $%05x\n", bank_rom_size * 0x0400 - 0x4000);
+        } else {
+            fprintf(output, "\tforg $00000\n");
+        }
+    }
     prologue = fopen("cvbasic_prologue.asm", "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
@@ -5374,14 +5561,17 @@ int main(int argc, char *argv[])
         fputs(line, output);
     }
     fclose(prologue);
-    inside_proc = NULL;
-    frame_drive = NULL;
-   
-    compile_basic();
+    
+    input = fopen(TEMPORARY_ASSEMBLER, "r");
+    if (input == NULL) {
+        fprintf(stderr, "Unable to reopen '%s'.\n", TEMPORARY_ASSEMBLER);
+        exit(2);
+    }
+    while (fgets(line, sizeof(line) - 1, input)) {
+        fputs(line, output);
+    }
     fclose(input);
-
-    fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
-    fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
+    remove(TEMPORARY_ASSEMBLER);
     
     prologue = fopen("cvbasic_epilogue.asm", "r");
     if (prologue == NULL) {
