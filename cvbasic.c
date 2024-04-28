@@ -5560,7 +5560,16 @@ int main(int argc, char *argv[])
         exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
-        fputs(line, output);
+        p = line;
+        while (*p && isspace(*p))
+            p++;
+        if (memcmp(p, ";CVBASIC MARK DON'T CHANGE", 26) == 0) {  /* Location to replace */
+            if (frame_drive != NULL) {
+                fprintf(output, "\tCALL " LABEL_PREFIX "%s\n", frame_drive->name);
+            }
+        } else {
+            fputs(line, output);
+        }
     }
     fclose(prologue);
     
@@ -5581,16 +5590,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
-        p = line;
-        while (*p && isspace(*p))
-            p++;
-        if (memcmp(p, ";CVBASIC MARK DON'T CHANGE", 26) == 0) {  /* Location to replace */
-            if (frame_drive != NULL) {
-                fprintf(output, "\tCALL " LABEL_PREFIX "%s\n", frame_drive->name);
-            }
-        } else {
-            fputs(line, output);
-        }
+        fputs(line, output);
     }
     fclose(prologue);
     bytes_used = 0;
