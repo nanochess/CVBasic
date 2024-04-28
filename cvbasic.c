@@ -4369,9 +4369,11 @@ void compile_statement(int check_for_else)
                     if (lex == C_NAME && strcmp(name, "ON") == 0) {
                         z80_2op("LD", "HL", "mode");
                         z80_2op("RES", "2", "(HL)");
+                        get_lex();
                     } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
                         z80_2op("LD", "HL", "mode");
                         z80_2op("SET", "2", "(HL)");
+                        get_lex();
                     } else {
                         emit_error("only allowed SPRITE FLICKER ON/OFF");
                     }
