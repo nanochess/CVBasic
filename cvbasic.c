@@ -5274,7 +5274,7 @@ void compile_statement(int check_for_else)
                     if (machine == SG1000) {
                         sprintf(temp, "%d", c & 0x3f);
                         z80_2op("LD", "A", temp);
-                        z80_2op("LD", "($fffd)", "A");
+                        z80_2op("LD", "($fffe)", "A");
                     } else if (machine == MSX) {
                         sprintf(temp, "%d", c & 0x3f);
                         z80_2op("LD", "A", temp);

@@ -1218,7 +1218,7 @@ nmi_handler:
 	ld a,(hl)
     endif
     if SG1000
-	ld ($fffd),a
+	ld ($fffe),a
     endif
     if MSX
 	ld ($7000),a
@@ -1363,7 +1363,7 @@ music_generate:
 	ld a,(de)
     endif
     if SG1000
-        ld ($fffd),a
+        ld ($fffe),a
     endif
     if MSX
 	ld ($7000),a
@@ -2103,7 +2103,7 @@ START:
     endif
     if SG1000
         ld a,1		; Sega mapper
-        ld ($fffd),a
+        ld ($fffe),a
     endif
     if MSX
         ld a,1		; ASCII 16K
