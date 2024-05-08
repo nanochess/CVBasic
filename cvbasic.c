@@ -428,6 +428,12 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
     struct node *new_node;
     struct node *extract;
 
+    if (type == N_MINUS16) {    /* Replace SBC with ADD */
+        if (right->type == N_NUM16) {
+            right->value = (65536 - right->value) & 0xffff;
+            type = N_PLUS16;
+        }
+    }
     switch (type) {
         case N_REDUCE16:    /* Reduce a 16-bit value to 8-bit */
             if (left->type == N_NUM16) {
@@ -968,11 +974,21 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "HL", "(cursor)");
             break;
         case N_EXTEND8: /* Extend 8-bit value to 16-bit */
+            if (node->left->type == N_LOAD8) {  /* Reading 8-bit variable */
+                node->left->type = N_LOAD16;
+                node_generate(node->left, 0);
+                node->left->type = N_LOAD8;
+                z80_2op("LD", "H", "0");
+                break;
+            }
             if (node->left->type == N_PEEK8) {    /* If reading 8-bit memory */
-                if (node->left->left->type == N_ADDR) {
-                    /* Cannot optimize it */
-                } else if ((node->left->left->type == N_PLUS16 || node->left->left->type == N_MINUS16) && node->left->left->left->type == N_ADDR && node->left->left->right->type == N_NUM16) {
-                    /* Cannot optimize it */
+                if (node->left->left->type == N_ADDR
+                    || ((node->left->left->type == N_PLUS16 || node->left->left->type == N_MINUS16) && node->left->left->left->type == N_ADDR && node->left->left->right->type == N_NUM16)) {   /* Is it variable? */
+                    node->left->type = N_PEEK16;
+                    node_generate(node->left, 0);
+                    node->left->type = N_PEEK8;
+                    z80_2op("LD", "H", "0");
+                    break;
                 } else {    /* Optimize to avoid LD A,(HL) / LD L,A */
                     node_generate(node->left->left, 0);
                     z80_2op("LD", "L", "(HL)");
@@ -1131,6 +1147,18 @@ void node_generate(struct node *node, int decision)
         case N_PLUS8:   /* 8-bit + */
         case N_MINUS8:  /* 8-bit - */
         case N_MUL8:    /* 8-bit * */
+            if (node->type == N_OR8 && node->left->type == N_JOY1 && node->right->type == N_JOY2) {
+                z80_2op("LD", "HL", "(joy1_data)");
+                z80_2op("LD", "A", "H");
+                z80_1op("OR", "L");
+                break;
+            }
+            if (node->type == N_AND8 && node->left->type == N_KEY1 && node->right->type == N_KEY2) {
+                z80_2op("LD", "HL", "(key1_data)");
+                z80_2op("LD", "A", "H");
+                z80_1op("AND", "L");
+                break;
+            }
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 int c;
                 
@@ -1166,11 +1194,11 @@ void node_generate(struct node *node, int decision)
                 
                 c = node->right->value & 0xff;
                 node_generate(node->left, 0);
-                if (node->type == N_PLUS8 && c == 1) {
+                if (node->type == N_PLUS8 && c == 1 || node->type == N_MINUS8 && c == 255) {
                     z80_1op("INC", "A");
                     break;
                 }
-                if (node->type == N_MINUS8 && c == 1) {
+                if (node->type == N_PLUS8 && c == 255 || node->type == N_MINUS8 && c == 1) {
                     z80_1op("DEC", "A");
                     break;
                 }
@@ -1423,6 +1451,19 @@ void node_generate(struct node *node, int decision)
                     }
                     break;
                 }
+                if (explore != NULL && (explore->value == 0xffff || explore->value == 0xfffe || explore->value == 0xfffd)) {
+                    int c = explore->value;
+                    
+                    if (node->left != explore)
+                        node_generate(node->left, 0);
+                    else
+                        node_generate(node->right, 0);
+                    while (c < 0x10000) {
+                        z80_1op("DEC", "HL");
+                        c++;
+                    }
+                    break;
+                }
             }
             if (node->type == N_MINUS16) {
                 if (node->left->type == N_ADDR) {
@@ -1446,6 +1487,19 @@ void node_generate(struct node *node, int decision)
                     while (c) {
                         z80_1op("DEC", "HL");
                         c--;
+                    }
+                    break;
+                }
+                if (explore != NULL && (explore->value == 0xffff || explore->value == 0xfffe || explore->value == 0xfffd)) {
+                    int c = explore->value;
+                    
+                    if (node->left != explore)
+                        node_generate(node->left, 0);
+                    else
+                        node_generate(node->right, 0);
+                    while (c < 0x10000) {
+                        z80_1op("INC", "HL");
+                        c++;
                     }
                     break;
                 }
@@ -2696,41 +2750,41 @@ struct node *evaluate_level_7(int *type)
                 } else if (strcmp(name, "UP") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 1, NULL, NULL));
                 } else if (strcmp(name, "RIGHT") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 2, NULL, NULL));
                 } else if (strcmp(name, "DOWN") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 4, NULL, NULL));
                 } else if (strcmp(name, "LEFT") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 8, NULL, NULL));
                 } else if (strcmp(name, "BUTTON") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x40, NULL, NULL));
                 } else if (strcmp(name, "BUTTON2") == 0) {
                     get_lex();
                     tree = node_create(N_JOY1, 0, NULL, NULL);
-                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                    tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x80, NULL, NULL));
                 } else if (strcmp(name, "KEY") == 0) {
                     get_lex();
                     tree = node_create(N_KEY1, 0, NULL, NULL);
-                    tree = node_create(N_AND8, 0, tree, node_create(N_KEY2, 1, NULL, NULL));
+                    tree = node_create(N_AND8, 0, tree, node_create(N_KEY2, 0, NULL, NULL));
                 }
             } else {
                 tree = node_create(N_JOY1, 0, NULL, NULL);
-                tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 1, NULL, NULL));
+                tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
             }
             *type = TYPE_8;
             return tree;

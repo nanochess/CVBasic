@@ -363,7 +363,7 @@ The following statements are available:
      Each character is an 8x8 pixel bitmap (represented as 8 BITMAP statements or
      8 constants in a DATA BYTE statement).
 
-     Internally, CVBasic will replicate the date along the 3 display areas so
+     Internally, CVBasic will replicate the data along the 3 display areas so
      the defined characters will appear on the whole screen when required.
 
      The VARPTR expression allows character definition from an offset inside an
