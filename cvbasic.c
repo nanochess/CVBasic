@@ -428,12 +428,6 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
     struct node *new_node;
     struct node *extract;
 
-    if (type == N_MINUS16) {    /* Replace SBC with ADD */
-        if (right->type == N_NUM16) {
-            right->value = (65536 - right->value) & 0xffff;
-            type = N_PLUS16;
-        }
-    }
     switch (type) {
         case N_REDUCE16:    /* Reduce a 16-bit value to 8-bit */
             if (left->type == N_NUM16) {
@@ -1480,10 +1474,7 @@ void node_generate(struct node *node, int decision)
                 if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 3)) {
                     int c = explore->value;
                     
-                    if (node->left != explore)
-                        node_generate(node->left, 0);
-                    else
-                        node_generate(node->right, 0);
+                    node_generate(node->left, 0);
                     while (c) {
                         z80_1op("DEC", "HL");
                         c--;
@@ -1493,14 +1484,18 @@ void node_generate(struct node *node, int decision)
                 if (explore != NULL && (explore->value == 0xffff || explore->value == 0xfffe || explore->value == 0xfffd)) {
                     int c = explore->value;
                     
-                    if (node->left != explore)
-                        node_generate(node->left, 0);
-                    else
-                        node_generate(node->right, 0);
+                    node_generate(node->left, 0);
                     while (c < 0x10000) {
                         z80_1op("INC", "HL");
                         c++;
                     }
+                    break;
+                }
+                if (explore != NULL) {
+                    node_generate(node->left, 0);
+                    sprintf(temp, "%d", (0x10000 - explore->value) & 0xffff);
+                    z80_2op("LD", "DE", temp);
+                    z80_2op("ADD", "HL", "DE");
                     break;
                 }
             }
