@@ -41,19 +41,21 @@ Using CVBasic to compile a Colecovision Super Game Module program:
 
 The current official version is v0.5.0.
 
-Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative.
-
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
+
+The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD)
 
 
 ### Acknowledgments
 
 Thanks to the following members of Atariage for contributing valuable suggestions:
 
+    abeker
     aotta
     ARTRAG
     carlsson
     CrazyBoss
+    drfloyd
     gemintronic
     Jess Ragan
     Kamshaft
@@ -61,6 +63,7 @@ Thanks to the following members of Atariage for contributing valuable suggestion
     pixelboy
     SiRioKD
     Tarzilla
+    Tony Cruise
     youki
 
 ### Supporting the developer

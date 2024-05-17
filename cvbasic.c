@@ -2776,6 +2776,8 @@ struct node *evaluate_level_7(int *type)
                     get_lex();
                     tree = node_create(N_KEY1, 0, NULL, NULL);
                     tree = node_create(N_AND8, 0, tree, node_create(N_KEY2, 0, NULL, NULL));
+                } else {
+                    emit_error("Wrong field for CONT");
                 }
             } else {
                 tree = node_create(N_JOY1, 0, NULL, NULL);
@@ -2817,6 +2819,8 @@ struct node *evaluate_level_7(int *type)
                 } else if (strcmp(name, "KEY") == 0) {
                     get_lex();
                     tree = node_create(N_KEY1, 0, NULL, NULL);
+                } else {
+                    emit_error("Wrong field for CONT1");
                 }
             } else {
                 tree = node_create(N_JOY1, 0, NULL, NULL);
@@ -2857,6 +2861,8 @@ struct node *evaluate_level_7(int *type)
                 } else if (strcmp(name, "KEY") == 0) {
                     get_lex();
                     tree = node_create(N_KEY2, 0, NULL, NULL);
+                } else {
+                    emit_error("Wrong field for CONT2");
                 }
             } else {
                 tree = node_create(N_JOY2, 0, NULL, NULL);
@@ -5541,9 +5547,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
-        fprintf(stderr, "Many thanks to Albert, aotta, artrag, carlsson, CrazyBoss,\n");
-        fprintf(stderr, "gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD,\n");
-        fprintf(stderr, "Tarzilla, and youki.\n");
+        fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, carlsson,\n");
+        fprintf(stderr, "CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi,\n");
+        fprintf(stderr, "pixelboy, SiRioKD, Tarzilla, Tony Cruise, and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }

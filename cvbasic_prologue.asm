@@ -21,6 +21,8 @@
 	;                             Shorter mode setting subroutines.
 	; Revision date: Apr/26/2024. Interruption handler saves current bank.
 	; Revision date: Apr/27/2024. Music player now supports bank switching.
+	; Revision date: May/17/2024. Added delay for SG1000 and SC3000 controller
+	;                             support with keyboard (code by SiRioKD)
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -1022,8 +1024,49 @@ nmi_handler:
 	ld (key2_data),a
     endif
     if SG1000
-        ld b,$ff
-        in a,(JOY1)
+	ld b,$ff
+	in a,(JOY1)
+	ld c,a
+	ld a,$07
+	out ($de),a
+	in a,($de)
+	cp 7
+	jr nz,.sg1000
+	ld a,$04
+	out ($de),a
+	in a,($dc)
+	bit 5,a		; Keyboard down.
+	jr nz,$+4
+	res 1,c
+	ld a,$05
+	out ($de),a
+	in a,($dc)
+	bit 5,a		; Keyboard left.
+	jr nz,$+4
+	res 2,c
+	ld a,$06
+	out ($de),a
+	in a,($dc)
+	bit 5,a		; Keyboard right.
+	jr nz,$+4
+	res 3,c
+	bit 6,a		; Keyboard up.
+	jr nz,$+4
+	res 0,c
+	ld a,$02
+	out ($de),a
+	in a,($dc)
+	bit 4,a		; Keyboard Ins
+	jr nz,$+4
+	res 4,c
+	ld a,$03
+	out ($de),a
+	in a,($dc)
+	bit 4,a		; Keyboard Del
+	jr nz,$+4
+	res 5,c
+.sg1000:
+	ld a,c
         bit 0,a
         jr nz,$+4
         res 0,b
@@ -2083,6 +2126,28 @@ unpack:
 
 START:
     if SG1000
+	; Contributed by SiRioKD
+	; >>> START
+	ld a,$9F	; Turn off PSG
+	out (PSG),a
+	ld a,$BF	
+	out (PSG),a
+	ld a,$DF
+	out (PSG),a
+	ld a,$FF
+	out (PSG),a	
+
+	; Wait for VDP ready (around 1000 ms)
+	ld b,11
+	ld de,$FFFF
+.delay1:
+	ld hl,$39DE
+.delay2:
+	add hl,de
+	jr c,.delay2
+	djnz .delay1
+
+	; END <<<
 	ld a,$92	; Setup 8255 for SC3000.
 	out ($df),a
 	ld a,$07	; Read joysticks instead of keyboard.
