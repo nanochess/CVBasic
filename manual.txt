@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Apr/27/2024.
+Last revision: May/17/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -762,6 +762,11 @@ The following statements are available:
                            Notice that the instrument waveforms can be altered
                            by modifying the cvbasic_epilogue.asm file for your
                            program.
+
+                           Notice the bass instrument reduces two octaves your
+                           current note, anything under octave 4 will be
+                           silent with Colecovision SN76489 (not applies to
+                           MSX AY-3-8910)
 
                            Also, the programmer can put S to sustain previous note,
                            or can put - for silence.
