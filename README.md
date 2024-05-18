@@ -53,6 +53,7 @@ Thanks to the following members of Atariage for contributing valuable suggestion
     abeker
     aotta
     ARTRAG
+    atari2600land
     carlsson
     CrazyBoss
     drfloyd

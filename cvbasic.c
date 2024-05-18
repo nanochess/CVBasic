@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.5.0 Apr/27/2024"
+#define VERSION "v0.5.1 May/17/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -5600,9 +5600,10 @@ int main(int argc, char *argv[])
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
-        fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, carlsson,\n");
-        fprintf(stderr, "CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi,\n");
-        fprintf(stderr, "pixelboy, SiRioKD, Tarzilla, Tony Cruise, and youki.\n");
+        fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, atari2600land,\n");
+        fprintf(stderr, "carlsson, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
+        fprintf(stderr, "Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise,\n");
+        fprintf(stderr, "and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }
