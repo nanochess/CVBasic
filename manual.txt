@@ -293,6 +293,26 @@ The following statements are available:
      Waits for the next frame interruption (1/60 of a second for NTSC or 1/50
      of a second for PAL)
 
+  OPTION WARNINGS ON
+  OPTION WARNINGS OFF
+
+     Enable/disable the compilation warnings. Note that if you disable warnings
+     at the end of your program, you won't have the list of non-used variables.
+
+  OPTION EXPLICIT
+  OPTION EXPLICIT ON
+  OPTION EXPLICIT OFF
+
+     Makes it mandatory to declare each variable with DIM before said variable
+     can be used.
+
+  DIM variable
+  DIM variable[,variable]
+  
+     Declares a variable.
+     
+     Useful in combination with OPTION EXPLICIT.
+     
   DIM var(size)
   
      Creates an array of data called 'var' of 'size' elements.

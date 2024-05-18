@@ -59,6 +59,9 @@ char line[MAX_LINE_SIZE];
 
 int next_local = 1;
 
+int option_explicit;
+int option_warnings;
+
 enum lexical_component {
     C_END, C_NAME,
     C_STRING, C_LABEL, C_NUM,
@@ -221,6 +224,8 @@ void emit_error(char *string)
  */
 void emit_warning(char *string)
 {
+    if (!option_warnings)
+        return;
     fprintf(stderr, "Warning: %s at line %d (%s)\n", string, current_line, current_file);
 }
 
@@ -2291,6 +2296,16 @@ void get_lex(void) {
 }
 
 /*
+ ** Check if explicit declaration is needed
+ */
+void check_for_explicit(char *name) {
+    if (!option_explicit)
+        return;
+    sprintf(temp, "variable '%s' not defined previously", name);
+    emit_error(temp);
+}
+
+/*
  ** Extend types
  */
 int extend_types(struct node **node1, int type1, struct node **node2, int type2)
@@ -2980,6 +2995,7 @@ struct node *evaluate_level_7(int *type)
                 label = NULL;
             }
             if (label == NULL) {
+                check_for_explicit(name);
                 label = label_add(name);
                 if (name[0] == '#')
                     label->used = TYPE_16;
@@ -3099,6 +3115,7 @@ struct node *evaluate_level_7(int *type)
         if (label == NULL) {
             char buffer[MAX_LINE_SIZE];
             
+            check_for_explicit(name);
             label = label_add(name);
             if (name[0] == '#')
                 label->used = TYPE_16;
@@ -3382,6 +3399,7 @@ void compile_assignment(int is_read)
     if (label == NULL) {
         char buffer[MAX_LINE_SIZE];
        
+        check_for_explicit(name);
         label = label_add(name);
         if (name[0] == '#')
             label->used = TYPE_16;
@@ -4089,6 +4107,7 @@ void compile_statement(int check_for_else)
                                             label = NULL;
                                         }
                                         if (label == NULL) {
+                                            check_for_explicit(name);
                                             label = label_add(name);
                                             if (name[0] == '#')
                                                 label->used = TYPE_16;
@@ -4579,15 +4598,20 @@ void compile_statement(int check_for_else)
                         } else {
                             get_lex();
                         }
+                        new_array = array_search(array);
+                        if (new_array != NULL) {
+                            emit_error("array already defined");
+                        } else {
+                            new_array = array_add(array);
+                            new_array->length = c;
+                        }
                     } else {
-                        emit_error("missing left parenthesis in DIM");
-                    }
-                    new_array = array_search(array);
-                    if (new_array != NULL) {
-                        emit_error("array already defined");
-                    } else {
-                        new_array = array_add(array);
-                        new_array->length = c;
+                        label = label_add(array);
+                        if (array[0] == '#')
+                            label->used = TYPE_16;
+                        else
+                            label->used = TYPE_8;
+                        label->used |= LABEL_IS_VARIABLE;
                     }
                     if (lex != C_COMMA)
                         break;
@@ -5285,6 +5309,35 @@ void compile_statement(int check_for_else)
                         }
                     }
                 }
+            } else if (strcmp(name, "OPTION") == 0) {
+                get_lex();
+                if (lex != C_NAME) {
+                    emit_error("required name after OPTION");
+                } else if (strcmp(name, "EXPLICIT") == 0) {
+                    get_lex();
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        get_lex();
+                        option_explicit = 1;
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        get_lex();
+                        option_explicit = 0;
+                    } else {
+                        option_explicit = 1;
+                    }
+                } else if (strcmp(name, "WARNINGS") == 0) {
+                    get_lex();
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        get_lex();
+                        option_warnings = 1;
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        get_lex();
+                        option_warnings = 0;
+                    } else {
+                        emit_error("missing ON/OFF in OPTION WARNINGS");
+                    }
+                } else {
+                    emit_error("non-recognized OPTION");
+                }
             } else if (strcmp(name, "BANK") == 0) {
                 get_lex();
                 if (lex == C_NAME && strcmp(name, "ROM") == 0) {
@@ -5581,6 +5634,8 @@ int main(int argc, char *argv[])
         exit(2);
     }
     bank_switching = 0;
+    option_explicit = 0;
+    option_warnings = 1;
     inside_proc = NULL;
     frame_drive = NULL;
     compile_basic();
@@ -5677,10 +5732,12 @@ int main(int argc, char *argv[])
                 
                 /* Warns of variables only read or only written */
                 if ((label->used & LABEL_VAR_ACCESS) == LABEL_VAR_READ) {
-                    fprintf(stderr, "Warning: variable '%s' read but never assigned\n", label->name);
+                    if (option_warnings)
+                        fprintf(stderr, "Warning: variable '%s' read but never assigned\n", label->name);
                 }
                 if ((label->used & LABEL_VAR_ACCESS) == LABEL_VAR_WRITE) {
-                    fprintf(stderr, "Warning: variable '%s' assigned but never read\n", label->name);
+                    if (option_warnings)
+                        fprintf(stderr, "Warning: variable '%s' assigned but never read\n", label->name);
                 }
                 
             }
