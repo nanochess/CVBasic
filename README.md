@@ -1,4 +1,4 @@
-# CVBasic compiler v0.5.0
+# CVBasic compiler v0.5.1
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -39,7 +39,7 @@ Using CVBasic to compile a Colecovision Super Game Module program:
 
 ### Notes
 
-The current official version is v0.5.0.
+The current official version is v0.5.1.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
