@@ -449,7 +449,55 @@ _mul16:
 	jp nz,.1
 	ret
 
+	; 16-bit signed modulo.
+	; hl = hl % de
+_mod16s:
+	ld a,h
+	or a
+	push af
+	bit 7,h
+	call nz,_neg16
+	ex de,hl
+	bit 7,h
+	call nz,_neg16
+	ex de,hl
+	call _mod16
+	pop af
+	ret p
+	jp _neg16
+
+	; 16-bit signed division.
+	; hl = hl / de
+_div16s:
+	ld a,h
+	xor d
+	push af
+	bit 7,h
+	call nz,_neg16
+	ex de,hl
+	bit 7,h
+	call nz,_neg16
+	ex de,hl
+	call _div16
+	pop af
+	ret p
+	jp _neg16
+
+_abs16:
+	bit 7,h
+	ret z
+_neg16:
+	ld a,h
+	cpl
+	ld h,a
+	ld a,l
+	cpl
+	ld l,a
+	inc hl
+	ret
+
 	; Fast 16-bit division.
+	; hl = hl / de
 _div16:
 	ld b,h
 	ld c,l
@@ -489,18 +537,6 @@ _mod16:
 	ccf
 	dec a
 	jp nz,.1
-	ret
-
-_abs16:
-	bit 7,h
-	ret z
-	ld a,h
-	cpl
-	ld h,a
-	ld a,l
-	cpl
-	ld l,a
-	inc hl
 	ret
 
 _sgn16:

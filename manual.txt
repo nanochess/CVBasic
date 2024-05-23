@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: May/17/2024.
+Last revision: May/22/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -20,7 +20,14 @@ software.
 All trademarks are property of their respective owners.
 
 
->>>>>>>>>>>>>>  Description
+>>>>>>>>>>>>>>  Changes in this version
+
+v0.5.1 May/22/2024  o Added SIGNED and UNSIGNED keywords to tag variables
+                      (both 8-bit and 16-bit) and enable signed comparisons,
+                      division, and modulo.
+
+
+>>>>>>>>>>>>>>. Description
 
 CVBasic is an integer BASIC compiler for Colecovision, MSX, and Sega SG1000. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
@@ -31,8 +38,6 @@ Platforms requirements:
 
 The current limitations are:
   o CVBasic won't warn you if you exceed the 1K of RAM of Colecovision.
-  o Division and modulo are unsigned.
-  o All comparisons are unsigned.
   o ASM cannot be used inside DEF FN.
   o Using PRINT for numbers always show numbers as unsigned from 0 to 65535.
 
@@ -97,6 +102,22 @@ The following statements are available:
   
      Everything between REM and the end of the line is treated by the compiler
      as a comment.
+
+  SIGNED name[,name]
+  
+     Indicates that names are signed variables/arrays.
+
+     This allows to use of signed comparisons, division, and modulo. Notice this
+     adds extra code to extend sign on operations, and do signed comparisons.
+
+     Typically you can develop your programs without using this keyword, but it's
+     available if you really need it.
+
+  UNSIGNED name[,name]
+  
+     Indicates that names are unsigned variables/arrays.
+
+     This is the default behavior of variables/arrays in CVBasic.
 
   CONST [name]=[constant expression]
   

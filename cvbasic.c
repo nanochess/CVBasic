@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.5.1 May/17/2024"
+#define VERSION "v0.5.1 May/22/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -87,11 +87,19 @@ struct label {
     char name[1];
 };
 
+/*
+ ** These flags are used to keep types when evaluating expressions, but also
+ ** for variables (TYPE_SIGNED isn't keep in variables or arrays, instead in
+ ** a separate signedness definition table).
+ */
 #define MAIN_TYPE       0x03
 #define TYPE_8          0x00
 #define TYPE_16         0x01
-#define TYPE_UNSIGNED   0x04
+#define TYPE_SIGNED     0x04
 
+/*
+ ** These flags are used in labels
+ */
 #define LABEL_USED      0x10
 #define LABEL_DEFINED   0x20
 #define LABEL_CALLED_BY_GOTO    0x40
@@ -111,11 +119,19 @@ struct label *array_hash[HASH_PRIME];
 struct label *inside_proc;
 struct label *frame_drive;
 
+struct signedness {
+    struct signedness *next;
+    int sign;
+    char name[1];
+};
+
 struct constant {
     struct constant *next;
     int value;
     char name[1];
 };
+
+struct signedness *signed_hash[HASH_PRIME];
 
 struct constant *constant_hash[HASH_PRIME];
 
@@ -150,15 +166,45 @@ struct macro_arg accumulated;
 int replace_macro(void);
 struct node *process_usr(int);
 
+char *node_types[] = {
+    "N_OR8", "N_OR16",
+    "N_XOR8", "N_XOR16",
+    "N_AND8", "N_AND16",
+    "N_EQUAL8", "N_EQUAL16", "N_NOTEQUAL8", "N_NOTEQUAL16",
+    "N_LESS8", "N_LESS16", "N_LESSEQUAL8", "N_LESSEQUAL16",
+    "N_GREATER8", "N_GREATER16", "N_GREATEREQUAL8", "N_GREATEREQUAL16",
+    "N_LESS8S", "N_LESS16S", "N_LESSEQUAL8S", "N_LESSEQUAL16S",
+    "N_GREATER8S", "N_GREATER16S", "N_GREATEREQUAL8S", "N_GREATEREQUAL16S",
+    "N_PLUS8", "N_PLUS16", "N_MINUS8", "N_MINUS16",
+    "N_MUL8", "N_MUL16", "N_DIV16", "N_DIV16S", "N_MOD16", "N_MOD16S",
+    "N_NEG8", "N_NEG16", "N_NOT8", "N_NOT16",
+    "N_EXTEND8", "N_EXTEND8S", "N_REDUCE16",
+    "N_LOAD8", "N_LOAD16",
+    "N_ASSIGN8", "N_ASSIGN16",
+    "N_READ8", "N_READ16",
+    "N_NUM8", "N_NUM16",
+    "N_PEEK8", "N_PEEK16", "N_VPEEK", "N_INP", "N_ABS16", "N_SGN16",
+    "N_JOY1", "N_JOY2", "N_KEY1", "N_KEY2",
+    "N_RANDOM", "N_FRAME", "N_MUSIC", "N_NTSC", "N_POS",
+    "N_ADDR",
+    "N_USR",
+};
+
 enum node_type {
     N_OR8, N_OR16,
     N_XOR8, N_XOR16,
     N_AND8, N_AND16,
-    N_EQUAL8, N_EQUAL16, N_NOTEQUAL8, N_NOTEQUAL16, N_LESS8, N_LESS16, N_LESSEQUAL8, N_LESSEQUAL16, N_GREATER8, N_GREATER16, N_GREATEREQUAL8, N_GREATEREQUAL16,
+    
+    N_EQUAL8, N_EQUAL16, N_NOTEQUAL8, N_NOTEQUAL16,
+    N_LESS8, N_LESS16, N_LESSEQUAL8, N_LESSEQUAL16,
+    N_GREATER8, N_GREATER16, N_GREATEREQUAL8, N_GREATEREQUAL16,
+    N_LESS8S, N_LESS16S, N_LESSEQUAL8S, N_LESSEQUAL16S,
+    N_GREATER8S, N_GREATER16S, N_GREATEREQUAL8S, N_GREATEREQUAL16S,
+
     N_PLUS8, N_PLUS16, N_MINUS8, N_MINUS16,
-    N_MUL8, N_MUL16, N_DIV16, N_MOD16,
+    N_MUL8, N_MUL16, N_DIV16, N_DIV16S, N_MOD16, N_MOD16S,
     N_NEG8, N_NEG16, N_NOT8, N_NOT16,
-    N_EXTEND8, N_REDUCE16,
+    N_EXTEND8, N_EXTEND8S, N_REDUCE16,
     N_LOAD8, N_LOAD16,
     N_ASSIGN8, N_ASSIGN16,
     N_READ8, N_READ16,
@@ -176,7 +222,7 @@ struct node {
     struct node *left;
     struct node *right;
     struct label *label;
-    int regs;
+    int x;
 };
 
 int optimized;
@@ -425,6 +471,91 @@ int is_power_of_two(int value)
 }
 
 /*
+ ** Traverse a tree to measure it
+ **
+ ** This algorithm simply assigns horizontal space as needed.
+ ** A better algorithm would center the top node and put subtrees at left and right.
+ */
+void node_traverse(struct node *tree, int y, int *depth, int *width)
+{
+    if (tree->left != NULL && tree->right != NULL) {
+        node_traverse(tree->left, y + 1, depth, width);
+        tree->x = width[0]++;
+        node_traverse(tree->right, y + 1, depth, width);
+    } else if (tree->left != NULL) {
+        node_traverse(tree->left, y + 1, depth, width);
+        tree->x = tree->left->x;
+    } else {
+        tree->x = width[0]++;
+    }
+    if (y > *depth)
+        *depth = y;
+}
+
+/*
+ ** Get the column for a node
+ */
+int node_column(int x, int width)
+{
+    return (32.0 / width + x * 64 / width) + 8;
+}
+
+/*
+ ** Display a tree
+ */
+void node_display(struct node *tree, int y, int max, char *report)
+{
+    int real_x;
+    int real_y;
+    int c;
+    char *p;
+    char *s;
+    
+    real_x = node_column(tree->x, max);
+    real_y = y * 2;
+    s = node_types[tree->type];
+    p = report + real_y * 80 + real_x - (strlen(s) + 1) / 2;
+    while (*s)
+        *p++ = *s++;
+    if (tree->left != NULL && tree->right != NULL) {
+        c = (real_x + node_column(tree->left->x, max) + 1) / 2;
+        report[(real_y + 1) * 80 + c] = '/';
+        node_display(tree->left, y + 1, max, report);
+        c = (real_x + node_column(tree->right->x, max) + 1) / 2;
+        report[(real_y + 1) * 80 + c] = '\\';
+        node_display(tree->right, y + 1, max, report);
+    } else if (tree->left != NULL) {
+        report[(real_y + 1) * 80 + real_x] = '|';
+        node_display(tree->left, y + 1, max, report);
+    }
+}
+
+/*
+ ** Convert a node to a visual representation
+ */
+void node_visual(struct node *tree)
+{
+    int depth;
+    char *report;
+    int c;
+    int width;
+    int max;
+    
+    width = 0;
+    depth = 0;
+    node_traverse(tree, 0, &depth, &width);
+    if (width < 12)
+        width = 12;
+    report = malloc((80 * (depth + 1) * 2 + 1) * sizeof(char));
+    memset(&report[0], ' ', 80 * (depth + 1) * 2);
+    report[80 * (depth + 1) * 2] = '\0';
+    for (c = 0; c < (depth + 1) * 2; c++)
+        report[79 + 80 * c] = '\n';
+    node_display(tree, 0, width, report);
+    fprintf(stderr, "%s", report);
+}
+
+/*
  ** Node creation.
  ** It also optimizes common patterns of expression node trees.
  */
@@ -433,6 +564,49 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
     struct node *new_node;
     struct node *extract;
 
+    /*
+     ** Convert signed operations to simpler operations
+     ** This way no special code is needed in node_generate.
+     */
+    switch (type) {
+        case N_LESS8S:
+        case N_LESSEQUAL8S:
+        case N_GREATER8S:
+        case N_GREATEREQUAL8S:
+            left = node_create(N_XOR8, 0, left, node_create(N_NUM8, 0x80, NULL, NULL));
+            right = node_create(N_XOR8, 0, right, node_create(N_NUM8, 0x80, NULL, NULL));
+            if (type == N_LESS8S)
+                type = N_LESS8;
+            else if (type == N_LESSEQUAL8S)
+                type = N_LESSEQUAL8;
+            else if (type == N_GREATER8S)
+                type = N_GREATER8;
+            else if (type == N_GREATEREQUAL8S)
+                type = N_GREATEREQUAL8;
+            break;
+        case N_LESS16S:
+        case N_LESSEQUAL16S:
+        case N_GREATER16S:
+        case N_GREATEREQUAL16S:
+            left = node_create(N_XOR16, 0, left, node_create(N_NUM16, 0x8000, NULL, NULL));
+            right = node_create(N_XOR16, 0, right, node_create(N_NUM16, 0x8000, NULL, NULL));
+            if (type == N_LESS16S)
+                type = N_LESS16;
+            else if (type == N_LESSEQUAL16S)
+                type = N_LESSEQUAL16;
+            else if (type == N_GREATER16S)
+                type = N_GREATER16;
+            else if (type == N_GREATEREQUAL16S)
+                type = N_GREATEREQUAL16;
+            break;
+        default:
+            /* We are good :) */
+            break;
+    }
+    
+    /*
+     ** Do constant optimization and optimize some trees.
+     */
     switch (type) {
         case N_REDUCE16:    /* Reduce a 16-bit value to 8-bit */
             if (left->type == N_NUM16) {
@@ -450,7 +624,7 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
              **        |
              **    N_EXTEND8
              */
-            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16 || (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) && left->left->type == N_EXTEND8 && left->right->type == N_NUM16) {
+            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16 || (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) && (left->left->type == N_EXTEND8 || left->left->type == N_EXTEND8S) && left->right->type == N_NUM16) {
                 if (left->type == N_PLUS16)
                     left->type = N_PLUS8;
                 else if (left->type == N_MINUS16)
@@ -512,6 +686,15 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
             if (left->type == N_NUM8) {
                 left->type = N_NUM16;
                 left->value &= 255;
+                return left;
+            }
+            break;
+        case N_EXTEND8S: /* Extend 8-bit signed expression to 16-bit */
+            if (left->type == N_NUM8) {
+                left->type = N_NUM16;
+                left->value &= 255;
+                if (left->value >= 128)
+                    left->value |= 0xff00;
                 return left;
             }
             break;
@@ -827,6 +1010,10 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
         default:
             break;
     }
+    
+    /*
+     ** Optimize difficult comparisons with constants to use simpler comparisons.
+     */
     switch (type) {
         case N_LESSEQUAL8:  /* 8-bit <= */
             if (right->type == N_NUM8 && right->value < 255) {
@@ -866,36 +1053,6 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
     new_node->right = right;
     new_node->label = NULL;
     return new_node;
-}
-
-#define MAX_REGS  100
-
-/*
- ** Label nodes with an estimate of used registers
- */
-void node_label(struct node *node)
-{
-    int c;
-    int d;
-    
-    if (node->left == NULL && node->right == NULL) {
-        node->regs = 1;
-        return;
-    }
-    if (node->right == NULL) {
-        node_label(node->left);
-        node->regs = node->left->regs;
-        return;
-    }
-    node_label(node->left);
-    node_label(node->right);
-    c = node->left->regs;
-    d = node->right->regs;
-    if (d > c)
-        c = d;
-    else if (c == d)
-        c++;
-    node->regs = c;
 }
 
 /*
@@ -971,6 +1128,13 @@ void node_generate(struct node *node, int decision)
             break;
         case N_POS:     /* Get screen cursor position */
             z80_2op("LD", "HL", "(cursor)");
+            break;
+        case N_EXTEND8S:    /* Extend 8-bit signed value to 16-bit */
+            node_generate(node->left, 0);
+            z80_2op("LD", "L", "A");
+            z80_noop("RLA");
+            z80_2op("SBC", "A", "A");
+            z80_2op("LD", "H", "A");
             break;
         case N_EXTEND8: /* Extend 8-bit value to 16-bit */
             if (node->left->type == N_LOAD8) {  /* Reading 8-bit variable */
@@ -1809,6 +1973,10 @@ void node_generate(struct node *node, int decision)
                 z80_1op("CALL", "_div16");
             } else if (node->type == N_MOD16) {
                 z80_1op("CALL", "_mod16");
+            } else if (node->type == N_DIV16S) {
+                z80_1op("CALL", "_div16s");
+            } else if (node->type == N_MOD16S) {
+                z80_1op("CALL", "_mod16s");
             }
             break;
     }
@@ -1875,6 +2043,44 @@ struct label *function_add(char *name)
     new_one->length = 0;
     strcpy(new_one->name, name);
     previous = &function_hash[label_hash_value(name)];
+    new_one->next = *previous;
+    *previous = new_one;
+    return new_one;
+}
+
+/*
+ ** Search for a name with defined signedness
+ */
+struct signedness *signed_search(char *name)
+{
+    struct signedness *explore;
+    
+    explore = signed_hash[label_hash_value(name)];
+    while (explore != NULL) {
+        if (strcmp(explore->name, name) == 0)
+            return explore;
+        explore = explore->next;
+    }
+    return NULL;
+}
+
+/*
+ ** Add a name with defined signedness
+ */
+struct signedness *signed_add(char *name)
+{
+    struct signedness **previous;
+    struct signedness *explore;
+    struct signedness *new_one;
+    
+    new_one = malloc(sizeof(struct signedness) + strlen(name));
+    if (new_one == NULL) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+    new_one->sign = 0;
+    strcpy(new_one->name, name);
+    previous = &signed_hash[label_hash_value(name)];
     new_one->next = *previous;
     *previous = new_one;
     return new_one;
@@ -2307,33 +2513,56 @@ void check_for_explicit(char *name) {
 
 /*
  ** Extend types
+ **
+ ** The signed flag propagates.
  */
 int extend_types(struct node **node1, int type1, struct node **node2, int type2)
 {
+    int final_type;
+    
+    final_type = TYPE_16;   /* Promote to 16-bit */
     if ((type1 & MAIN_TYPE) == TYPE_8) {
-        *node1 = node_create(N_EXTEND8, 0, *node1, NULL);
+        if (type1 & TYPE_SIGNED) {
+            *node1 = node_create(N_EXTEND8S, 0, *node1, NULL);
+        } else {
+            *node1 = node_create(N_EXTEND8, 0, *node1, NULL);
+        }
     }
+    if (type1 & TYPE_SIGNED)
+        final_type |= TYPE_SIGNED;
     if ((type2 & MAIN_TYPE) == TYPE_8) {
-        *node2 = node_create(N_EXTEND8, 0, *node2, NULL);
+        if (type2 & TYPE_SIGNED) {
+            *node2 = node_create(N_EXTEND8S, 0, *node2, NULL);
+        } else {
+            *node2 = node_create(N_EXTEND8, 0, *node2, NULL);
+        }
     }
-    return TYPE_16;   /* Promote to 16-bit */
+    if (type2 & TYPE_SIGNED)
+        final_type |= TYPE_SIGNED;
+    return final_type;
 }
 
 /*
  ** Mix types
+ **
+ ** The signed flag propagates.
  */
 int mix_types(struct node **node1, int type1, struct node **node2, int type2)
 {
+    int c;
+    
+    c = (type1 & TYPE_SIGNED) | (type2 & TYPE_SIGNED);
     if ((type1 & MAIN_TYPE) == TYPE_8 && (type2 & MAIN_TYPE) == TYPE_8)   /* Both are 8-bit */
-        return TYPE_8;
+        return TYPE_8 | c;
     if ((type1 & MAIN_TYPE) == TYPE_16 && (type2 & MAIN_TYPE) == TYPE_16)   /* Both are 16-bit */
-        return TYPE_16;
+        return TYPE_16 | c;
     return extend_types(node1, type1, node2, type2);
 }
 
 /*
  ** Evaluates an expression
  ** Result in A or HL.
+ ** Doesn't need to propagate signed flag because the expression result is used immediately.
  */
 int evaluate_expression(int cast, int to_type, int label)
 {
@@ -2347,11 +2576,11 @@ int evaluate_expression(int cast, int to_type, int label)
             tree = node_create(N_REDUCE16, 0, tree, NULL);
             type = TYPE_8;
         } else if (to_type == TYPE_16 && (type & MAIN_TYPE) == TYPE_8) {
-            tree = node_create(N_EXTEND8, 0, tree, NULL);
+            tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
             type = TYPE_16;
         }
     }
-    if (label != 0) {   /* Decision with small AND */
+    if (label != 0) {   /* Decision with 8-bit AND */
         if (tree->type == N_AND16 && tree->right->type == N_NUM16
             && (tree->right->value & ~0xff) == 0 && tree->left->type == N_LOAD16) {
             tree->left->type = N_LOAD8;
@@ -2371,10 +2600,11 @@ int evaluate_expression(int cast, int to_type, int label)
         return type;
     }
     
+/*    node_visual(tree);*/  /* Debugging */
+    
     if (cast == 2)
         return type;
     
-    node_label(tree);
     node_generate(tree, label);
     node_delete(tree);
     if (label != 0 && !optimized) {
@@ -2476,66 +2706,54 @@ struct node *evaluate_level_3(int *type)
     struct node *left;
     struct node *right;
     int type2;
-    
+    enum node_type operation8;
+    enum node_type operation16;
+    enum node_type operation8s;
+    enum node_type operation16s;
+
     left = evaluate_level_4(type);
     while (1) {
         if (lex == C_EQUAL) {
-            get_lex();
-            right = evaluate_level_4(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_EQUAL8, 0, left, right);
-            else
-                left = node_create(N_EQUAL16, 0, left, right);
-            *type = TYPE_8;
+            operation8 = N_EQUAL8;
+            operation16 = N_EQUAL16;
+            operation8s = N_EQUAL8;
+            operation16s = N_EQUAL16;
         } else if (lex == C_NOTEQUAL) {
-            get_lex();
-            right = evaluate_level_4(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_NOTEQUAL8, 0, left, right);
-            else
-                left = node_create(N_NOTEQUAL16, 0, left, right);
-            *type = TYPE_8;
+            operation8 = N_NOTEQUAL8;
+            operation16 = N_NOTEQUAL16;
+            operation8s = N_NOTEQUAL8;
+            operation16s = N_NOTEQUAL16;
         } else if (lex == C_LESS) {
-            get_lex();
-            right = evaluate_level_4(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_LESS8, 0, left, right);
-            else
-                left = node_create(N_LESS16, 0, left, right);
-            *type = TYPE_8;
+            operation8 = N_LESS8;
+            operation16 = N_LESS16;
+            operation8s = N_LESS8S;
+            operation16s = N_LESS16S;
         } else if (lex == C_LESSEQUAL) {
-            get_lex();
-            right = evaluate_level_4(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_LESSEQUAL8, 0, left, right);
-            else
-                left = node_create(N_LESSEQUAL16, 0, left, right);
-            *type = TYPE_8;
+            operation8 = N_LESSEQUAL8;
+            operation16 = N_LESSEQUAL16;
+            operation8s = N_LESSEQUAL8S;
+            operation16s = N_LESSEQUAL16S;
         } else if (lex == C_GREATER) {
-            get_lex();
-            right = evaluate_level_4(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_GREATER8, 0, left, right);
-            else
-                left = node_create(N_GREATER16, 0, left, right);
-            *type = TYPE_8;
+            operation8 = N_GREATER8;
+            operation16 = N_GREATER16;
+            operation8s = N_GREATER8S;
+            operation16s = N_GREATER16S;
         } else if (lex == C_GREATEREQUAL) {
-            get_lex();
-            right = evaluate_level_4(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_GREATEREQUAL8, 0, left, right);
-            else
-                left = node_create(N_GREATEREQUAL16, 0, left, right);
-            *type = TYPE_8;
+            operation8 = N_GREATEREQUAL8;
+            operation16 = N_GREATEREQUAL16;
+            operation8s = N_GREATEREQUAL8S;
+            operation16s = N_GREATEREQUAL16S;
         } else {
             break;
         }
+        get_lex();
+        right = evaluate_level_4(&type2);
+        *type = mix_types(&left, *type, &right, type2);
+        if ((*type & MAIN_TYPE) == TYPE_8)
+            left = node_create(*type & TYPE_SIGNED ? operation8s : operation8, 0, left, right);
+        else
+            left = node_create(*type & TYPE_SIGNED ? operation16s : operation16, 0, left, right);
+        *type = TYPE_8;
     }
     return left;
 }
@@ -2594,12 +2812,18 @@ struct node *evaluate_level_5(int *type)
             get_lex();
             right = evaluate_level_6(&type2);
             *type = extend_types(&left, *type, &right, type2);
-            left = node_create(N_DIV16, 0, left, right);
+            if (*type & TYPE_SIGNED)
+                left = node_create(N_DIV16S, 0, left, right);
+            else
+                left = node_create(N_DIV16, 0, left, right);
         } else if (lex == C_MOD) {
             get_lex();
             right = evaluate_level_6(&type2);
             *type = extend_types(&left, *type, &right, type2);
-            left = node_create(N_MOD16, 0, left, right);
+            if (*type & TYPE_SIGNED)
+                left = node_create(N_MOD16S, 0, left, right);
+            else
+                left = node_create(N_MOD16, 0, left, right);
         } else {
             break;
         }
@@ -2644,6 +2868,7 @@ struct node *evaluate_level_7(int *type)
     struct node *tree;
     struct label *label;
     struct constant *constant;
+    struct signedness *sign;
     
     if (lex == C_LPAREN) {
         get_lex();
@@ -2676,7 +2901,7 @@ struct node *evaluate_level_7(int *type)
             get_lex();
             tree = evaluate_level_0(type);
             if ((*type & MAIN_TYPE) == TYPE_8)
-                tree = node_create(N_EXTEND8, 0, tree, NULL);
+                tree = node_create((*type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
             tree = node_create(N_INP, 0, tree, NULL);
             if (lex != C_RPAREN) {
                 emit_error("missing right parenthesis in INP");
@@ -2693,7 +2918,7 @@ struct node *evaluate_level_7(int *type)
             get_lex();
             tree = evaluate_level_0(type);
             if ((*type & MAIN_TYPE) == TYPE_8)
-                tree = node_create(N_EXTEND8, 0, tree, NULL);
+                tree = node_create((*type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
             tree = node_create(N_PEEK8, 0, tree, NULL);
             if (lex != C_RPAREN) {
                 emit_error("missing right parenthesis in PEEK");
@@ -2710,7 +2935,7 @@ struct node *evaluate_level_7(int *type)
             get_lex();
             tree = evaluate_level_0(type);
             if ((*type & MAIN_TYPE) == TYPE_8)
-                tree = node_create(N_EXTEND8, 0, tree, NULL);
+                tree = node_create((*type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
             tree = node_create(N_VPEEK, 0, tree, NULL);
             if (lex != C_RPAREN) {
                 emit_error("missing right parenthesis in VPEEK");
@@ -2726,13 +2951,13 @@ struct node *evaluate_level_7(int *type)
             get_lex();
             tree = evaluate_level_0(type);
             if ((*type & MAIN_TYPE) == TYPE_8)
-                tree = node_create(N_EXTEND8, 0, tree, NULL);
+                tree = node_create((*type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
             tree = node_create(N_ABS16, 0, tree, NULL);
             if (lex != C_RPAREN) {
                 emit_error("missing right parenthesis in ABS");
             }
             get_lex();
-            *type = TYPE_16;
+            *type = TYPE_16;    /* It is unsigned now */
             return tree;
         }
         if (strcmp(name, "SGN") == 0) {
@@ -2742,13 +2967,13 @@ struct node *evaluate_level_7(int *type)
             get_lex();
             tree = evaluate_level_0(type);
             if ((*type & MAIN_TYPE) == TYPE_8)
-                tree = node_create(N_EXTEND8, 0, tree, NULL);
+                tree = node_create((*type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
             tree = node_create(N_SGN16, 0, tree, NULL);
             if (lex != C_RPAREN) {
                 emit_error("missing right parenthesis in SGN");
             }
             get_lex();
-            *type = TYPE_16;
+            *type = TYPE_16 | TYPE_SIGNED;
             return tree;
         }
         if (strcmp(name, "CONT") == 0) {
@@ -3054,11 +3279,15 @@ struct node *evaluate_level_7(int *type)
         if (lex_sneak_peek() == '(') {  /* Indexed access */
             int type2;
             struct node *addr;
+            struct signedness *sign;
             
             if (name[0] == '#')
                 *type = TYPE_16;
             else
                 *type = TYPE_8;
+            sign = signed_search(name);
+            if (sign != NULL && sign->sign == 1)
+                *type |= TYPE_SIGNED;
             label = array_search(name);
             if (label != NULL) {    /* Found array */
             } else {
@@ -3086,7 +3315,7 @@ struct node *evaluate_level_7(int *type)
             if ((type2 & MAIN_TYPE) == TYPE_8) {
                 tree = node_create(N_EXTEND8, 0, tree, NULL);
             }
-            if (*type == TYPE_16) {
+            if ((*type & MAIN_TYPE) == TYPE_16) {
                 tree = node_create(N_MUL16, 0, tree,
                                    node_create(N_NUM16, 2, NULL, NULL));
             }
@@ -3104,6 +3333,11 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_8;
             return node_create(N_NUM8, constant->value & 0xff, NULL, NULL);
         }
+        sign = signed_search(name);
+        if (sign != NULL && sign->sign == 1)
+            *type = TYPE_SIGNED;
+        else
+            *type = 0;
         label = label_search(name);
         if (label != NULL && (label->used & LABEL_IS_VARIABLE) == 0) {
             char buffer[MAX_LINE_SIZE];
@@ -3124,24 +3358,25 @@ struct node *evaluate_level_7(int *type)
             label->used |= LABEL_IS_VARIABLE;
         }
         label->used |= LABEL_VAR_READ;
+        *type |= label->used & MAIN_TYPE;
         get_lex();
-        if ((label->used & MAIN_TYPE) == TYPE_8)
+        if ((*type & MAIN_TYPE) == TYPE_8)
             tree = node_create(N_LOAD8, 0, NULL, NULL);
         else
             tree = node_create(N_LOAD16, 0, NULL, NULL);
         tree->label = label;
-        *type = label->used & MAIN_TYPE;
         return tree;
     }
     if (lex == C_NUM) {
         int temp;
         
         temp = value;
-        get_lex();
         if (name[0] == '1') {
+            get_lex();
             *type = TYPE_8;
             return node_create(N_NUM8, temp & 0xff, NULL, NULL);
         }
+        get_lex();
         *type = TYPE_16;
         return node_create(N_NUM16, temp & 0xffff, NULL, NULL);
     }
@@ -3174,7 +3409,7 @@ struct node *process_usr(int is_call)
         get_lex();
         tree = evaluate_level_0(&type2);
         if ((type2 & MAIN_TYPE) == TYPE_8)
-            tree = node_create(N_EXTEND8, 0, tree, NULL);
+            tree = node_create((type2 & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
         if (lex == C_RPAREN)
             get_lex();
         else
@@ -3324,6 +3559,7 @@ void compile_assignment(int is_read)
     int type;
     int type2;
     struct label *label;
+    struct signedness *sign;
     
     if (lex != C_NAME) {
         emit_error("name required for assignment");
@@ -3337,6 +3573,9 @@ void compile_assignment(int is_read)
             type2 = TYPE_16;
         else
             type2 = TYPE_8;
+        sign = signed_search(name);
+        if (sign != NULL && sign->sign == 1)
+            type2 |= TYPE_SIGNED;
         label = array_search(name);
         if (label == NULL) {    /* Found array */
             emit_error("using array without previous DIM, autoassigning DIM(10)");
@@ -3357,7 +3596,7 @@ void compile_assignment(int is_read)
         addr->label = label;
         if ((type & MAIN_TYPE) == TYPE_8)
             tree = node_create(N_EXTEND8, 0, tree, NULL);
-        if (type2 == TYPE_16) {
+        if ((type2 & MAIN_TYPE) == TYPE_16) {
             tree = node_create(N_MUL16, 0, tree,
                                node_create(N_NUM16, 2, NULL, NULL));
         }
@@ -3373,21 +3612,25 @@ void compile_assignment(int is_read)
             get_lex();
             tree = evaluate_level_0(&type);
         }
-        if (type2 == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-            tree = node_create(N_EXTEND8, 0, tree, NULL);
-        else if (type2 == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+        if ((type2 & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+            tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+        else if ((type2 & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
             tree = node_create(N_REDUCE16, 0, tree, NULL);
-        if (type2 == TYPE_16)
+        if ((type2 & MAIN_TYPE) == TYPE_16)
             tree = node_create(N_ASSIGN16, 0, tree, addr);
-        else if (type2 == TYPE_8)
+        else if ((type2 & MAIN_TYPE) == TYPE_8)
             tree = node_create(N_ASSIGN8, 0, tree, addr);
         tree->label = label;
-        node_label(tree);
         node_generate(tree, 0);
         node_delete(tree);
         return;
     }
     strcpy(assigned, name);
+    sign = signed_search(name);
+    if (sign != NULL && sign->sign == 1)
+        type2 = TYPE_SIGNED;
+    else
+        type2 = 0;
     label = label_search(name);
     if (label != NULL && (label->used & LABEL_IS_VARIABLE) == 0) {
         char buffer[MAX_LINE_SIZE];
@@ -3408,6 +3651,7 @@ void compile_assignment(int is_read)
         label->used |= LABEL_IS_VARIABLE;
     }
     label->used |= LABEL_VAR_WRITE;
+    type2 |= label->used & MAIN_TYPE;
     get_lex();
     if (is_read) {
         tree = node_create(is_read == 1 ? N_READ16 : N_READ8, 0, NULL, NULL);
@@ -3420,17 +3664,16 @@ void compile_assignment(int is_read)
         get_lex();
         tree = evaluate_level_0(&type);
     }
-    if ((label->used & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-        tree = node_create(N_EXTEND8, 0, tree, NULL);
-    else if ((label->used & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+    if ((type2 & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+        tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+    else if ((type2 & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
         tree = node_create(N_REDUCE16, 0, tree, NULL);
-    node_label(tree);
     node_generate(tree, 0);
     node_delete(tree);
     strcpy(temp, "(" LABEL_PREFIX);
     strcat(temp, label->name);
     strcat(temp, ")");
-    if ((label->used & MAIN_TYPE) == TYPE_8) {
+    if ((type2 & MAIN_TYPE) == TYPE_8) {
         z80_2op("LD", temp, "A");
     } else {
         z80_2op("LD", temp, "HL");
@@ -3507,7 +3750,7 @@ void compile_statement(int check_for_else)
                         block = 1;
                         new_loop = malloc(sizeof(struct loop));
                         if (new_loop == NULL) {
-                            fprintf(stderr, "out of memory");
+                            fprintf(stderr, "out of memory\n");
                             exit(1);
                         }
                         new_loop->type = 2;
@@ -3634,6 +3877,7 @@ void compile_statement(int check_for_else)
                 int step_value;
                 int type_var;
                 enum node_type comparison;
+                struct signedness *sign;
                 
                 get_lex();
                 compile_assignment(0);
@@ -3645,7 +3889,7 @@ void compile_statement(int check_for_else)
                 
                 new_loop = malloc(sizeof(struct loop) + strlen(assigned) + 1);
                 if (new_loop == NULL) {
-                    fprintf(stderr, "Out of memory");
+                    fprintf(stderr, "Out of memory\n");
                     exit(1);
                 }
                 strcpy(new_loop->var, assigned);
@@ -3653,6 +3897,9 @@ void compile_statement(int check_for_else)
                     type_var = TYPE_16;
                 else
                     type_var = TYPE_8;
+                sign = signed_search(name);
+                if (sign != NULL && sign->sign == 1)
+                    type_var |= TYPE_SIGNED;
                 label_loop = next_local++;
                 sprintf(temp, INTERNAL_PREFIX "%d", label_loop);
                 z80_label(temp);
@@ -3661,44 +3908,50 @@ void compile_statement(int check_for_else)
                 } else {
                     get_lex();
                     final = evaluate_level_0(&type);
-                    if (type_var == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                        final = node_create(N_EXTEND8, 0, final, NULL);
-                    else if (type_var == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+                    if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+                        final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
+                    else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                         final = node_create(N_REDUCE16, 0, final, NULL);
                     positive = 1;
-                    var = node_create(type_var == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
+                    var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
                     if (lex == C_NAME && strcmp(name, "STEP") == 0) {
                         get_lex();
                         if (lex == C_MINUS) {
                             get_lex();
                             step = evaluate_level_0(&type);
-                            if (type_var == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                                step = node_create(N_EXTEND8, 0, step, NULL);
-                            else if (type_var == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+                            if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+                                step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
+                            else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                                 step = node_create(N_REDUCE16, 0, step, NULL);
                             step = node_create(type_var == TYPE_16 ? N_MINUS16 : N_MINUS8, 0,
                                             var, step);
                             positive = 0;
                         } else {
                             step = evaluate_level_0(&type);
-                            if (type_var == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                                step = node_create(N_EXTEND8, 0, step, NULL);
-                            else if (type_var == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+                            if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+                                step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
+                            else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                                 step = node_create(N_REDUCE16, 0, step, NULL);
                             step = node_create(type_var == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                         }
                     } else {
                         step_value = 1;
-                        step = node_create(type_var == TYPE_16 ? N_NUM16 : N_NUM8, 1, NULL, NULL);
-                        step = node_create(type_var == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
+                        step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_NUM16 : N_NUM8, 1, NULL, NULL);
+                        step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                     }
-                    var = node_create(type_var == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
+                    var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
-                    if (type_var == TYPE_16) {
-                        comparison = positive ? N_GREATER16 : N_LESS16;
+                    if ((type_var & MAIN_TYPE) == TYPE_16) {
+                        if (type_var & TYPE_SIGNED)
+                            comparison = positive ? N_GREATER16S : N_LESS16S;
+                        else
+                            comparison = positive ? N_GREATER16 : N_LESS16;
                     } else {
-                        comparison = positive ? N_GREATER8 : N_LESS8;
+                        if (type_var & TYPE_SIGNED)
+                            comparison = positive ? N_GREATER8S : N_LESS8S;
+                        else
+                            comparison = positive ? N_GREATER8 : N_LESS8;
                     }
                     final = node_create(comparison, 0, var, final);
                 }
@@ -3731,7 +3984,6 @@ void compile_statement(int check_for_else)
                                 emit_error("bad nested NEXT");
                             get_lex();
                         }
-                        node_label(step);
                         node_generate(step, 0);
                         sprintf(temp, "(" LABEL_PREFIX "%s" ")", loops->var);
                         if (loops->var[0] == '#') {
@@ -3741,7 +3993,6 @@ void compile_statement(int check_for_else)
                         }
                         if (final != NULL) {
                             optimized = 0;
-                            node_label(final);
                             node_generate(final, label_loop);
                             if (!optimized) {
                                 z80_1op("OR", "A");
@@ -4537,6 +4788,48 @@ void compile_statement(int check_for_else)
                 z80_1op("CALL", "nmi_off");
                 z80_1op("CALL", "WRTVDP");
                 z80_1op("CALL", "nmi_on");
+            } else if (strcmp(name, "SIGNED") == 0) {
+                struct signedness *c;
+                
+                get_lex();
+                while (1) {
+                    if (lex != C_NAME) {
+                        emit_error("missing name in SIGNED");
+                        break;
+                    }
+                    c = signed_search(name);
+                    if (c != NULL) {
+                        emit_error("variable already SIGNED/UNSIGNED");
+                    } else {
+                        c = signed_add(name);
+                    }
+                    c->sign = 1;
+                    get_lex();
+                    if (lex != C_COMMA)
+                        break;
+                    get_lex();
+                }
+            } else if (strcmp(name, "UNSIGNED") == 0) {
+                struct signedness *c;
+
+                get_lex();
+                while (1) {
+                    if (lex != C_NAME) {
+                        emit_error("missing name in UNSIGNED");
+                        break;
+                    }
+                    c = signed_search(name);
+                    if (c != NULL) {
+                        emit_error("variable already SIGNED/UNSIGNED");
+                    } else {
+                        c = signed_add(name);
+                    }
+                    c->sign = 2;
+                    get_lex();
+                    if (lex != C_COMMA)
+                        break;
+                    get_lex();
+                }
             } else if (strcmp(name, "CONST") == 0) {
                 struct constant *c;
                 
@@ -4669,9 +4962,8 @@ void compile_statement(int check_for_else)
                         addr->label = array;
                         final = evaluate_level_0(&type);    /* Source */
                         if ((type & MAIN_TYPE) == TYPE_8)
-                            final = node_create(N_EXTEND8, 0, final, NULL);
+                            final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                         final = node_create(N_PLUS16, 0, addr, final);
-                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         z80_1op("PUSH", "HL");
@@ -4682,9 +4974,8 @@ void compile_statement(int check_for_else)
                         get_lex();
                         final = evaluate_level_0(&type);    /* Target */
                         if ((type & MAIN_TYPE) == TYPE_8)
-                            final = node_create(N_EXTEND8, 0, final, NULL);
+                            final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                         final = node_create(N_PLUS16, 0, node_create(N_NUM16, 0x1800, NULL, NULL), final);
-                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         z80_1op("PUSH", "HL");
@@ -4696,7 +4987,6 @@ void compile_statement(int check_for_else)
                         final = evaluate_level_0(&type);    /* Width */
                         if ((type & MAIN_TYPE) == TYPE_16)
                             final = node_create(N_REDUCE16, 0, final, NULL);
-                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         z80_1op("PUSH", "AF");
@@ -4708,7 +4998,6 @@ void compile_statement(int check_for_else)
                         final = evaluate_level_0(&type);    /* Height */
                         if ((type & MAIN_TYPE) == TYPE_16)
                             final = node_create(N_REDUCE16, 0, final, NULL);
-                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         if (lex == C_COMMA) {   /* Sixth argument for SCREEN (stride width) */
@@ -4717,7 +5006,6 @@ void compile_statement(int check_for_else)
                             final = evaluate_level_0(&type);
                             if ((type & MAIN_TYPE) == TYPE_16)
                                 final = node_create(N_REDUCE16, 0, final, NULL);
-                            node_label(final);
                             node_generate(final, 0);
                             node_delete(final);
                             z80_1op("CALL", "CPYBLK");
@@ -4988,7 +5276,13 @@ void compile_statement(int check_for_else)
                     }
                     if ((type & MAIN_TYPE) == TYPE_8) {
                         z80_2op("LD", "L", "A");
-                        z80_2op("LD", "H", "0");
+                        if (type & TYPE_SIGNED) {
+                            z80_noop("RLA");
+                            z80_2op("SBC", "A", "A");
+                            z80_2op("LD", "H", "A");
+                        } else {
+                            z80_2op("LD", "H", "0");
+                        }
                     }
                     z80_2op("ADD", "HL", "HL");
                     sprintf(temp, INTERNAL_PREFIX "%d", table);
@@ -5199,7 +5493,6 @@ void compile_statement(int check_for_else)
                 
                 get_lex();
                 tree = process_usr(1);
-                node_label(tree);
                 node_generate(tree, 0);
                 node_delete(tree);
             } else if (strcmp(name, "ASM") == 0) {  /* ASM statement for inserting assembly code */
@@ -5477,7 +5770,7 @@ void compile_basic(void)
             line[--line_size] = '\0';
 
         fprintf(output, "\t; %s\n", line);
-
+        
         line_start = 1;
         line_pos = 0;
         label_exists = 0;
