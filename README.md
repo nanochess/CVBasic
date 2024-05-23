@@ -72,3 +72,11 @@ Thanks to the following members of Atariage for contributing valuable suggestion
 If you find CVBasic useful, please show your appreciation making a donation via Paypal ($9 USD suggested) to b-i+y-u+b-i (at) gmail.com
 
 If you find a bug, please report to same email and I'll try to look into it. Because lack of time I cannot guarantee it will be corrected.
+
+You can also get the book **Programming Games for Colecovision**, a book version of the manual, and includes an introductory course to game programming with full examples and source code: Game of Ball, Monkey moon, Space Raider, Bouncy Cube, and Dungeon Warrior.
+
+The foreword is written by David R. Megarry, programmer of Zaxxon™ for Colecovision, and creator of the Dungeon!™ Board game.
+
+* [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
+* [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)
+* [Programming Games for Colecovision, PDF ebook, 250 pages](https://nanochess.org/store.html)
