@@ -59,6 +59,8 @@ MSX controller support only handles the two joysticks and keyboard arrows (plus 
 
 The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD)
 
+Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
+
 
 ### Supporting the developer
 
@@ -77,21 +79,4 @@ The foreword is written by David R. Megarry, programmer of Zaxxon™ for Colecov
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions:
-
-abeker
-aotta
-ARTRAG
-atari2600land
-carlsson
-CrazyBoss
-drfloyd
-gemintronic
-Jess Ragan
-Kamshaft
-Kiwi
-pixelboy
-SiRioKD
-Tarzilla
-Tony Cruise
-youki
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, and youki.
