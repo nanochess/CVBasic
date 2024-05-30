@@ -5954,7 +5954,7 @@ int main(int argc, char *argv[])
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
     
     if (bank_switching) {
-        if (machine == COLECOVISION) {
+        if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
             fprintf(output, "\tforg $%05x\n", bank_rom_size * 0x0400 - 0x4000);
         } else {
             fprintf(output, "\tforg $00000\n");
