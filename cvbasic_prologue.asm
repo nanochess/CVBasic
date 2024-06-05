@@ -23,6 +23,7 @@
 	; Revision date: Apr/27/2024. Music player now supports bank switching.
 	; Revision date: May/17/2024. Added delay for SG1000 and SC3000 controller
 	;                             support with keyboard (code by SiRioKD)
+	; Revision date: Jun/04/2024. SGM supported deleted NTSC flag.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -2220,32 +2221,6 @@ START:
 	jp z,$-4
 	ld (lfsr),hl
 
-    if COLECO
-	ld a,($0069)
-	cp 50
-	ld a,0
-	jr z,$+4
-	ld a,1
-	ld (ntsc),a
-    endif
-    if SG1000
-	ld a,1
-	ld (ntsc),a
-    endif
-    if MSX
-	ld a,($002b)
-	cpl
-	rlca
-	and $01
-	ld (ntsc),a
-
-        call RSLREG
-        ld b,1          ; $4000-$7fff
-        call get_slot_mapping
-        ld h,$80
-        call ENASLT     ; Map into $8000-$BFFF
-    endif
-
     if SGM
 WRITE_REGISTER:	equ $1fd9
 FILL_VRAM:	equ $1f82
@@ -2321,6 +2296,30 @@ WRITE_VRAM:	equ $1fdf
         ldir
 	ld (lfsr),ix
     endif
+    if COLECO
+	ld a,($0069)
+	cp 50
+	ld a,1
+	jr nz,$+3
+	dec a
+    endif
+    if SG1000
+	ld a,1
+    endif
+    if MSX
+        call RSLREG
+        ld b,1          ; $4000-$7fff
+        call get_slot_mapping
+        ld h,$80
+        call ENASLT     ; Map into $8000-$BFFF
+
+	ld a,($002b)
+	cpl
+	rlca
+	and $01
+    endif
+	ld (ntsc),a
+
 	call music_init
 
 	xor a
