@@ -4261,23 +4261,27 @@ void compile_statement(int check_for_else)
                 }
             } else if (strcmp(name, "DATA") == 0) {
                 struct node *tree;
-                
+                int c = 0;
+
                 get_lex();
                 if (lex == C_NAME && strcmp(name, "BYTE") == 0) {
+                    int d;
+                    
                     get_lex();
                     while (1) {
                         if (lex == C_STRING) {
-                            int c;
-                            
-                            for (c = 0; c < name_size; c++) {
-                                if ((c & 7) == 0) {
+                            for (d = 0; d < name_size; d++) {
+                                if (c == 0) {
                                     fprintf(output, "\tDB ");
-                                }
-                                fprintf(output, "$%02x", name[c] & 0xff);
-                                if ((c & 7) == 7 || c + 1 == name_size) {
-                                    fprintf(output, "\n");
                                 } else {
                                     fprintf(output, ",");
+                                }
+                                fprintf(output, "$%02x", name[d] & 0xff);
+                                if (c == 7) {
+                                    fprintf(output, "\n");
+                                    c = 0;
+                                } else {
+                                    c++;
                                 }
                             }
                             get_lex();
@@ -4290,12 +4294,25 @@ void compile_statement(int check_for_else)
                             }
                             node_delete(tree);
                             tree = NULL;
-                            sprintf(temp, "\tDB $%02x", value & 0xff);
-                            fprintf(output, "%s\n", temp);
+                            if (c == 0) {
+                                fprintf(output, "\tDB ");
+                            } else {
+                                fprintf(output, ",");
+                            }
+                            fprintf(output, "$%02x", value & 0xff);
+                            if (c == 7) {
+                                fprintf(output, "\n");
+                                c = 0;
+                            } else {
+                                c++;
+                            }
                         }
                         if (lex != C_COMMA)
                             break;
                         get_lex();
+                    }
+                    if (c) {
+                        fprintf(output, "\n");
                     }
                 } else {
                     while (1) {
@@ -4340,8 +4357,18 @@ void compile_statement(int check_for_else)
                                         emit_error("missing right parenthesis in array access");
                                     else
                                         get_lex();
-                                    sprintf(temp, "\tDW %s%s+%d", label->length ? ARRAY_PREFIX : LABEL_PREFIX, label->name, label->name[0] == '#' ? index * 2 : index);
-                                    fprintf(output, "%s\n", temp);
+                                    if (c == 0) {
+                                        fprintf(output, "\tDW ");
+                                    } else {
+                                        fprintf(output, ",");
+                                    }
+                                    fprintf(output, "%s%s+%d", label->length ? ARRAY_PREFIX : LABEL_PREFIX, label->name, label->name[0] == '#' ? index * 2 : index);
+                                    if (c == 7) {
+                                        fprintf(output, "\n");
+                                        c = 0;
+                                    } else {
+                                        c++;
+                                    }
                                     node_delete(tree);
                                     tree = NULL;
                                 } else {
@@ -4367,8 +4394,18 @@ void compile_statement(int check_for_else)
                                             label->used |= LABEL_IS_VARIABLE;
                                         }
                                         get_lex();
-                                        sprintf(temp, "\tDW %s%s", LABEL_PREFIX, label->name);
-                                        fprintf(output, "%s\n", temp);
+                                        if (c == 0) {
+                                            fprintf(output, "\tDW ");
+                                        } else {
+                                            fprintf(output, ",");
+                                        }
+                                        fprintf(output, "%s%s", LABEL_PREFIX, label->name);
+                                        if (c == 7) {
+                                            fprintf(output, "\n");
+                                            c = 0;
+                                        } else {
+                                            c++;
+                                        }
                                     }
                                 }
                             }
@@ -4381,14 +4418,26 @@ void compile_statement(int check_for_else)
                             }
                             node_delete(tree);
                             tree = NULL;
-                            sprintf(temp, "\tDW $%04x", value & 0xffff);
-                            fprintf(output, "%s\n", temp);
+                            if (c == 0) {
+                                fprintf(output, "\tDW ");
+                            } else {
+                                fprintf(output, ",");
+                            }
+                            fprintf(output, "$%04x", value & 0xffff);
+                            if (c == 7) {
+                                fprintf(output, "\n");
+                                c = 0;
+                            } else {
+                                c++;
+                            }
                         }
                         if (lex != C_COMMA)
                             break;
                         get_lex();
                     }
-                    
+                    if (c) {
+                        fprintf(output, "\n");
+                    }
                 }
             } else if (strcmp(name, "OUT") == 0) {
                 struct node *tree;
