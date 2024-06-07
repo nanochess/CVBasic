@@ -24,6 +24,7 @@
 	; Revision date: May/17/2024. Added delay for SG1000 and SC3000 controller
 	;                             support with keyboard (code by SiRioKD)
 	; Revision date: Jun/04/2024. SGM supported deleted NTSC flag.
+	; Revision date: Jun/07/2024. Keys 0-9, = and - emulate keypad in MSX.
 	;
 
 VDP:    equ $98+$26*COLECO+$26*SG1000
@@ -1189,6 +1190,33 @@ nmi_handler:
 	ld a,b
 	cpl
 	ld (joy2_data),a
+
+	in a,($aa)
+	and $f0
+	or $00
+	out ($aa),a
+	in a,($a9)
+	cp $ff
+	ld c,$00
+	ld b,$08
+	jr nz,.key1
+	in a,($aa)
+	and $f0
+	or $01
+	out ($aa),a
+	in a,($a9)
+	and $0f
+	cp $0f
+	jr z,.key2
+	ld c,$08
+	ld b,$04
+.key1:	rra
+	inc c
+	jr c,.key1
+	ld a,c
+	dec a
+.key2:
+	ld (key1_data),a	
 
         ld b,$ff
 	in a,($aa)
