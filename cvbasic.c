@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.5.1 May/22/2024"
+#define VERSION "v0.5.1 Jun/09/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -352,7 +352,18 @@ void z80_noop(char *mnemonic)
  */
 void z80_1op(char *mnemonic, char *operand)
 {
+    /*
+     ** Optimize zero in register A
+     */
+    if (strcmp(mnemonic, "SUB") == 0) {
+        if (strcmp(operand, "A") == 0) {
+            if (strcmp(z80_a_content, "0") == 0)
+                return;
+        }
+    }
+    
     fprintf(output, "\t%s %s\n", mnemonic, operand);
+    
     if (strcmp(mnemonic, "PUSH") == 0 || strcmp(mnemonic, "CP") == 0) {
         /* No affected registers */
     } else if (strcmp(mnemonic, "POP") == 0) {
@@ -364,8 +375,12 @@ void z80_1op(char *mnemonic, char *operand)
                strcmp(mnemonic, "JP") == 0) {
         z80_a_content[0] = '\0';
         z80_hl_content[0] = '\0';
-    } else if (strcmp(mnemonic, "SUB") == 0 ||
-               strcmp(mnemonic, "OR") == 0 ||
+    } else if (strcmp(mnemonic, "SUB") == 0) {
+        if (strcmp(operand, "A") == 0)
+            strcpy(z80_a_content, "0");
+        else
+            z80_a_content[0] = '\0';
+    } else if (strcmp(mnemonic, "OR") == 0 ||
                strcmp(mnemonic, "XOR") == 0 ||
                strcmp(mnemonic, "AND") == 0) {
         z80_a_content[0] = '\0';
@@ -418,6 +433,7 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
     }
     
     fprintf(output, "\t%s %s,%s\n", mnemonic, operand1, operand2);
+    
     if (strcmp(mnemonic, "JP") == 0 ||
         strcmp(mnemonic, "JR") == 0 ||
         strcmp(mnemonic, "OUT") == 0 ||
@@ -1629,11 +1645,12 @@ void node_generate(struct node *node, int decision)
                 }
             }
             if (node->type == N_MINUS16) {
-                if (node->left->type == N_ADDR) {
-                    node_generate(node->right, 0);
-                    node_get_label(node->left, 0);
+                if (node->right->type == N_ADDR) {
+                    node_generate(node->left, 0);
+                    node_get_label(node->right, 0);
                     z80_2op("LD", "DE", temp);
-                    z80_2op("ADD", "HL", "DE");
+                    z80_1op("AND", "A");
+                    z80_2op("SBC", "HL", "DE");
                     break;
                 }
                 if (node->right->type == N_NUM16)
