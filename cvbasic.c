@@ -5902,7 +5902,9 @@ void compile_basic(void)
                 int quotes;
                 FILE *old_input = input;
                 int old_line = current_line;
-                
+                char old_file[MAX_LINE_SIZE];
+
+                strcpy(old_file, current_file);
                 while (line_pos < line_size && isspace(line[line_pos]))
                     line_pos++;
                 
@@ -5929,7 +5931,7 @@ void compile_basic(void)
                         p--;
                 }
                 *p = '\0';
-                
+                strcpy(current_file, path);
                 input = fopen(path, "r");
                 if (input == NULL) {
                     emit_error("INCLUDE not successful");
@@ -5939,6 +5941,7 @@ void compile_basic(void)
                 }
                 input = old_input;
                 current_line = old_line;
+                strcpy(current_file, old_file);
                 lex = C_END;
             } else {
                 compile_statement(FALSE);
