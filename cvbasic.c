@@ -1611,37 +1611,54 @@ void node_generate(struct node *node, int decision)
                     z80_2op("ADD", "HL", "DE");
                     break;
                 }
-                if (node->left->type == N_NUM16)
-                    explore = node->left;
-                else if (node->right->type == N_NUM16)
-                    explore = node->right;
-                else
-                    explore = NULL;
-                if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 3)) {
-                    int c = explore->value;
+                if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
+                    int c;
+                    int d;
                     
-                    if (node->left != explore)
-                        node_generate(node->left, 0);
+                    if (node->left->type == N_NUM16)
+                        explore = node->left;
                     else
-                        node_generate(node->right, 0);
-                    while (c) {
-                        z80_1op("INC", "HL");
-                        c--;
+                        explore = node->right;
+                    c = explore->value;
+                    if (c == 0 || c == 1 || c == 2 || c == 3) {
+                        if (node->left != explore)
+                            node_generate(node->left, 0);
+                        else
+                            node_generate(node->right, 0);
+                        while (c) {
+                            z80_1op("INC", "HL");
+                            c--;
+                        }
+                        break;
                     }
-                    break;
-                }
-                if (explore != NULL && (explore->value == 0xffff || explore->value == 0xfffe || explore->value == 0xfffd)) {
-                    int c = explore->value;
-                    
-                    if (node->left != explore)
-                        node_generate(node->left, 0);
-                    else
-                        node_generate(node->right, 0);
-                    while (c < 0x10000) {
-                        z80_1op("DEC", "HL");
-                        c++;
+                    if (c == 0xffff || c == 0xfffe || c == 0xfffd) {
+                        if (node->left != explore)
+                            node_generate(node->left, 0);
+                        else
+                            node_generate(node->right, 0);
+                        while (c < 0x10000) {
+                            z80_1op("DEC", "HL");
+                            c++;
+                        }
+                        break;
                     }
-                    break;
+                    if (c == 0xfc00 || c == 0xfd00 || c == 0xfe00 || c == 0xff00 || c == 0x0100 || c == 0x0200 || c == 0x0300 || c == 0x0400) {            /* Only worth optimizing if using less than 5 instructions */
+                        if (node->left != explore)
+                            node_generate(node->left, 0);
+                        else
+                            node_generate(node->right, 0);
+                        while (c) {
+                            if (c & 0x8000) {
+                                z80_1op("DEC", "H");
+                                c += 0x0100;
+                            } else {
+                                z80_1op("INC", "H");
+                                c -= 0x0100;
+                            }
+                            c &= 0xffff;
+                        }
+                        break;
+                    }
                 }
             }
             if (node->type == N_MINUS16) {
