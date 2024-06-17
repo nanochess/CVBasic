@@ -34,8 +34,26 @@
  ** Supported platforms.
  */
 enum {
-    COLECOVISION, SG1000, MSX, COLECOVISION_SGM,
+    COLECOVISION, SG1000, MSX, COLECOVISION_SGM, SVI,
 } machine;
+
+/*
+ ** Base information about each platform.
+ */
+struct console {
+    int base_ram;       /* Where the RAM starts */
+    int stack;          /* Where the stack will start */
+    int memory_size;    /* Memory available */
+    int vdp_port_write; /* VDP port for writing */
+    int vdp_port_read;  /* VDP port for reading (needed for SVI-328, sigh) */
+} consoles[] = {
+    /*  RAM     STACK    Size  VDP R   VDP W */
+        0x7000, 0x7400,  1024,  0xbe,   0xbe,
+        0xc000, 0xc400,  1024,  0xbe,   0xbe,
+        0xe000, 0xf000,  4096,  0x98,   0x98,
+        0x7c00, 0x8000, 23552,  0xbe,   0xbe,
+        0x8000, 0xf000, 28672,  0x80,   0x84,
+};
 
 int err_code;
 
@@ -5394,10 +5412,10 @@ void compile_statement(int check_for_else)
                 if (lex != C_NUM) {
                     emit_error("syntax error in SOUND");
                 } else {
-                    if (value < 3 && machine == MSX)
-                        emit_warning("using SOUND 0-3 with MSX target");
-                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM)
-                        emit_warning("using SOUND 5-9 with non-MSX target");
+                    if (value < 3 && (machine == MSX || machine == SVI))
+                        emit_warning("using SOUND 0-3 with MSX/SVI target");
+                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI)
+                        emit_warning("using SOUND 5-9 with non-MSX/SVI/SGM target");
                     switch (value) {
                         case 0:
                             get_lex();
@@ -5727,6 +5745,9 @@ void compile_statement(int check_for_else)
                         emit_error("BANK ROM used twice");
                         get_lex();
                     } else {
+                        if (machine == SVI) {
+                            emit_error("Bank-switching not supported with SVI");
+                        }
                         bank_switching = 1;
                         bank_rom_size = value;
                         bank_current = 0;
@@ -5971,11 +5992,15 @@ int main(int argc, char *argv[])
     if (argc < 3) {
         fprintf(stderr, "Usage:\n");
         fprintf(stderr, "\n");
-        fprintf(stderr, "    cvbasic [--sg1000] [--msx] [--sgm] input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --sgm input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --sg1000 input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --msx input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --svi input.bas output.asm\n");
         fprintf(stderr, "\n");
-        fprintf(stderr, "    By default, it will create assembler files for Colecovision,\n");
-        fprintf(stderr, "    the options allow to compile for Sega SG-1000, MSX,\n");
-        fprintf(stderr, "    and the Super Game Module for Colecovision.\n");
+        fprintf(stderr, "    By default, it will create assembler files for Colecovision.\n");
+        fprintf(stderr, "    The options allow to compile for Sega SG-1000, MSX,\n");
+        fprintf(stderr, "    SVI-328, and the Super Game Module for Colecovision.\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
@@ -5995,6 +6020,9 @@ int main(int argc, char *argv[])
         c++;
     } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && tolower(argv[c][4]) == 'm' && argv[c][5] == '\0') {
         machine = COLECOVISION_SGM;
+        c++;
+    } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'v' && tolower(argv[c][4]) == 'i' && argv[c][5] == '\0') {
+        machine = SVI;
         c++;
     } else {
         machine = COLECOVISION;
@@ -6030,15 +6058,23 @@ int main(int argc, char *argv[])
         exit(2);
     }
     c++;
+    
     fprintf(output, "COLECO:\tequ %d\n",
             (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
     fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
+    fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
+    fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
-    
+    fprintf(output, "\n");
+    fprintf(output, "BASE_RAM:\tequ $%04x\t; Base of RAM\n", consoles[machine].base_ram);
+    fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", consoles[machine].stack);
+    fprintf(output, "VDP:\tequ $%02x\t; VDP port (write)\n", consoles[machine].vdp_port_write);
+    fprintf(output, "VDPR:\tequ $%02x\t; VDP port (read)\n", consoles[machine].vdp_port_read);
+    fprintf(output, "\n");
     if (bank_switching) {
         if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
             fprintf(output, "\tforg $%05x\n", bank_rom_size * 0x0400 - 0x4000);
@@ -6138,14 +6174,7 @@ int main(int argc, char *argv[])
         }
     }
     fclose(output);
-    if (machine == COLECOVISION)
-        available_bytes = 1024;
-    else if (machine == SG1000)
-        available_bytes = 1024;
-    else if (machine == MSX)
-        available_bytes = 4096;
-    else if (machine == COLECOVISION_SGM)
-        available_bytes = 24576 - 1024;
+    available_bytes = consoles[machine].memory_size;
     if (machine != COLECOVISION_SGM)
         available_bytes -= 64 +                    /* Stack requirements */
                     (music_used ? 33 : 0) +     /* Music player requirements */

@@ -25,19 +25,15 @@
 	;                             support with keyboard (code by SiRioKD)
 	; Revision date: Jun/04/2024. SGM supported deleted NTSC flag.
 	; Revision date: Jun/07/2024. Keys 0-9, = and - emulate keypad in MSX.
+	; Revision date: Jun/17/2024. Added SVI-328 support.
 	;
 
-VDP:    equ $98+$26*COLECO+$26*SG1000
 JOYSEL:	equ $c0
 KEYSEL:	equ $80
 
 PSG:    equ $ff-$80*SG1000
 JOY1:   equ $fc-$20*SG1000
 JOY2:   equ $ff-$22*SG1000
-
-BASE_RAM: equ $e000-$7000*COLECO-$2000*SG1000+$0c00*SGM
-
-STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000+$0c00*SGM
 
     if COLECO
 	org $8000
@@ -58,12 +54,12 @@ STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000+$0c00*SGM
 
 	jp nmi_handler
     endif
-    if SG1000
+    if SG1000+SVI
 	org $0000
 	di
-	im 1
+	ld sp,STACK
 	jp START
-	db $ff,$ff
+	db $ff
 	jp 0
 	db $ff,$ff,$ff,$ff,$ff
 	jp 0
@@ -86,6 +82,26 @@ STACK:	equ $f000-$7c00*COLECO-$2c00*SG1000+$0c00*SGM
 	dw $0000
 	dw $0000
 	dw $0000
+
+WRTPSG:	equ $0093
+RDPSG:	equ $0096
+
+    endif
+    if SVI
+WRTPSG:	
+	out ($88),a
+	push af
+	ld a,e
+	out ($8c),a
+	pop af
+	ret
+
+RDPSG:
+	out ($88),a
+	push af
+	pop af
+	in a,($90)
+	ret
     endif
 
 WRTVDP:
@@ -133,7 +149,7 @@ RDVRM:
         pop af
         ex (sp),hl
         ex (sp),hl
-        in a,(VDP)
+        in a,(VDPR)
         ret
 
 FILVRM:
@@ -232,7 +248,7 @@ nmi_off:
 	set 0,(hl)
 	pop hl
     endif
-    if SG1000+MSX
+    if SG1000+MSX+SVI
         di
     endif
 	ret
@@ -249,7 +265,7 @@ nmi_on:
 	pop hl
 	pop af
     endif
-    if SG1000+MSX
+    if SG1000+MSX+SVI
         ei
     endif
 	ret
@@ -636,6 +652,14 @@ ay3_reg:
 	ld a,b
 	jp WRTPSG
     endif
+    if SVI
+	push af
+	ld a,b
+	out ($88),a
+	pop af
+	out ($8c),a
+	ret
+    endif
 
 ay3_freq:
     if COLECO
@@ -663,9 +687,25 @@ ay3_freq:
 	inc a
 	jp WRTPSG
     endif
+    if SVI
+	out ($88),a
+	push af
+	ld a,l
+	out ($8c),a
+	pop af
+	inc a
+	out ($88),a
+	push af
+	ld a,h
+	and $0f
+	out ($8c),a
+	pop af
+	ret
+    endif
 
-    if SG1000
+    if SG1000+SVI
 	; Required for SG1000 as it doesn't have a BIOS
+	; Required for SVI because we don't have access to BIOS in cartridge.
 	;
         ; My personal font for TMS9928.
         ;
@@ -803,7 +843,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000
+    if SG1000+SVI
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -879,7 +919,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000
+    if SG1000+SVI
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -973,8 +1013,8 @@ nmi_handler:
     endif
 	push af
   endif
-    if SG1000+MSX
-	in a,(VDP+1)
+    if SG1000+MSX+SVI
+	in a,(VDPR+1)
     endif
 	ld bc,$8000+VDP
 	bit 2,(hl)
@@ -1280,6 +1320,131 @@ nmi_handler:
 	cpl
 	ld (joy1_data),a
     endif
+    if SVI
+	ld a,14
+	call RDPSG
+	ld b,$ff
+	bit 4,a
+	jr nz,$+4
+	res 0,b
+	bit 7,a
+	jr nz,$+4
+	res 1,b
+	bit 5,a
+	jr nz,$+4
+	res 2,b
+	bit 6,a
+	jr nz,$+4
+	res 3,b
+
+	in a,($98)
+	bit 5,a
+	jr nz,$+4
+	res 6,b
+	ld a,b
+	cpl
+	ld (joy2_data),a
+
+	in a,($9a)
+	and $f0
+	or $00
+	out ($96),a
+	in a,($99)
+	cp $ff
+	ld c,$00
+	ld b,$08
+	jr nz,.key1
+	in a,($9a)
+	and $f0
+	or $01
+	out ($96),a
+	in a,($99)
+	and $0f
+	cp $0f
+	jr z,.key2
+	ld c,$08
+	ld b,$04
+.key1:	rra
+	inc c
+	jr c,.key1
+	ld a,c
+	dec a
+.key2:
+	ld (key1_data),a	
+
+        ld b,$ff
+	in a,($9a)
+	and $f0
+	or $05
+	out ($96),a
+	in a,($99)
+	bit 7,a
+	jr nz,$+4
+        res 0,b
+	in a,($9a)
+	and $f0
+	or $08
+	out ($96),a
+	in a,($99)
+	bit 7,a
+	jr nz,$+4
+        res 1,b
+	in a,($9a)
+	and $f0
+	or $07
+	out ($96),a
+	in a,($99)
+	bit 7,a
+        jr nz,$+4
+        res 2,b
+	in a,($9a)
+	and $f0
+	or $06
+	out ($96),a
+	in a,($99)
+	bit 7,a
+        jr nz,$+4
+        res 3,b
+	in a,($9a)
+	and $f0
+	or $08
+	out ($96),a
+	in a,($99)
+	bit 0,a
+	jr nz,$+4
+	res 6,b
+	in a,($9a)
+	and $f0
+	or $03
+	out ($96),a
+	in a,($99)
+	bit 5,a
+	jr nz,$+4
+	res 7,b
+
+	ld a,14
+	call RDPSG
+	bit 0,a
+	jr nz,$+4
+	res 0,b
+	bit 3,a
+	jr nz,$+4
+	res 1,b
+	bit 1,a
+	jr nz,$+4
+	res 2,b
+	bit 2,a
+	jr nz,$+4
+	res 3,b
+	
+	in a,($98)
+	bit 4,a
+	jr nz,$+4
+	res 6,b
+	ld a,b
+	cpl
+	ld (joy1_data),a
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -1340,7 +1505,7 @@ nmi_handler:
 	pop af
 	retn
     endif
-    if SG1000
+    if SG1000+SVI
 	pop af
         ei
         reti
@@ -1371,10 +1536,7 @@ music_init:
         ld a,$ec
         out (PSG),a
     endif
-    if MSX
-WRTPSG:	equ $0093
-RDPSG:	equ $0096
-
+    if MSX+SVI
 	ld a,$08
 	ld e,$00
 	call WRTPSG
@@ -1899,7 +2061,7 @@ music_hardware:
         out (PSG),a
         ret
     endif
-    if MSX
+    if MSX+SVI
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.8		; Yes, jump.	
@@ -2190,7 +2352,23 @@ unpack:
     endif
 
 START:
+    if SVI
+	ld a,$92	; Setup 8255 for keyboard/jostick reading.
+	out ($97),a
+	ld e,$00
+	ld a,$08
+	call WRTPSG
+	ld a,$09
+	call WRTPSG
+	ld a,$0A
+	call WRTPSG
+	ld a,$07
+	ld e,$b8
+	call WRTPSG
+    endif
     if SG1000
+	im 1
+
 	; Contributed by SiRioKD
 	; >>> START
 	ld a,$9F	; Turn off PSG
@@ -2221,10 +2399,10 @@ START:
 	di
     endif
 	ld sp,STACK
-	in a,(VDP+1)
+	in a,(VDPR+1)
 	ld bc,$8201
 	call WRTVDP
-	in a,(VDP+1)
+	in a,(VDPR+1)
 	ld bc,$8201
 	call WRTVDP
   if CVBASIC_BANK_SWITCHING

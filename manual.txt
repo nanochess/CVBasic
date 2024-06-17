@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: May/22/2024.
+Last revision: Jun/17/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,10 +22,15 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.5.1 May/22/2024  o Added SIGNED and UNSIGNED keywords to tag variables
+v0.5.1 Jun/17/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                       (both 8-bit and 16-bit) and enable signed comparisons,
                       division, and modulo.
                     o The MSX target now supports 0-9, - and = for CONT1.KEY.
+                    o Added new target SVI-328 (using option --svi)
+                    o Better assembler output for DATA.
+                    o Optimized addition by 256.
+                    o Solved bug when subtracting two pointers (VARPTR)
+                    o Solved bug where error would indicate wrong file (INCLUDE)
                     o Solved bug where Megacart didn't worked with --sgm, nor
                       the NTSC variable.
 
