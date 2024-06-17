@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.5.1 Jun/09/2024"
+#define VERSION "v0.5.1 Jun/17/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -45,14 +45,14 @@ struct console {
     int stack;          /* Where the stack will start */
     int memory_size;    /* Memory available */
     int vdp_port_write; /* VDP port for writing */
-    int vdp_port_read;  /* VDP port for reading (needed for SVI-328, sigh) */
+    int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
 } consoles[] = {
     /*  RAM     STACK    Size  VDP R   VDP W */
         0x7000, 0x7400,  1024,  0xbe,   0xbe,
         0xc000, 0xc400,  1024,  0xbe,   0xbe,
         0xe000, 0xf000,  4096,  0x98,   0x98,
         0x7c00, 0x8000, 23552,  0xbe,   0xbe,
-        0x8000, 0xf000, 28672,  0x80,   0x84,
+        0xc000, 0xf000, 12288,  0x80,   0x84,
 };
 
 int err_code;

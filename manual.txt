@@ -44,7 +44,6 @@ Platforms requirements:
   o Linux.
 
 The current limitations are:
-  o CVBasic won't warn you if you exceed the 1K of RAM of Colecovision.
   o ASM cannot be used inside DEF FN.
   o Using PRINT for numbers always show numbers as unsigned from 0 to 65535.
 
@@ -53,6 +52,8 @@ Usage:
   cvbasic in.bas output.asm
   cvbasic --sg1000 in.bas output.asm
   cvbasic --msx in.bas output.asm
+  cvbasic --sgm in.bas output.asm
+  cvbasic --svi in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 

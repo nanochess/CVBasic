@@ -2,9 +2,9 @@
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX, with a syntax alike to Qbasic.
+CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-328, with a syntax alike to Qbasic.
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000).
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-328 doesn't have bank-switch support because there's no cartridge hardware supporting it.
 
     CVBasic.c                   The CVBasic compiler C language source code
     LICENSE                     Source code license
@@ -50,6 +50,10 @@ Using CVBasic to compile a Colecovision Super Game Module program:
 
     cvbasic --sgm game.bas game.asm
 
+Using CVBasic to compile a Spectravideo SVI-328 program:
+
+    cvbasic --svi game.bas game.asm
+
 
 ### Notes
 
@@ -58,6 +62,8 @@ The current official version is v0.5.1.
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
 The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD)
+
+The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
