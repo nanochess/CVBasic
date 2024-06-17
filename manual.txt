@@ -26,7 +26,7 @@ v0.5.1 Jun/17/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                       (both 8-bit and 16-bit) and enable signed comparisons,
                       division, and modulo.
                     o The MSX target now supports 0-9, - and = for CONT1.KEY.
-                    o Added new target SVI-328 (using option --svi)
+                    o Added new target SVI-318/328 (using option --svi)
                     o Better assembler output for DATA.
                     o Optimized addition by 256.
                     o Solved bug when subtracting two pointers (VARPTR)
@@ -36,7 +36,7 @@ v0.5.1 Jun/17/2024  o Added SIGNED and UNSIGNED keywords to tag variables
 
 >>>>>>>>>>>>>>. Description
 
-CVBasic is an integer BASIC compiler for Colecovision, MSX, and Sega SG1000. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, and Spectravideo SVI-318/328. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
 Platforms requirements:
   o PC with Windows XP or better.

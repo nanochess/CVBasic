@@ -2,9 +2,9 @@
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-328, with a syntax alike to Qbasic.
+CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-318/328, with a syntax alike to Qbasic.
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-328 doesn't have bank-switch support because there's no cartridge hardware supporting it.
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328 doesn't have bank-switch support because there's no cartridge hardware supporting it.
 
     CVBasic.c                   The CVBasic compiler C language source code
     LICENSE                     Source code license
@@ -50,7 +50,7 @@ Using CVBasic to compile a Colecovision Super Game Module program:
 
     cvbasic --sgm game.bas game.asm
 
-Using CVBasic to compile a Spectravideo SVI-328 program:
+Using CVBasic to compile a Spectravideo SVI-318/328 program:
 
     cvbasic --svi game.bas game.asm
 
