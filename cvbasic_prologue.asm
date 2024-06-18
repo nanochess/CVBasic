@@ -1345,18 +1345,14 @@ nmi_handler:
 	cpl
 	ld (joy2_data),a
 
-	in a,($9a)
-	and $f0
-	or $00
+	ld a,$10
 	out ($96),a
 	in a,($99)
 	cp $ff
 	ld c,$00
 	ld b,$08
 	jr nz,.key1
-	in a,($9a)
-	and $f0
-	or $01
+	ld a,$11
 	out ($96),a
 	in a,($99)
 	and $0f
@@ -1373,49 +1369,37 @@ nmi_handler:
 	ld (key1_data),a	
 
         ld b,$ff
-	in a,($9a)
-	and $f0
-	or $05
+	ld a,$15
 	out ($96),a
 	in a,($99)
 	bit 7,a
 	jr nz,$+4
         res 0,b
-	in a,($9a)
-	and $f0
-	or $08
+	ld a,$18
 	out ($96),a
 	in a,($99)
 	bit 7,a
 	jr nz,$+4
         res 1,b
-	in a,($9a)
-	and $f0
-	or $07
+	ld a,$17
 	out ($96),a
 	in a,($99)
 	bit 7,a
         jr nz,$+4
         res 2,b
-	in a,($9a)
-	and $f0
-	or $06
+	ld a,$16
 	out ($96),a
 	in a,($99)
 	bit 7,a
         jr nz,$+4
         res 3,b
-	in a,($9a)
-	and $f0
-	or $08
+	ld a,$18
 	out ($96),a
 	in a,($99)
 	bit 0,a
 	jr nz,$+4
 	res 6,b
-	in a,($9a)
-	and $f0
-	or $03
+	ld a,$13
 	out ($96),a
 	in a,($99)
 	bit 5,a
@@ -2353,7 +2337,9 @@ unpack:
 
 START:
     if SVI
-	ld a,$92	; Setup 8255 for keyboard/jostick reading.
+	im 1
+
+	ld a,$92	; Setup 8255 for keyboard/joystick reading.
 	out ($97),a
 	ld e,$00
 	ld a,$08
@@ -2509,7 +2495,7 @@ WRITE_VRAM:	equ $1fdf
 	jr nz,$+3
 	dec a
     endif
-    if SG1000
+    if SG1000+SVI
 	ld a,1
     endif
     if MSX
