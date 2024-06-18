@@ -59,6 +59,7 @@ int err_code;
 
 char path[4096];
 
+int last_is_return;
 int music_used;
 int compression_used;
 int bank_switching;
@@ -3743,6 +3744,7 @@ void compile_statement(int check_for_else)
     
     while (1) {
         if (lex == C_NAME) {
+            last_is_return = 0;
             if (strcmp(name, "GOTO") == 0) {
                 get_lex();
                 if (lex != C_NAME) {
@@ -3778,6 +3780,7 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "RETURN") == 0) {
                 get_lex();
                 z80_noop("RET");
+                last_is_return = 1;
             } else if (strcmp(name, "IF") == 0) {
                 struct node *tree;
                 int type;
@@ -3818,8 +3821,10 @@ void compile_statement(int check_for_else)
                         block = 0;
                     }
                 }
-                if (block)
+                if (block) {
+                    last_is_return = 0;
                     break;
+                }
                 if (lex == C_NAME && strcmp(name, "ELSE") == 0) {
                     there_is_else = 1;
                     get_lex();
@@ -3836,6 +3841,7 @@ void compile_statement(int check_for_else)
                     sprintf(temp, INTERNAL_PREFIX "%d", label2);
                     z80_label(temp);
                 }
+                last_is_return = 0;
             } else if (strcmp(name, "ELSEIF") == 0) {
                 int type;
                 struct node *tree;
@@ -5846,6 +5852,7 @@ void compile_statement(int check_for_else)
                 compile_assignment(0);
             }
         } else {
+            last_is_return = 0;
             emit_error("syntax error in statement");
         }
         if (lex != C_COLON)
@@ -5911,14 +5918,17 @@ void compile_basic(void)
                     emit_error("starting PROCEDURE without ENDing previous PROCEDURE");
                 get_lex();
                 inside_proc = label;
+                last_is_return = 0;
             } else if (strcmp(name, "END") == 0 && lex_sneak_peek() != 'I') {  /* END (and not END IF) */
                 if (!inside_proc)
                     emit_warning("END without PROCEDURE");
                 /*                    else if (loops.size() > 0)
                  emit_error("Ending PROCEDURE with control block still open");*/ /* !!! */
                 get_lex();
-                z80_noop("RET");
+                if (!last_is_return)
+                    z80_noop("RET");
                 inside_proc = NULL;
+                last_is_return = 0;
             } else if (strcmp(name, "INCLUDE") == 0) {
                 int quotes;
                 FILE *old_input = input;
@@ -6047,6 +6057,16 @@ int main(int argc, char *argv[])
     inside_proc = NULL;
     frame_drive = NULL;
     compile_basic();
+    if (inside_proc) {
+        if (loops != NULL)
+            emit_error("End of source with control block still open");
+        else
+            emit_warning("End of source without ending PROCEDURE");
+        if (!last_is_return)
+            z80_noop("RET");
+        inside_proc = 0;
+        last_is_return = 0;
+    }
     if (bank_switching)
         bank_finish();
     fclose(input);
