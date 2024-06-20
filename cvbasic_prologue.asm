@@ -155,14 +155,14 @@ RDVRM:
 FILVRM:
 	push af
 	call SETWRT
-.1:	pop af
-	out (VDP),a
-	push af
-	dec bc
-	ld a,b
-	or c
-	jp nz,.1
 	pop af
+	dec bc		; T-states (normal / M1)
+.1:	out (VDP),a	; 11 12
+	dec bc		;  6  7
+	bit 7,b		;  8 10
+	jp z,.1		; 10 11
+			; -- --
+			; 35 40
 	ret
 
 LDIRVM:

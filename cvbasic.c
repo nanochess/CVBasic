@@ -17,7 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VERSION "v0.5.1 Jun/17/2024"
+#define VERSION "v0.5.1 Jun/20/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -1797,13 +1797,22 @@ void node_generate(struct node *node, int decision)
                         z80_2op("LD", "HL", "0");
                     } else {
                         if (node->left != explore)
-                            node_generate(node->left, 0);
+                            node = node->left;
                         else
-                            node_generate(node->right, 0);
+                            node = node->right;
                         if (c >= 256) {
-                            z80_2op("LD", "H", "L");
-                            z80_2op("LD", "L", "0");
+                            if (node->type == N_EXTEND8 || node->type == N_EXTEND8S) {
+                                node_generate(node->left, 0);
+                                z80_2op("LD", "H", "A");
+                                z80_2op("LD", "L", "0");
+                            } else {
+                                node_generate(node, 0);
+                                z80_2op("LD", "H", "L");
+                                z80_2op("LD", "L", "0");
+                            }
                             c /= 256;
+                        } else {
+                            node_generate(node, 0);
                         }
                         while (c > 1) {
                             z80_2op("ADD", "HL", "HL");
