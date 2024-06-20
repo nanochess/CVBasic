@@ -2331,11 +2331,10 @@ unpack:
     endif
 
 START:
-    if SVI
+    if SVI+SG1000
 	im 1
-
-	ld a,$92	; Setup 8255 for keyboard/joystick reading.
-	out ($97),a
+    endif
+    if SVI
 	ld e,$00
 	ld a,$08
 	call WRTPSG
@@ -2346,12 +2345,11 @@ START:
 	ld a,$07
 	ld e,$b8
 	call WRTPSG
+	ld a,$92	; Setup 8255 for keyboard/joystick reading.
+	out ($97),a
     endif
     if SG1000
-	im 1
-
 	; Contributed by SiRioKD
-	; >>> START
 	ld a,$9F	; Turn off PSG
 	out (PSG),a
 	ld a,$BF	
@@ -2360,7 +2358,10 @@ START:
 	out (PSG),a
 	ld a,$FF
 	out (PSG),a	
-
+	ld a,$92	; Setup 8255 for SC3000.
+	out ($df),a
+    endif
+    if SG1000+SVI
 	; Wait for VDP ready (around 1000 ms)
 	ld b,11
 	ld de,$FFFF
@@ -2370,16 +2371,10 @@ START:
 	add hl,de
 	jr c,.delay2
 	djnz .delay1
-
-	; END <<<
-	ld a,$92	; Setup 8255 for SC3000.
-	out ($df),a
-	ld a,$07	; Read joysticks instead of keyboard.
-	out ($de),a
     else
 	di
-    endif
 	ld sp,STACK
+    endif
 	in a,(VDPR+1)
 	ld bc,$8201
 	call WRTVDP
