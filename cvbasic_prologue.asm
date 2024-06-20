@@ -1102,11 +1102,11 @@ nmi_handler:
 	ld (key2_data),a
     endif
     if SG1000
+	ld a,$07
+	out ($de),a
 	ld b,$ff
 	in a,(JOY1)
 	ld c,a
-	ld a,$07
-	out ($de),a
 	in a,($de)
 	cp 7
 	jr nz,.sg1000
