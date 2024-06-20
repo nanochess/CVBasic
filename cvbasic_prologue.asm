@@ -1106,7 +1106,9 @@ nmi_handler:
 	out ($de),a
 	ld b,$ff
 	in a,(JOY1)
-	ld c,a
+	ld h,a
+	in a,(JOY2)
+	ld l,a
 	in a,($de)
 	cp 7
 	jr nz,.sg1000
@@ -1115,86 +1117,79 @@ nmi_handler:
 	in a,($dc)
 	bit 5,a		; Keyboard down.
 	jr nz,$+4
-	res 1,c
+	res 1,h
 	ld a,$05
 	out ($de),a
 	in a,($dc)
 	bit 5,a		; Keyboard left.
 	jr nz,$+4
-	res 2,c
+	res 2,h
 	ld a,$06
 	out ($de),a
 	in a,($dc)
 	bit 5,a		; Keyboard right.
 	jr nz,$+4
-	res 3,c
+	res 3,h
 	bit 6,a		; Keyboard up.
 	jr nz,$+4
-	res 0,c
+	res 0,h
 	ld a,$02
 	out ($de),a
 	in a,($dc)
 	bit 4,a		; Keyboard Ins
 	jr nz,$+4
-	res 4,c
+	res 4,h
 	ld a,$03
 	out ($de),a
 	in a,($dc)
 	bit 4,a		; Keyboard Del
 	jr nz,$+4
-	res 5,c
+	res 5,h
 .sg1000:
-	ld a,c
-        bit 0,a
+        bit 0,h
         jr nz,$+4
         res 0,b
-        bit 1,a
+        bit 1,h
         jr nz,$+4
         res 2,b
-        bit 2,a
+        bit 2,h
         jr nz,$+4
         res 3,b
-        bit 3,a
+        bit 3,h
         jr nz,$+4
         res 1,b
-        bit 4,a
+        bit 4,h
         jr nz,$+4
         res 6,b
-        bit 5,a
+        bit 5,h
         jr nz,$+4
         res 7,b
-	push af
 	ld a,b
 	cpl
 	ld (joy1_data),a
-	pop af
 
-	ld b,$ff
-        bit 6,a
+	ld a,$ff
+        bit 6,h
         jr nz,$+4
-        res 0,b
-        bit 7,a
+        res 0,a
+        bit 7,h
         jr nz,$+4
-        res 2,b
+        res 2,a
 
-        in a,(JOY2)
-        bit 0,a
+        bit 0,l
         jr nz,$+4
-        res 3,b
-        bit 1,a
+        res 3,a
+        bit 1,l
         jr nz,$+4
-        res 1,b
-        bit 2,a
+        res 1,a
+        bit 2,l
         jr nz,$+4
-        res 4,b
-        bit 3,a
+        res 4,a
+        bit 3,l
         jr nz,$+4
-        res 5,b
-	push af
-	ld a,b
+        res 5,a
 	cpl
 	ld (joy2_data),a
-	pop af
 
     endif
     if MSX
