@@ -469,6 +469,13 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                     node_delete(left);
                     return right;
                 }
+                if ((right->value & 0xff00) == 0x0000 && left->type == N_EXTEND8) {
+                    left->type = N_AND8;
+                    right->type = N_NUM8;
+                    left->right = right;
+                    type = N_EXTEND8;
+                    right = NULL;
+                }
             }
             break;
         case N_OR16:    /* 16-bit OR */
@@ -491,6 +498,13 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                     node_delete(left);
                     return right;
                 }
+                if ((right->value & 0xff00) == 0x0000 && left->type == N_EXTEND8) {
+                    left->type = N_OR8;
+                    right->type = N_NUM8;
+                    left->right = right;
+                    type = N_EXTEND8;
+                    right = NULL;
+                }
             }
             break;
         case N_XOR16:   /* 16-bit XOR */
@@ -508,6 +522,13 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 if (right->value == 0) {
                     node_delete(right);
                     return left;
+                }
+                if ((right->value & 0xff00) == 0x0000 && left->type == N_EXTEND8) {
+                    left->type = N_XOR8;
+                    right->type = N_NUM8;
+                    left->right = right;
+                    type = N_EXTEND8;
+                    right = NULL;
                 }
             }
             break;
