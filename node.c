@@ -274,6 +274,12 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                 left->type = N_LOAD8;
                 return left;
             }
+            
+            /*
+             ** Optimize a just expanded value
+             */
+            if (left->type == N_EXTEND8)
+                return left->left;
             break;
         case N_EXTEND8: /* Extend 8-bit expression to 16-bit */
             if (left->type == N_NUM8) {
@@ -1264,7 +1270,7 @@ void node_generate(struct node *node, int decision)
                     node_generate(node->left, 0);
                     node_get_label(node->right, 0);
                     z80_2op("LD", "DE", temp);
-                    z80_1op("AND", "A");
+                    z80_1op("OR", "A");
                     z80_2op("SBC", "HL", "DE");
                     break;
                 }

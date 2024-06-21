@@ -238,6 +238,7 @@ void bank_finish(void)
 
 char z80_a_content[MAX_LINE_SIZE];
 char z80_hl_content[MAX_LINE_SIZE];
+int z80_flag_z_valid;
 
 /*
  ** Emit a Z80 label
@@ -247,6 +248,7 @@ void z80_label(char *label)
     fprintf(output, "%s:\n", label);
     z80_a_content[0] = '\0';
     z80_hl_content[0] = '\0';
+    z80_flag_z_valid = 0;
 }
 
 /*
@@ -255,6 +257,7 @@ void z80_label(char *label)
 void z80_empty(void)
 {
     z80_a_content[0] = '\0';
+    z80_flag_z_valid = 0;
 }
 
 /*
@@ -265,6 +268,7 @@ void z80_noop(char *mnemonic)
     fprintf(output, "\t%s\n", mnemonic);
     z80_a_content[0] = '\0';
     z80_hl_content[0] = '\0';
+    z80_flag_z_valid = 0;
 }
 
 /*
@@ -282,50 +286,84 @@ void z80_1op(char *mnemonic, char *operand)
         }
     }
     
+    /*
+     ** Important note: AND A is used for the sole purpose of
+     ** make sure A is zero.
+     **
+     ** It is used OR A for clearing the carry flag for SBC HL,DE
+     */
+    if (strcmp(mnemonic, "AND") == 0) {
+        if (strcmp(operand, "A") == 0) {
+            if (z80_flag_z_valid)
+                return;
+        }
+    }
+
     fprintf(output, "\t%s %s\n", mnemonic, operand);
     
-    if (strcmp(mnemonic, "PUSH") == 0 || strcmp(mnemonic, "CP") == 0) {
+    if (strcmp(mnemonic, "PUSH") == 0) {
         /* No affected registers */
+    } else if (strcmp(mnemonic, "CP") == 0) {
+        /* No affected registers */
+        z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "POP") == 0) {
-        if (strcmp(operand, "AF") == 0)
+        if (strcmp(operand, "AF") == 0) {
             z80_a_content[0] = '\0';
-        else if (strcmp(operand, "HL") == 0)
+            z80_flag_z_valid = 0;
+        } else if (strcmp(operand, "HL") == 0) {
             z80_hl_content[0] = '\0';
+        }
     } else if (strcmp(mnemonic, "CALL") == 0 ||
                strcmp(mnemonic, "JP") == 0) {
         z80_a_content[0] = '\0';
         z80_hl_content[0] = '\0';
+        z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "SUB") == 0) {
         if (strcmp(operand, "A") == 0)
             strcpy(z80_a_content, "0");
         else
             z80_a_content[0] = '\0';
+        z80_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "OR") == 0 ||
                strcmp(mnemonic, "XOR") == 0 ||
                strcmp(mnemonic, "AND") == 0) {
         z80_a_content[0] = '\0';
+        z80_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "SRL") == 0) {
         if (strcmp(operand, "H") == 0)
             z80_hl_content[0] = '\0';
+        else if (strcmp(operand, "A") == 0)
+            z80_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "RR") == 0) {
         if (strcmp(operand, "L") == 0)
             z80_hl_content[0] = '\0';
+        z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "INC") == 0) {
         if (strcmp(operand, "H") == 0 ||
             strcmp(operand, "L") == 0 ||
-            strcmp(operand, "HL") == 0)
+            strcmp(operand, "HL") == 0) {
             z80_hl_content[0] = '\0';
-        else if (strcmp(operand, "A") == 0 ||
-                 strcmp(operand, "(HL)") == 0)
+            z80_flag_z_valid = 0;
+        } else if (strcmp(operand, "A") == 0) {
             z80_a_content[0] = '\0';
+            z80_flag_z_valid = 1;
+        } else if (strcmp(operand, "(HL)") == 0) {
+            z80_a_content[0] = '\0';
+            z80_flag_z_valid = 0;
+        }
     } else if (strcmp(mnemonic, "DEC") == 0) {
         if (strcmp(operand, "H") == 0 ||
             strcmp(operand, "L") == 0 ||
-            strcmp(operand, "HL") == 0)
+            strcmp(operand, "HL") == 0) {
             z80_hl_content[0] = '\0';
-        else if (strcmp(operand, "A") == 0 ||
-                 strcmp(operand, "(HL)") == 0)
+            z80_flag_z_valid = 0;
+        } else if (strcmp(operand, "A") == 0) {
             z80_a_content[0] = '\0';
+            z80_flag_z_valid = 1;
+        } else if (strcmp(operand, "(HL)") == 0) {
+            z80_a_content[0] = '\0';
+            z80_flag_z_valid = 0;
+        }
     } else if (strcmp(mnemonic, "DW") == 0 || strcmp(mnemonic, "ORG") == 0 || strcmp(mnemonic, "FORG") == 0) {
         /* Nothing to do */
     } else {
@@ -361,17 +399,23 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
         strcmp(mnemonic, "OUT") == 0 ||
         strcmp(mnemonic, "RES") == 0 ||
         strcmp(mnemonic, "SET") == 0) {
-        /* No affected registers */
+        /* No affected registers or flags */
     } else if (strcmp(mnemonic, "EX") == 0) {
         z80_hl_content[0] = '\0';
     } else if (strcmp(mnemonic, "IN") == 0) {
         z80_a_content[0] = '\0';
+        z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "SBC") == 0) {
-        if (strcmp(operand1, "A") == 0)
+        if (strcmp(operand1, "A") == 0) {
             z80_a_content[0] = '\0';
-        else
+            z80_flag_z_valid = 1;
+        } else {
             z80_hl_content[0] = '\0';
+            z80_flag_z_valid = 0;
+        }
     } else if (strcmp(mnemonic, "LD") == 0) {
+        if (strcmp(operand1, "A") == 0)  /* Read value into accumulator */
+            z80_flag_z_valid = 0;       /* Z status isn't valid */
         if (strcmp(operand1, "L") == 0 || strcmp(operand1, "H") == 0)
             z80_hl_content[0] = '\0';
         if (strcmp(operand1, "HL") == 0)
@@ -3717,7 +3761,7 @@ void compile_statement(int check_for_else)
                         } else {
                             sprintf(temp, "%d", max_value);
                             z80_2op("LD", "DE", temp);
-                            z80_1op("AND", "A");
+                            z80_1op("OR", "A");
                             z80_2op("SBC", "HL", "DE");
                             z80_2op("ADD", "HL", "DE");
                         }
