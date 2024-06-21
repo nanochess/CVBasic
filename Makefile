@@ -3,10 +3,10 @@
 # https://github.com/nanochess/CVBasic
 #
 build:
-	@cc cvbasic.c -o cvbasic
+	@cc cvbasic.c node.c -o cvbasic
 
 clean:
-	@rm cvbasic
+	@rm cvbasic node
 
 love:
 	@echo "...not war"
