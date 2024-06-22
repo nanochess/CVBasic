@@ -4314,8 +4314,8 @@ void compile_basic(void)
             } else if (strcmp(name, "END") == 0 && lex_sneak_peek() != 'I') {  /* END (and not END IF) */
                 if (!inside_proc)
                     emit_warning("END without PROCEDURE");
-                /*                    else if (loops.size() > 0)
-                 emit_error("Ending PROCEDURE with control block still open");*/ /* !!! */
+                else if (loops != NULL)
+                    emit_error("Ending PROCEDURE with control block still open");
                 get_lex();
                 if (!last_is_return)
                     z80_noop("RET");
