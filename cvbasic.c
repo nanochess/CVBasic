@@ -16,10 +16,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 #include "cvbasic.h"
 #include "node.h"
 
-#define VERSION "v0.5.1 Jun/20/2024"
+#define VERSION "v0.5.1 Jun/22/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -4387,7 +4388,12 @@ int main(int argc, char *argv[])
     char *p;
     int bytes_used;
     int available_bytes;
+    time_t actual;
+    struct tm *date;
     
+    actual = time(0);
+    date = localtime(&actual);
+
     fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
     fprintf(stderr, "(c) 2024 Oscar Toledo G. https://nanochess.org/\n\n");
     
@@ -4471,6 +4477,19 @@ int main(int argc, char *argv[])
     }
     c++;
     
+    fprintf(output, "\t; CVBasic compiler " VERSION "\n");
+    fprintf(output, "\t; Command: ");
+    for (c = 0; c < argc; c++) {
+        char *b;
+        
+        b = strchr(argv[c], ' ');
+        if (b != NULL)
+            fprintf(output, "\"%s\" ", argv[c]);
+        else
+            fprintf(output, "%s ", argv[c]);
+    }
+    fprintf(output, "\n");
+    fprintf(output, "\t; Created: %s\n", asctime(date));
     fprintf(output, "COLECO:\tequ %d\n",
             (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
