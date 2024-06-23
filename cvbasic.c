@@ -20,7 +20,7 @@
 #include "cvbasic.h"
 #include "node.h"
 
-#define VERSION "v0.5.1 Jun/22/2024"
+#define VERSION "v0.5.1 Jun/23/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -45,11 +45,11 @@ struct console {
     int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
 } consoles[] = {
     /*  RAM     STACK    Size  VDP R   VDP W */
-        0x7000, 0x7400,  1024,  0xbe,   0xbe,
-        0xc000, 0xc400,  1024,  0xbe,   0xbe,
-        0xe000, 0xf000,  4096,  0x98,   0x98,
-        0x7c00, 0x8000, 23552,  0xbe,   0xbe,
-        0xc000, 0xf000, 12288,  0x80,   0x84,
+    {0x7000, 0x7400,  1024,  0xbe,   0xbe},
+    {0xc000, 0xc400,  1024,  0xbe,   0xbe},
+    {0xe000, 0xf000,  4096,  0x98,   0x98},
+    {0x7c00, 0x8000, 23552,  0xbe,   0xbe},
+    {0xc000, 0xf000, 12288,  0x80,   0x84},
 };
 
 int err_code;
@@ -477,7 +477,6 @@ struct label *function_search(char *name)
 struct label *function_add(char *name)
 {
     struct label **previous;
-    struct label *explore;
     struct label *new_one;
     
     new_one = malloc(sizeof(struct label) + strlen(name));
@@ -516,7 +515,6 @@ struct signedness *signed_search(char *name)
 struct signedness *signed_add(char *name)
 {
     struct signedness **previous;
-    struct signedness *explore;
     struct signedness *new_one;
     
     new_one = malloc(sizeof(struct signedness) + strlen(name));
@@ -554,7 +552,6 @@ struct constant *constant_search(char *name)
 struct constant *constant_add(char *name)
 {
     struct constant **previous;
-    struct constant *explore;
     struct constant *new_one;
     
     new_one = malloc(sizeof(struct constant) + strlen(name));
@@ -592,7 +589,6 @@ struct label *label_search(char *name)
 struct label *label_add(char *name)
 {
     struct label **previous;
-    struct label *explore;
     struct label *new_one;
     
     new_one = malloc(sizeof(struct label) + strlen(name));
@@ -631,7 +627,6 @@ struct label *array_search(char *name)
 struct label *array_add(char *name)
 {
     struct label **previous;
-    struct label *explore;
     struct label *new_one;
     
     new_one = malloc(sizeof(struct label) + strlen(name));
@@ -669,7 +664,6 @@ struct macro *macro_search(char *name)
 struct macro *macro_add(char *name)
 {
     struct macro **previous;
-    struct macro *explore;
     struct macro *new_one;
     
     new_one = malloc(sizeof(struct macro) + strlen(name));
@@ -1006,10 +1000,31 @@ int mix_types(struct node **node1, int type1, struct node **node2, int type2)
 }
 
 /*
- ** Evaluates an expression
+ ** Evaluates an expression for later usage.
  ** Result in A or HL.
  ** Doesn't need to propagate signed flag because the expression result is used immediately.
  */
+struct node *evaluate_save_expression(int cast, int to_type)
+{
+    struct node *tree;
+    int type;
+    
+    optimized = 0;
+    tree = evaluate_level_0(&type);
+    if (cast != 0) {
+        if (to_type == TYPE_8 && (type & MAIN_TYPE) == TYPE_16) {
+            tree = node_create(N_REDUCE16, 0, tree, NULL);
+            type = TYPE_8;
+        } else if (to_type == TYPE_16 && (type & MAIN_TYPE) == TYPE_8) {
+            tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+            type = TYPE_16;
+        }
+    }
+    node_label(tree);
+/*    node_visual(tree); */  /* Debugging */
+    return tree;
+}
+
 int evaluate_expression(int cast, int to_type, int label)
 {
     struct node *tree;
@@ -1046,11 +1061,10 @@ int evaluate_expression(int cast, int to_type, int label)
         return type;
     }
     
-/*    node_visual(tree);*/  /* Debugging */
-    
     if (cast == 2)
         return type;
-    
+    node_label(tree);
+    /*    node_visual(tree); */ /* Debugging */
     node_generate(tree, label);
     node_delete(tree);
     if (label != 0 && !optimized) {
@@ -1427,6 +1441,7 @@ struct node *evaluate_level_7(int *type)
             if (lex == C_PERIOD) {
                 get_lex();
                 if (lex != C_NAME) {
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
                     emit_error("CONT syntax error");
                 } else if (strcmp(name, "UP") == 0) {
                     get_lex();
@@ -1463,6 +1478,7 @@ struct node *evaluate_level_7(int *type)
                     tree = node_create(N_KEY1, 0, NULL, NULL);
                     tree = node_create(N_AND8, 0, tree, node_create(N_KEY2, 0, NULL, NULL));
                 } else {
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
                     emit_error("Wrong field for CONT");
                 }
             } else {
@@ -1477,6 +1493,7 @@ struct node *evaluate_level_7(int *type)
             if (lex == C_PERIOD) {
                 get_lex();
                 if (lex != C_NAME) {
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
                     emit_error("CONT1 syntax error");
                 } else if (strcmp(name, "UP") == 0) {
                     get_lex();
@@ -1507,6 +1524,7 @@ struct node *evaluate_level_7(int *type)
                     tree = node_create(N_KEY1, 0, NULL, NULL);
                 } else {
                     emit_error("Wrong field for CONT1");
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
                 }
             } else {
                 tree = node_create(N_JOY1, 0, NULL, NULL);
@@ -1520,6 +1538,7 @@ struct node *evaluate_level_7(int *type)
                 get_lex();
                 if (lex != C_NAME) {
                     emit_error("CONT2 syntax error");
+                    tree = node_create(N_JOY2, 0, NULL, NULL);
                 } else if (strcmp(name, "UP") == 0) {
                     get_lex();
                     tree = node_create(N_JOY2, 0, NULL, NULL);
@@ -1549,6 +1568,7 @@ struct node *evaluate_level_7(int *type)
                     tree = node_create(N_KEY2, 0, NULL, NULL);
                 } else {
                     emit_error("Wrong field for CONT2");
+                    tree = node_create(N_JOY2, 0, NULL, NULL);
                 }
             } else {
                 tree = node_create(N_JOY2, 0, NULL, NULL);
@@ -1793,8 +1813,6 @@ struct node *evaluate_level_7(int *type)
             label = NULL;
         }
         if (label == NULL) {
-            char buffer[MAX_LINE_SIZE];
-            
             check_for_explicit(name);
             label = label_add(name);
             if (name[0] == '#')
@@ -2001,7 +2019,6 @@ int replace_macro(void)
 void compile_assignment(int is_read)
 {
     struct node *tree;
-    struct node *addr;
     int type;
     int type2;
     struct label *label;
@@ -2067,6 +2084,8 @@ void compile_assignment(int is_read)
         else if ((type2 & MAIN_TYPE) == TYPE_8)
             tree = node_create(N_ASSIGN8, 0, tree, addr);
         tree->label = label;
+        node_label(tree);
+/*        node_visual(tree); */ /* @@@ debugging */
         node_generate(tree, 0);
         node_delete(tree);
         return;
@@ -2086,8 +2105,6 @@ void compile_assignment(int is_read)
         label = NULL;
     }
     if (label == NULL) {
-        char buffer[MAX_LINE_SIZE];
-       
         check_for_explicit(name);
         label = label_add(name);
         if (name[0] == '#')
@@ -2114,6 +2131,7 @@ void compile_assignment(int is_read)
         tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
     else if ((type2 & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
         tree = node_create(N_REDUCE16, 0, tree, NULL);
+    node_label(tree);
     node_generate(tree, 0);
     node_delete(tree);
     strcpy(temp, "(" LABEL_PREFIX);
@@ -2132,7 +2150,6 @@ void compile_assignment(int is_read)
 void compile_statement(int check_for_else)
 {
     struct label *label;
-    int label_number;
     int type;
     
     while (1) {
@@ -2175,7 +2192,6 @@ void compile_statement(int check_for_else)
                 z80_noop("RET");
                 last_is_return = 1;
             } else if (strcmp(name, "IF") == 0) {
-                struct node *tree;
                 int type;
                 int label;
                 int there_is_else;
@@ -2237,7 +2253,6 @@ void compile_statement(int check_for_else)
                 last_is_return = 0;
             } else if (strcmp(name, "ELSEIF") == 0) {
                 int type;
-                struct node *tree;
                 
                 get_lex();
                 if (loops == NULL) {
@@ -2318,13 +2333,11 @@ void compile_statement(int check_for_else)
                 struct label *label;
                 struct loop *new_loop;
                 int label_loop;
-                char loop[MAX_LINE_SIZE];
                 struct node *final = NULL;
                 struct node *step = NULL;
                 struct node *var;
                 int positive;
                 int type;
-                int end_value;
                 int step_value;
                 int type_var;
                 enum node_type comparison;
@@ -2435,6 +2448,7 @@ void compile_statement(int check_for_else)
                                 emit_error("bad nested NEXT");
                             get_lex();
                         }
+                        node_label(step);
                         node_generate(step, 0);
                         sprintf(temp, "(" LABEL_PREFIX "%s" ")", loops->var);
                         if (loops->var[0] == '#') {
@@ -2444,6 +2458,7 @@ void compile_statement(int check_for_else)
                         }
                         if (final != NULL) {
                             optimized = 0;
+                            node_label(final);
                             node_generate(final, label_loop);
                             if (!optimized) {
                                 z80_1op("OR", "A");
@@ -2452,9 +2467,7 @@ void compile_statement(int check_for_else)
                             }
                             node_delete(final);
                         }
-                        if (step != NULL) {
-                            node_delete(step);
-                        }
+                        node_delete(step);
                         if (label_exit != 0) {
                             sprintf(temp, INTERNAL_PREFIX "%d", label_exit);
                             z80_label(temp);
@@ -2642,35 +2655,59 @@ void compile_statement(int check_for_else)
                     }
                 }
             } else if (strcmp(name, "POKE") == 0) {
-                struct node *tree;
-                int type;
+                struct node *address;
+                struct node *value;
                 
                 get_lex();
-                type = evaluate_expression(1, TYPE_16, 0);
-                z80_1op("PUSH", "HL");
+                address = evaluate_save_expression(1, TYPE_16);
                 if (lex == C_COMMA)
                     get_lex();
                 else
                     emit_error("missing comma in POKE");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("POP", "HL");
+                value = evaluate_save_expression(1, TYPE_8);
+                if ((value->regs & REG_HL) == 0) {
+                    node_generate(address, 0);
+                    node_generate(value, 0);
+                } else if ((address->regs & REG_A) == 0) {
+                    node_generate(value, 0);
+                    node_generate(address, 0);
+                } else {
+                    node_generate(address, 0);
+                    z80_1op("PUSH", "HL");
+                    node_generate(value, 0);
+                    z80_1op("POP", "HL");
+                }
                 z80_2op("LD", "(HL)", "A");
+                node_delete(address);
+                node_delete(value);
             } else if (strcmp(name, "VPOKE") == 0) {
-                struct node *tree;
-                int type;
+                struct node *address;
+                struct node *value;
                 
                 get_lex();
-                type = evaluate_expression(1, TYPE_16, 0);
-                z80_1op("PUSH", "HL");
+                address = evaluate_save_expression(1, TYPE_16);
                 if (lex == C_COMMA)
                     get_lex();
                 else
                     emit_error("missing comma in VPOKE");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("POP", "HL");
+                value = evaluate_save_expression(1, TYPE_8);
+                if ((value->regs & REG_HL) == 0) {
+                    node_generate(address, 0);
+                    node_generate(value, 0);
+                } else if ((address->regs & REG_A) == 0) {
+                    node_generate(value, 0);
+                    node_generate(address, 0);
+                } else {
+                    node_generate(address, 0);
+                    z80_1op("PUSH", "HL");
+                    node_generate(value, 0);
+                    z80_1op("POP", "HL");
+                }
                 z80_1op("CALL", "NMI_OFF");
                 z80_1op("CALL", "WRTVRM");
                 z80_1op("CALL", "NMI_ON");
+                node_delete(address);
+                node_delete(value);
             } else if (strcmp(name, "REM") == 0) {
                 line_pos = line_size;
                 get_lex();
@@ -2768,7 +2805,6 @@ void compile_statement(int check_for_else)
                 } else {
                     while (1) {
                         if (lex == C_NAME && strcmp(name, "VARPTR") == 0) {  /* Access to variable/array/label address */
-                            int index;
                             int type2;
                             
                             get_lex();
@@ -2891,20 +2927,28 @@ void compile_statement(int check_for_else)
                     }
                 }
             } else if (strcmp(name, "OUT") == 0) {
-                struct node *tree;
-                int type;
+                struct node *port;
+                struct node *value;
                 
                 get_lex();
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_2op("LD", "C", "A");
-                z80_1op("PUSH", "BC");
+                port = evaluate_save_expression(1, TYPE_8);
                 if (lex == C_COMMA)
                     get_lex();
                 else
                     emit_error("missing comma in OUT");
-                type = evaluate_expression(1, TYPE_8, 0);
-                z80_1op("POP", "BC");
+                value = evaluate_save_expression(1, TYPE_8);
+                node_generate(port, 0);
+                z80_2op("LD", "C", "A");
+                if ((value->regs & REG_C) == 0) {
+                    node_generate(value, 0);
+                } else {
+                    z80_1op("PUSH", "BC");
+                    node_generate(value, 0);
+                    z80_1op("POP", "BC");
+                }
                 z80_2op("OUT", "(C)", "A");
+                node_delete(port);
+                node_delete(value);
             } else if (strcmp(name, "PRINT") == 0) {
                 int label;
                 int label2;
@@ -3049,13 +3093,16 @@ void compile_statement(int check_for_else)
                         z80_1op("CALL", "unpack");
                         compression_used = 1;
                     } else {
+                        struct node *length;
+                        struct node *source = NULL;
+                        
                         type = evaluate_expression(1, TYPE_16, 0);
                         z80_1op("PUSH", "HL");
                         if (lex == C_COMMA)
                             get_lex();
                         else
                             emit_error("missing comma in DEFINE");
-                        type = evaluate_expression(1, TYPE_8, 0);
+                        length = evaluate_save_expression(1, TYPE_8);
                         if (lex == C_COMMA)
                             get_lex();
                         else
@@ -3063,18 +3110,33 @@ void compile_statement(int check_for_else)
                         if (lex != C_NAME) {
                             emit_error("missing label in DEFINE");
                         } else if (strcmp(name, "VARPTR") == 0) {
-                            z80_1op("PUSH", "AF");
-                            type = evaluate_expression(1, TYPE_16, 0);
-                            z80_1op("POP", "AF");
+                            source = evaluate_save_expression(1, TYPE_16);
+                            node_generate(length, 0);
+                            if ((source->regs & REG_A) != 0)
+                                z80_1op("PUSH", "AF");
+                            node_generate(source, 0);
+                            if ((source->regs & REG_A) != 0)
+                                z80_1op("POP", "AF");
                         } else {
+                            node_generate(length, 0);
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
                             z80_2op("LD", "HL", temp);
                             get_lex();
                         }
                         z80_1op("CALL", "define_sprite");
+                        node_delete(length);
+                        node_delete(source);
                     }
-                } else if (strcmp(name, "CHAR") == 0) {
+                } else if (strcmp(name, "CHAR") == 0 || strcmp(name, "COLOR") == 0) {
+                    int color;
+                    struct node *length;
+                    struct node *source = NULL;
+                    
+                    if (strcmp(name, "COLOR") == 0)
+                        color = 1;
+                    else
+                        color = 0;
                     get_lex();
                     if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
                         pletter = 1;
@@ -3086,7 +3148,7 @@ void compile_statement(int check_for_else)
                         get_lex();
                     else
                         emit_error("missing comma in DEFINE");
-                    type = evaluate_expression(1, TYPE_8, 0);
+                    length = evaluate_save_expression(1, TYPE_8);
                     if (lex == C_COMMA)
                         get_lex();
                     else
@@ -3094,86 +3156,91 @@ void compile_statement(int check_for_else)
                     if (lex != C_NAME) {
                         emit_error("missing label in DEFINE");
                     } else if (!pletter && strcmp(name, "VARPTR") == 0) {
-                        z80_1op("PUSH", "AF");
-                        type = evaluate_expression(1, TYPE_16, 0);
-                        z80_1op("POP", "AF");
+                        source = evaluate_save_expression(1, TYPE_16);
+                        node_generate(length, 0);
+                        if ((source->regs & REG_A) != 0)
+                            z80_1op("PUSH", "AF");
+                        node_generate(source, 0);
+                        if ((source->regs & REG_A) != 0)
+                            z80_1op("POP", "AF");
                     } else {
+                        node_generate(length, 0);
                         strcpy(temp, LABEL_PREFIX);
                         strcat(temp, name);
                         z80_2op("LD", "HL", temp);
                         get_lex();
                     }
                     if (pletter) {
-                        z80_1op("CALL", "define_char_unpack");
+                        z80_1op("CALL", color ? "define_color_unpack" : "define_char_unpack");
                         compression_used = 1;
                     } else {
-                        z80_1op("CALL", "define_char");
+                        z80_1op("CALL", color ? "define_color" : "define_char");
                     }
-                } else if (strcmp(name, "COLOR") == 0) {
-                    get_lex();
-                    if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
-                        pletter = 1;
-                        get_lex();
-                    }
-                    type = evaluate_expression(1, TYPE_16, 0);
-                    z80_1op("PUSH", "HL");
-                    if (lex == C_COMMA)
-                        get_lex();
-                    else
-                        emit_error("missing comma in DEFINE");
-                    type = evaluate_expression(1, TYPE_8, 0);
-                    if (lex == C_COMMA)
-                        get_lex();
-                    else
-                        emit_error("missing comma in DEFINE");
-                    if (lex != C_NAME) {
-                        emit_error("missing label in DEFINE");
-                    } else if (!pletter && strcmp(name, "VARPTR") == 0) {
-                        z80_1op("PUSH", "AF");
-                        type = evaluate_expression(1, TYPE_16, 0);
-                        z80_1op("POP", "AF");
-                    } else {
-                        strcpy(temp, LABEL_PREFIX);
-                        strcat(temp, name);
-                        z80_2op("LD", "HL", temp);
-                        get_lex();
-                    }
-                    if (pletter) {
-                        z80_1op("CALL", "define_color_unpack");
-                        compression_used = 1;
-                    } else {
-                        z80_1op("CALL", "define_color");
-                    }
+                    node_delete(length);
+                    node_delete(source);
                 } else if (strcmp(name, "VRAM") == 0) {
+                    struct node *source;
+                    struct node *target;
+                    struct node *length;
+                    
                     get_lex();
                     if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
                         pletter = 1;
                         get_lex();
                     }
-                    type = evaluate_expression(1, TYPE_16, 0);
-                    z80_1op("PUSH", "HL");
+                    target = evaluate_save_expression(1, TYPE_16);
                     if (lex == C_COMMA)
                         get_lex();
                     else
                         emit_error("missing comma in DEFINE");
-                    type = evaluate_expression(1, TYPE_16, 0);
-                    z80_1op("PUSH", "HL");
+                    length = evaluate_save_expression(1, TYPE_16);
                     if (lex == C_COMMA)
                         get_lex();
                     else
                         emit_error("missing comma in DEFINE");
                     if (lex != C_NAME) {
                         emit_error("missing label in DEFINE");
+                        source = NULL;
                     } else if (!pletter && strcmp(name, "VARPTR") == 0) {
-                        type = evaluate_expression(1, TYPE_16, 0);
-                        z80_1op("POP", "BC");
-                        z80_1op("POP", "DE");
+                        source = evaluate_save_expression(1, TYPE_16);
+                        node_generate(length, 0);
+                        if (((target->regs | source->regs) & REG_BC) == 0) {
+                            z80_2op("LD", "B", "H");
+                            z80_2op("LD", "C", "L");
+                        } else {
+                            z80_1op("PUSH", "HL");
+                        }
+                        node_generate(target, 0);
+                        if ((source->regs & REG_DE) == 0) {
+                            z80_2op("EX", "DE", "HL");
+                            node_generate(source, 0);
+                        } else {
+                            z80_1op("PUSH", "HL");
+                            node_generate(source, 0);
+                            z80_1op("POP", "DE");
+                        }
+                        if (((target->regs | source->regs) & REG_BC) != 0)
+                            z80_1op("POP", "BC");
                     } else {
+                        source = NULL;
+                        if (!pletter) {
+                            node_generate(length, 0);
+                            if ((target->regs & REG_BC) == 0) {
+                                z80_2op("LD", "B", "H");
+                                z80_2op("LD", "C", "L");
+                            } else {
+                                z80_1op("PUSH", "HL");
+                            }
+                        }
+                        node_generate(target, 0);
+                        z80_2op("EX", "DE", "HL");
                         strcpy(temp, LABEL_PREFIX);
                         strcat(temp, name);
                         z80_2op("LD", "HL", temp);
-                        z80_1op("POP", "BC");
-                        z80_1op("POP", "DE");
+                        if (!pletter) {
+                            if ((target->regs & REG_BC) != 0)
+                                z80_1op("POP", "BC");
+                        }
                         get_lex();
                     }
                     if (pletter) {
@@ -3184,6 +3251,9 @@ void compile_statement(int check_for_else)
                         z80_1op("CALL", "LDIRVM");
                         z80_1op("CALL", "nmi_on");
                     }
+                    node_delete(length);
+                    node_delete(target);
+                    node_delete(source);
                 } else {
                     emit_error("syntax error in DEFINE");
                 }
@@ -3423,7 +3493,6 @@ void compile_statement(int check_for_else)
                 if (value == 2)
                     z80_1op("CALL", "mode_2");
             } else if (strcmp(name, "SCREEN") == 0) {  /* Copy screen */
-                int label;
                 struct label *array;
                 
                 get_lex();
@@ -3464,6 +3533,7 @@ void compile_statement(int check_for_else)
                         if ((type & MAIN_TYPE) == TYPE_8)
                             final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                         final = node_create(N_PLUS16, 0, addr, final);
+                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         z80_1op("PUSH", "HL");
@@ -3476,6 +3546,7 @@ void compile_statement(int check_for_else)
                         if ((type & MAIN_TYPE) == TYPE_8)
                             final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                         final = node_create(N_PLUS16, 0, node_create(N_NUM16, 0x1800, NULL, NULL), final);
+                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         z80_1op("PUSH", "HL");
@@ -3487,6 +3558,7 @@ void compile_statement(int check_for_else)
                         final = evaluate_level_0(&type);    /* Width */
                         if ((type & MAIN_TYPE) == TYPE_16)
                             final = node_create(N_REDUCE16, 0, final, NULL);
+                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         z80_1op("PUSH", "AF");
@@ -3498,6 +3570,7 @@ void compile_statement(int check_for_else)
                         final = evaluate_level_0(&type);    /* Height */
                         if ((type & MAIN_TYPE) == TYPE_16)
                             final = node_create(N_REDUCE16, 0, final, NULL);
+                        node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
                         if (lex == C_COMMA) {   /* Sixth argument for SCREEN (stride width) */
@@ -3506,6 +3579,7 @@ void compile_statement(int check_for_else)
                             final = evaluate_level_0(&type);
                             if ((type & MAIN_TYPE) == TYPE_16)
                                 final = node_create(N_REDUCE16, 0, final, NULL);
+                            node_label(final);
                             node_generate(final, 0);
                             node_delete(final);
                             z80_1op("CALL", "CPYBLK");
@@ -3526,7 +3600,6 @@ void compile_statement(int check_for_else)
                     }
                 }
             } else if (strcmp(name, "PLAY") == 0) {
-                int label;
                 int c;
                 
                 get_lex();
@@ -3993,6 +4066,7 @@ void compile_statement(int check_for_else)
                 
                 get_lex();
                 tree = process_usr(1);
+                node_label(tree);
                 node_generate(tree, 0);
                 node_delete(tree);
             } else if (strcmp(name, "ASM") == 0) {  /* ASM statement for inserting assembly code */

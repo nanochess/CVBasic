@@ -102,6 +102,16 @@ static void node_display(struct node *tree, int y, int max, char *report)
     p = report + real_y * 80 + real_x - (strlen(s) + 1) / 2;
     while (*s)
         *p++ = *s++;
+#if 1
+    {
+        char *hex = "0123456789abcdef";
+        
+    *p++ = '(';
+        *p++ = hex[tree->regs >> 4];
+        *p++ = hex[tree->regs & 0x0f];
+    *p++ = ')';
+    }
+#endif
     if (tree->left != NULL && tree->right != NULL) {
         c = (real_x + node_column(tree->left->x, max) + 1) / 2;
         report[(real_y + 1) * 80 + c] = '/';
@@ -124,7 +134,6 @@ void node_visual(struct node *tree)
     char *report;
     int c;
     int width;
-    int max;
     
     width = 0;
     depth = 0;
@@ -672,6 +681,8 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
     new_node->left = left;
     new_node->right = right;
     new_node->label = NULL;
+    new_node->x = 0;
+    new_node->regs = 0;
     return new_node;
 }
 
@@ -694,11 +705,358 @@ static void node_get_label(struct node *node, int parenthesis)
 }
 
 /*
- ** Argument reg is not yet used, nor sorted evaluation order.
+ ** Label register usage in tree
+ **
+ ** This should match exactly register usage in node_generate.
+ */
+void node_label(struct node *node)
+{
+    struct node *explore;
+    
+    switch (node->type) {
+        case N_USR:     /* Assembly language function with result */
+            if (node->left != NULL)
+                node_label(node->left);
+            node->regs = REG_ALL;
+            break;
+        case N_ADDR:    /* Get address of variable */
+        case N_POS:     /* Get screen cursor position */
+        case N_LOAD16:  /* Load 16-bit value from address */
+        case N_NUM16:   /* Load 16-bit constant */
+        case N_FRAME:   /* Read current frame number */
+            node->regs = REG_HL;
+            break;
+        case N_NEG8:    /* Negate 8-bit value */
+        case N_NOT8:    /* Complement 8-bit value */
+            node_label(node->left);
+            node->regs = node->left->regs;
+            break;
+        case N_NEG16:   /* Negate 16-bit value */
+        case N_NOT16:   /* Complement 16-bit value */
+        case N_ABS16:   /* Get absolute 16-bit value */
+        case N_SGN16:   /* Get sign of 16-bit value */
+            node_label(node->left);
+            node->regs = node->left->regs | REG_AF;
+            break;
+        case N_EXTEND8S:    /* Extend 8-bit signed value to 16-bit */
+            node_label(node->left);
+            node->regs = node->left->regs | REG_HL;
+            break;
+        case N_EXTEND8: /* Extend 8-bit value to 16-bit */
+            if (node->left->type == N_LOAD8) {  /* Reading 8-bit variable */
+                node->left->type = N_LOAD16;
+                node_label(node->left);
+                node->left->type = N_LOAD8;
+                node->regs = node->left->regs;
+                break;
+            }
+            if (node->left->type == N_PEEK8) {    /* If reading 8-bit memory */
+                if (node->left->left->type == N_ADDR
+                    || ((node->left->left->type == N_PLUS16 || node->left->left->type == N_MINUS16) && node->left->left->left->type == N_ADDR && node->left->left->right->type == N_NUM16)) {   /* Is it variable? */
+                    node->left->type = N_PEEK16;
+                    node_label(node->left);
+                    node->left->type = N_PEEK8;
+                    node->regs = node->left->regs;
+                    break;
+                } else {    /* Optimize to avoid LD A,(HL) / LD L,A */
+                    node_label(node->left->left);
+                    node->regs = node->left->left->regs;
+                    break;
+                }
+            }
+            node_label(node->left);
+            node->regs = node->left->regs | REG_HL;
+            break;
+        case N_REDUCE16:    /* Reduce 16-bit value to 8-bit */
+            node_label(node->left);
+            node->regs = node->left->regs | REG_A;
+            break;
+        case N_READ8:   /* Read 8-bit value */
+            node->regs = REG_A | REG_HL;
+            break;
+        case N_READ16:  /* Read 16-bit value */
+            node->regs = REG_A | REG_DE | REG_HL;
+            break;
+        case N_LOAD8:   /* Load 8-bit value from address */
+        case N_JOY1:    /* Read joystick 1 */
+        case N_JOY2:    /* Read joystick 2 */
+        case N_KEY1:    /* Read keypad 1 */
+        case N_KEY2:    /* Read keypad 2 */
+        case N_MUSIC:   /* Read music playing status */
+        case N_NTSC:    /* Read NTSC flag */
+            node->regs = REG_A;
+            break;
+        case N_NUM8:    /* Load 8-bit constant */
+            if (node->value == 0) {
+                node->regs = REG_AF;
+            } else {
+                node->regs = REG_A;
+            }
+            break;
+        case N_PEEK8:   /* Load 8-bit content */
+            if (node->left->type == N_ADDR) {   /* Optimize address */
+                node->regs = REG_A;
+                break;
+            }
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
+                && node->left->left->type == N_ADDR
+                && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
+                node->regs = REG_A;
+                break;
+            }
+            node_label(node->left);
+            node->regs = node->left->regs | REG_A;
+            break;
+        case N_PEEK16:  /* Load 16-bit content */
+            if (node->left->type == N_ADDR) {   /* Optimize address */
+                node->regs = REG_HL;
+                break;
+            }
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
+                && node->left->left->type == N_ADDR
+                && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
+                node->regs = REG_HL;
+                break;
+            }
+            node_label(node->left);
+            node->regs = node->left->regs | REG_AF;
+            break;
+        case N_VPEEK:   /* Read VRAM */
+            node_label(node->left);
+            node->regs = node->left->regs | REG_AF;
+            break;
+        case N_INP:     /* Read port */
+            node_label(node->left);
+            node->regs = node->left->regs | REG_C | REG_AF;
+            break;
+        case N_RANDOM:  /* Read pseudorandom generator */
+            node->regs = REG_ALL;
+            break;
+        case N_OR8:     /* 8-bit OR */
+        case N_XOR8:    /* 8-bit XOR */
+        case N_AND8:    /* 8-bit AND */
+        case N_EQUAL8:  /* 8-bit = */
+        case N_NOTEQUAL8:   /* 8-bit <> */
+        case N_LESS8:   /* 8-bit < */
+        case N_LESSEQUAL8:  /* 8-bit <= */
+        case N_GREATER8:    /* 8-bit > */
+        case N_GREATEREQUAL8:   /* 8-bit >= */
+        case N_PLUS8:   /* 8-bit + */
+        case N_MINUS8:  /* 8-bit - */
+        case N_MUL8:    /* 8-bit * */
+            if (node->type == N_OR8 && node->left->type == N_JOY1 && node->right->type == N_JOY2) {
+                node->regs = REG_HL | REG_AF;
+                break;
+            }
+            if (node->type == N_AND8 && node->left->type == N_KEY1 && node->right->type == N_KEY2) {
+                node->regs = REG_HL | REG_AF;
+                break;
+            }
+            if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
+                int c;
+                
+                node_label(node->left);
+                node->regs = node->left->regs;
+                c = node->right->value;
+                if (c > 1)
+                    node->regs |= REG_F;
+                break;
+            }
+            if (node->type == N_LESSEQUAL8 || node->type == N_GREATER8) {
+                if (node->left->type == N_NUM8) {
+                    node_label(node->right);
+                    node->regs = node->right->regs;
+                } else {
+                    node_label(node->left);
+                    node_label(node->right);
+                    if (node->right->regs == REG_A) {
+                        node->regs = REG_A | REG_B;
+                    } else {
+                        node->regs = node->left->regs | node->right->regs | REG_BC;
+                    }
+                }
+            } else if (node->right->type == N_NUM8) {
+                int c;
+                
+                c = node->right->value & 0xff;
+                node_label(node->left);
+                node->regs = node->left->regs;
+            } else {
+                node_label(node->right);
+                node_label(node->left);
+                if (node->left->regs == REG_A) {
+                    node->regs = REG_A | REG_B;
+                } else {
+                    node->regs = node->left->regs | node->right->regs | REG_BC;
+                }
+            }
+            break;
+        case N_ASSIGN8: /* 8-bit assignment */
+            if (node->right->type == N_ADDR) {
+                node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
+                node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            node_label(node->right);
+            node_label(node->left);
+            if (node->left->type == N_NUM8) {
+                node->regs = node->right->regs;
+            } else {
+                node->regs = node->left->regs | node->right->regs;
+            }
+            break;
+        case N_ASSIGN16:    /* 16-bit assignment */
+            if (node->right->type == N_ADDR) {
+                node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
+                node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            node_label(node->right);
+            node_label(node->left);
+            node->regs = node->right->regs | node->left->regs | REG_DE | REG_A;
+            break;
+        default:    /* Every other node, all remaining are 16-bit operations */
+            if (node->type == N_PLUS16 || node->type == N_MINUS16) {
+                if (node->left->type == N_ADDR) {
+                    if (node->right->type == N_NUM16) {
+                        node->regs = REG_HL;
+                        break;
+                    }
+                }
+            }
+            if (node->type == N_PLUS16) {
+                if (node->left->type == N_ADDR) {
+                    node_label(node->right);
+                    node->regs = node->right->regs | REG_DE;
+                    break;
+                }
+                if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
+                    int c;
+                    
+                    if (node->left->type == N_NUM16)
+                        explore = node->left;
+                    else
+                        explore = node->right;
+                    c = explore->value;
+                    if (c == 0 || c == 1 || c == 2 || c == 3 || c == 0xffff || c == 0xfffe || c == 0xfffd || c == 0xfc00 || c == 0xfd00 || c == 0xfe00 || c == 0xff00 || c == 0x0100 || c == 0x0200 || c == 0x0300 || c == 0x0400) {
+                        if (node->left != explore) {
+                            node_label(node->left);
+                            node->regs = node->left->regs;
+                        } else {
+                            node_label(node->right);
+                            node->regs = node->right->regs;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (node->type == N_MINUS16) {
+                if (node->right->type == N_ADDR) {
+                    node_label(node->left);
+                    node->regs = node->left->regs | REG_DE | REG_F;
+                    break;
+                }
+                if (node->right->type == N_NUM16)
+                    explore = node->right;
+                else
+                    explore = NULL;
+                if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 3)) {
+                    node_label(node->left);
+                    node->regs = node->left->regs;
+                    break;
+                }
+                if (explore != NULL && (explore->value == 0xffff || explore->value == 0xfffe || explore->value == 0xfffd)) {
+                    node_label(node->left);
+                    node->regs = node->left->regs;
+                    break;
+                }
+                if (explore != NULL) {
+                    node_label(node->left);
+                    node->regs = node->left->regs | REG_DE | REG_F;
+                    break;
+                }
+            }
+            if (node->type == N_OR16 || node->type == N_AND16 || node->type == N_XOR16) {
+                if (node->right->type == N_NUM16) {
+                    node_label(node->left);
+                    node->regs = node->left->regs | REG_AF;
+                    break;
+                }
+            }
+            if (node->type == N_MUL16) {
+                if (node->left->type == N_NUM16)
+                    explore = node->left;
+                else if (node->right->type == N_NUM16)
+                    explore = node->right;
+                else
+                    explore = NULL;
+                if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
+                    int c = explore->value;
+                    
+                    node_label(node->left);
+                    node_label(node->right);
+                    if (c == 0) {
+                        node->regs = REG_HL;
+                    } else {
+                        node->regs = node->left->regs | node->right->regs;
+                    }
+                    break;
+                }
+            }
+            if (node->type == N_DIV16) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                    node_label(node->left);
+                    node->regs = node->left->regs;
+                    break;
+                }
+            }
+            if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
+                if (node->left->type == N_NUM16) {
+                    node_label(node->right);
+                    node->regs = node->right->regs | REG_DE;
+                } else if (node->left->type == N_LOAD16) {
+                    node_label(node->right);
+                    node->regs = node->right->regs | REG_DE;
+                } else {
+                    node_label(node->left);
+                    node_label(node->right);
+                    node->regs = node->left->regs | node->right->regs | REG_DE;
+                }
+            } else if ((node->type == N_EQUAL16 || node->type == N_NOTEQUAL16) && node->right->type == N_NUM16 && (node->right->value == 65535 || node->right->value == 0 || node->right->value == 1)) {
+                node_label(node->left);
+                node->regs = node->left->regs | REG_AF;
+                break;
+            } else {
+                node_label(node->right);
+                node_label(node->left);
+                node->regs = node->left->regs | node->right->regs | REG_DE;
+            }
+            if (node->type == N_OR16 || node->type == N_XOR16 || node->type == N_AND16 || node->type == N_EQUAL16 || node->type == N_NOTEQUAL16 || node->type == N_LESS16 || node->type == N_LESSEQUAL16 || node->type == N_GREATER16 || node->type == N_GREATEREQUAL16) {
+                node->regs |= REG_AF;
+            } else if (node->type == N_PLUS16 || node->type == N_MINUS16) {
+                node->regs |= REG_F;
+            } else if (node->type == N_MUL16 || node->type == N_DIV16 || node->type == N_MOD16 || node->type == N_DIV16S || node->type == N_MOD16S) {
+                node->regs |= REG_ALL;
+            }
+            break;
+    }
+}
+
+/*
+ ** Generate code for tree
  */
 void node_generate(struct node *node, int decision)
 {
-    struct label *label;
     struct node *explore;
     
     switch (node->type) {
@@ -959,10 +1317,7 @@ void node_generate(struct node *node, int decision)
                     sprintf(temp, "%d", node->left->value & 0xff);
                 } else {
                     node_generate(node->left, 0);
-                    if (node->right->type == N_NUM8 || node->right->type == N_LOAD8
-                        || node->right->type == N_JOY1 || node->right->type == N_JOY2
-                        || node->right->type == N_KEY1 || node->right->type == N_KEY2
-                        || node->right->type == N_NTSC || node->right->type == N_MUSIC) {
+                    if ((node->right->regs & REG_B) == 0) {
                         z80_2op("LD", "B", "A");
                         node_generate(node->right, 0);
                     } else {
@@ -977,21 +1332,18 @@ void node_generate(struct node *node, int decision)
                 
                 c = node->right->value & 0xff;
                 node_generate(node->left, 0);
-                if (node->type == N_PLUS8 && c == 1 || node->type == N_MINUS8 && c == 255) {
+                if ((node->type == N_PLUS8 && c == 1) || (node->type == N_MINUS8 && c == 255)) {
                     z80_1op("INC", "A");
                     break;
                 }
-                if (node->type == N_PLUS8 && c == 255 || node->type == N_MINUS8 && c == 1) {
+                if ((node->type == N_PLUS8 && c == 255) || (node->type == N_MINUS8 && c == 1)) {
                     z80_1op("DEC", "A");
                     break;
                 }
                 sprintf(temp, "%d", c);
             } else {
                 node_generate(node->right, 0);
-                if (node->left->type == N_NUM8 || node->left->type == N_LOAD8
-                    || node->left->type == N_JOY1 || node->left->type == N_JOY2
-                    || node->left->type == N_KEY1 || node->left->type == N_KEY2
-                    || node->left->type == N_NTSC || node->left->type == N_MUSIC) {
+                if ((node->left->regs & REG_B) == 0) {
                     z80_2op("LD", "B", "A");
                     node_generate(node->left, 0);
                 } else {
@@ -1147,9 +1499,13 @@ void node_generate(struct node *node, int decision)
                 sprintf(temp, "%d", node->left->value);
                 z80_2op("LD", "(HL)", temp);
             } else {
-                z80_1op("PUSH", "HL");
-                node_generate(node->left, 0);
-                z80_1op("POP", "HL");
+                if ((node->left->regs & REG_HL) == 0) {
+                    node_generate(node->left, 0);
+                } else {
+                    z80_1op("PUSH", "HL");
+                    node_generate(node->left, 0);
+                    z80_1op("POP", "HL");
+                }
                 z80_2op("LD", "(HL)", "A");
             }
             break;
@@ -1178,9 +1534,14 @@ void node_generate(struct node *node, int decision)
                 break;
             }
             node_generate(node->right, 0);
-            z80_1op("PUSH", "HL");
-            node_generate(node->left, 0);
-            z80_1op("POP", "DE");
+            if ((node->left->regs & REG_DE) == 0) {
+                z80_2op("EX", "DE", "HL");
+                node_generate(node->left, 0);
+            } else {
+                z80_1op("PUSH", "HL");
+                node_generate(node->left, 0);
+                z80_1op("POP", "DE");
+            }
             z80_2op("LD", "A", "L");
             z80_2op("LD", "(DE)", "A");
             z80_1op("INC", "DE");
@@ -1217,7 +1578,6 @@ void node_generate(struct node *node, int decision)
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
                     int c;
-                    int d;
                     
                     if (node->left->type == N_NUM16)
                         explore = node->left;
@@ -1434,9 +1794,13 @@ void node_generate(struct node *node, int decision)
                     z80_2op("LD", "DE", temp);
                 } else {
                     node_generate(node->left, 0);
-                    z80_1op("PUSH", "HL");
-                    node_generate(node->right, 0);
-                    z80_1op("POP", "DE");
+                    if ((node->right->regs & REG_DE) == 0) {
+                        z80_2op("EX", "DE", "HL");
+                    } else {
+                        z80_1op("PUSH", "HL");
+                        node_generate(node->right, 0);
+                        z80_1op("POP", "DE");
+                    }
                 }
             } else if ((node->type == N_EQUAL16 || node->type == N_NOTEQUAL16) && node->right->type == N_NUM16 && (node->right->value == 65535 || node->right->value == 0 || node->right->value == 1)) {
                 node_generate(node->left, 0);
@@ -1487,9 +1851,14 @@ void node_generate(struct node *node, int decision)
                     node_generate(node->left, 0);
                 } else {
                     node_generate(node->right, 0);
-                    z80_1op("PUSH", "HL");
-                    node_generate(node->left, 0);
-                    z80_1op("POP", "DE");
+                    if ((node->left->regs & REG_DE) == 0) {
+                        z80_2op("EX", "DE", "HL");
+                        node_generate(node->left, 0);
+                    } else {
+                        z80_1op("PUSH", "HL");
+                        node_generate(node->left, 0);
+                        z80_1op("POP", "DE");
+                    }
                 }
             }
             if (node->type == N_OR16) {
@@ -1634,6 +2003,8 @@ void node_generate(struct node *node, int decision)
  */
 void node_delete(struct node *tree)
 {
+    if (tree == NULL)
+        return;
     if (tree->left != NULL)
         node_delete(tree->left);
     if (tree->right != NULL)

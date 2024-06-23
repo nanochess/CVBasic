@@ -35,16 +35,34 @@ enum node_type {
     N_USR,
 };
 
+#define REG_A   0x01
+#define REG_F   0x02
+#define REG_B   0x04
+#define REG_C   0x08
+#define REG_D   0x10
+#define REG_E   0x20
+#define REG_H   0x40
+#define REG_L   0x80
+
+#define REG_AF  (REG_A | REG_F)
+#define REG_BC  (REG_B | REG_C)
+#define REG_DE  (REG_D | REG_E)
+#define REG_HL  (REG_H | REG_L)
+
+#define REG_ALL (REG_AF | REG_BC | REG_DE | REG_HL)
+
 struct node {
     enum node_type type;
     int value;
     struct node *left;
     struct node *right;
     struct label *label;
+    int regs;
     int x;
 };
 
 extern void node_visual(struct node *);
 extern struct node *node_create(enum node_type, int, struct node *, struct node *);
+extern void node_label(struct node *);
 extern void node_generate(struct node *, int);
 extern void node_delete(struct node *);
