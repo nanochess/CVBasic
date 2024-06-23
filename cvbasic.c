@@ -4455,11 +4455,10 @@ int main(int argc, char *argv[])
     inside_proc = NULL;
     frame_drive = NULL;
     compile_basic();
-    if (inside_proc) {
-        if (loops != NULL)
-            emit_error("End of source with control block still open");
-        else
-            emit_warning("End of source without ending PROCEDURE");
+    if (loops != NULL)
+        emit_error("End of source with control block still open");
+    else if (inside_proc) {
+        emit_warning("End of source without ending PROCEDURE");
         if (!last_is_return)
             z80_noop("RET");
         inside_proc = 0;
