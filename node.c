@@ -1053,6 +1053,22 @@ void node_label(struct node *node)
 }
 
 /*
+ ** Check if a node is commutative
+ */
+int is_commutative(enum node_type type)
+{
+    if (type == N_PLUS8 || type == N_PLUS16
+        || type == N_MUL8 || type == N_MUL16
+        || type == N_OR8 || type == N_OR16
+        || type == N_AND8 || type == N_AND16
+        || type == N_XOR8 || type == N_XOR16
+        || type == N_EQUAL8 || type == N_EQUAL16
+        || type == N_NOTEQUAL8 || type == N_NOTEQUAL16)
+        return 1;
+    return 0;
+}
+
+/*
  ** Generate code for tree
  */
 void node_generate(struct node *node, int decision)
@@ -1342,11 +1358,16 @@ void node_generate(struct node *node, int decision)
                 }
                 sprintf(temp, "%d", c);
             } else {
-                node_generate(node->right, 0);
                 if ((node->left->regs & REG_B) == 0) {
+                    node_generate(node->right, 0);
                     z80_2op("LD", "B", "A");
                     node_generate(node->left, 0);
+                } else if (is_commutative(node->type) && (node->right->regs & REG_B) == 0) {
+                    node_generate(node->left, 0);
+                    z80_2op("LD", "B", "A");
+                    node_generate(node->right, 0);
                 } else {
+                    node_generate(node->right, 0);
                     z80_1op("PUSH", "AF");
                     node_generate(node->left, 0);
                     z80_1op("POP", "BC");
@@ -1850,11 +1871,16 @@ void node_generate(struct node *node, int decision)
                     z80_2op("EX", "DE", "HL");
                     node_generate(node->left, 0);
                 } else {
-                    node_generate(node->right, 0);
                     if ((node->left->regs & REG_DE) == 0) {
+                        node_generate(node->right, 0);
                         z80_2op("EX", "DE", "HL");
                         node_generate(node->left, 0);
+                    } else if (is_commutative(node->type) && (node->right->regs & REG_DE) == 0) {
+                        node_generate(node->left, 0);
+                        z80_2op("EX", "DE", "HL");
+                        node_generate(node->right, 0);
                     } else {
+                        node_generate(node->right, 0);
                         z80_1op("PUSH", "HL");
                         node_generate(node->left, 0);
                         z80_1op("POP", "DE");

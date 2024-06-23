@@ -29,6 +29,13 @@ v0.5.1 Jun/17/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                     o Added new target SVI-318/328 (using option --svi)
                     o Better assembler output for DATA.
                     o Optimized addition by 256.
+                    o Optimized byte variable multiplied by 256.
+                    o Optimized extra RET generated when using RETURN.
+                    o Optimized use of Z flag.
+                    o Optimized AND/OR/XOR of constant with 8-bit variable.
+                    o Optimized code generation to avoid unnecessary PUSH/POP.
+                    o Reports open control block at end of procedure/program.
+                    o Solved bug of joystick not working in SC3000.
                     o Solved bug when subtracting two pointers (VARPTR)
                     o Solved bug where error would indicate wrong file (INCLUDE)
                     o Solved bug where Megacart didn't worked with --sgm, nor
