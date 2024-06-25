@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Jun/17/2024.
+Last revision: Jun/25/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,11 +22,12 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.5.1 Jun/17/2024  o Added SIGNED and UNSIGNED keywords to tag variables
+v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                       (both 8-bit and 16-bit) and enable signed comparisons,
                       division, and modulo.
                     o The MSX target now supports 0-9, - and = for CONT1.KEY.
-                    o Added new target SVI-318/328 (using option --svi)
+                    o Added new target Spectravideo SVI-318/328 (using
+                      option --svi)
                     o Better assembler output for DATA.
                     o Optimized addition by 256.
                     o Optimized byte variable multiplied by 256.
@@ -34,7 +35,9 @@ v0.5.1 Jun/17/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                     o Optimized use of Z flag.
                     o Optimized AND/OR/XOR of constant with 8-bit variable.
                     o Optimized code generation to avoid unnecessary PUSH/POP.
+                    o More powerful optimization taking note of register usage.
                     o Reports open control block at end of procedure/program.
+                    o Solved bug of undetected unfinished loop at global level.
                     o Solved bug of joystick not working in SC3000.
                     o Solved bug when subtracting two pointers (VARPTR)
                     o Solved bug where error would indicate wrong file (INCLUDE)
