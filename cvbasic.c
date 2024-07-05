@@ -203,15 +203,19 @@ void bank_finish(void)
 {
     if (machine == SG1000) {
         if (bank_current == 0) {
+            fprintf(output, "BANK_0_FREE:\tEQU $3fff-$\n");
             fprintf(output, "\tTIMES $3fff-$ DB $ff\n");
         } else {
+            fprintf(output, "BANK%d_FREE:\tEQU $7fff-$\n", bank_current);
             fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
         }
         fprintf(output, "\tDB $%02x\n", bank_current);
     } else if (machine == MSX) {
         if (bank_current == 0) {
+            fprintf(output, "BANK_0_FREE:\tEQU $7fff-$\n");
             fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
         } else {
+            fprintf(output, "BANK_%d_FREE:\tEQU $bfff-$\n", bank_current);
             fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
         }
         fprintf(output, "\tDB $%02x\n", bank_current);
@@ -219,8 +223,10 @@ void bank_finish(void)
         int c;
         
         if (bank_current == 0) {
+            fprintf(output, "BANK_0_FREE:\tEQU $bfbf-$\n");
             fprintf(output, "\tTIMES $bfbf-$ DB $ff\n");
         } else {
+            fprintf(output, "BANK_%d_FREE:\tEQU $ffbf-$\n", bank_current);
             fprintf(output, "\tTIMES $ffbf-$ DB $ff\n");
         }
         c = (bank_current - 1) & 0x3f;
