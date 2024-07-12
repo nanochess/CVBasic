@@ -4,14 +4,14 @@
 #
 CFLAGS = -O
 
-build: cvbasic.c node.c
-	@$(CC) $(CFLAGS) cvbasic.c node.c -o cvbasic
+build: cvbasic.o node.o
+	@$(CC) cvbasic.o node.o -o cvbasic
 
 check: build
-	@./cvbasic examples/test1.bas /tmp/test1.asm
+	@./cvbasic examples/viboritas.bas /tmp/viboritas.asm
 
 clean:
-	@rm cvbasic
+	@rm cvbasic cvbasic.o node.o
 
 love:
 	@echo "...not war"
