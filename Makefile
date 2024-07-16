@@ -2,12 +2,16 @@
 # by Oscar Toledo G.
 # https://github.com/nanochess/CVBasic
 #
-build:
-	@cc cvbasic.c node.c -o cvbasic
+CFLAGS = -O
+
+build: cvbasic.o node.o
+	@$(CC) cvbasic.o node.o -o cvbasic
+
+check: build
+	@./cvbasic examples/viboritas.bas /tmp/viboritas.asm
 
 clean:
-	@rm cvbasic node
+	@rm cvbasic cvbasic.o node.o
 
 love:
 	@echo "...not war"
-
