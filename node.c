@@ -18,7 +18,7 @@
 extern int optimized;
 extern char temp[];
 
-char *node_types[] = {
+static char *node_types[] = {
     "N_OR8", "N_OR16",
     "N_XOR8", "N_XOR16",
     "N_AND8", "N_AND16",
@@ -82,7 +82,7 @@ static void node_traverse(struct node *tree, int y, int *depth, int *width)
  */
 static int node_column(int x, int width)
 {
-    return (32.0 / width + x * 64 / width) + 8;
+    return (int) (32.0 / width + x * 64 / width) + 8;
 }
 
 /*
@@ -1055,7 +1055,7 @@ void node_label(struct node *node)
 /*
  ** Check if a node is commutative
  */
-int is_commutative(enum node_type type)
+static int is_commutative(enum node_type type)
 {
     if (type == N_PLUS8 || type == N_PLUS16
         || type == N_MUL8 || type == N_MUL16
@@ -1701,7 +1701,7 @@ void node_generate(struct node *node, int decision)
                         mnemonic = "OR";
                     } else if (node->type == N_AND16) {
                         mnemonic = "AND";
-                    } else if (node->type == N_XOR16) {
+                    } else /*if (node->type == N_XOR16)*/ {
                         mnemonic = "XOR";
                     }
                     if (node->left != explore)

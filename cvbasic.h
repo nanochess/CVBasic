@@ -15,6 +15,7 @@
 #define MAX_LINE_SIZE    1024
 
 extern char temp[MAX_LINE_SIZE];
+extern int optimized;
 
 #define HASH_PRIME    1103    /* A prime number */
 

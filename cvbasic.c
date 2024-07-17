@@ -30,20 +30,20 @@
 /*
  ** Supported platforms.
  */
-enum {
+static enum {
     COLECOVISION, SG1000, MSX, COLECOVISION_SGM, SVI,
 } machine;
 
 /*
  ** Base information about each platform.
  */
-struct console {
+static struct console {
     int base_ram;       /* Where the RAM starts */
     int stack;          /* Where the stack will start */
     int memory_size;    /* Memory available */
     int vdp_port_write; /* VDP port for writing */
     int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
-} consoles[] = {
+} consoles[5] = {
     /*  RAM     STACK    Size  VDP R   VDP W */
     {0x7000, 0x7400,  1024,  0xbe,   0xbe},
     {0xc000, 0xc400,  1024,  0xbe,   0xbe},
@@ -52,33 +52,33 @@ struct console {
     {0xc000, 0xf000, 12288,  0x80,   0x84},
 };
 
-int err_code;
+static int err_code;
 
-char path[4096];
+static char path[4096];
 
-int last_is_return;
-int music_used;
-int compression_used;
-int bank_switching;
-int bank_rom_size;
-int bank_current;
+static int last_is_return;
+static int music_used;
+static int compression_used;
+static int bank_switching;
+static int bank_rom_size;
+static int bank_current;
 
-char current_file[MAX_LINE_SIZE];
-int current_line;
-FILE *input;
-FILE *output;
+static char current_file[MAX_LINE_SIZE];
+static int current_line;
+static FILE *input;
+static FILE *output;
 
-int line_pos;
-int line_size;
-int line_start;
-char line[MAX_LINE_SIZE];
+static int line_pos;
+static int line_size;
+static int line_start;
+static char line[MAX_LINE_SIZE];
 
-int next_local = 1;
+static int next_local = 1;
 
-int option_explicit;
-int option_warnings;
+static int option_explicit;
+static int option_warnings;
 
-enum lexical_component {
+static enum lexical_component {
     C_END, C_NAME,
     C_STRING, C_LABEL, C_NUM,
     C_ASSIGN,
@@ -86,20 +86,20 @@ enum lexical_component {
     C_PLUS, C_MINUS, C_MUL, C_DIV, C_MOD,
     C_LPAREN, C_RPAREN, C_COLON, C_PERIOD, C_COMMA,
     C_ERR} lex;
-int value;
-char global_label[MAX_LINE_SIZE];
-char name[MAX_LINE_SIZE];
-int name_size;
-char assigned[MAX_LINE_SIZE];
+static int value;
+static char global_label[MAX_LINE_SIZE];
+static char name[MAX_LINE_SIZE];
+static int name_size;
+static char assigned[MAX_LINE_SIZE];
 
 char temp[MAX_LINE_SIZE];
 
-struct label *label_hash[HASH_PRIME];
+static struct label *label_hash[HASH_PRIME];
 
-struct label *array_hash[HASH_PRIME];
+static struct label *array_hash[HASH_PRIME];
 
-struct label *inside_proc;
-struct label *frame_drive;
+static struct label *inside_proc;
+static struct label *frame_drive;
 
 struct signedness {
     struct signedness *next;
@@ -113,11 +113,11 @@ struct constant {
     char name[1];
 };
 
-struct signedness *signed_hash[HASH_PRIME];
+static struct signedness *signed_hash[HASH_PRIME];
 
-struct constant *constant_hash[HASH_PRIME];
+static struct constant *constant_hash[HASH_PRIME];
 
-struct label *function_hash[HASH_PRIME];
+static struct label *function_hash[HASH_PRIME];
 
 struct macro {
     struct macro *next;
@@ -141,9 +141,9 @@ struct macro_def {
     char *name;
 };
 
-struct macro *macro_hash[HASH_PRIME];
+static struct macro *macro_hash[HASH_PRIME];
 
-struct macro_arg accumulated;
+static struct macro_arg accumulated;
 
 int replace_macro(void);
 struct node *process_usr(int);
@@ -172,10 +172,51 @@ struct loop {
     char var[1];
 };
 
-struct loop *loops;
+static struct loop *loops;
 
-unsigned char bitmap[32];
-int bitmap_byte;
+static unsigned char bitmap[32];
+static int bitmap_byte;
+
+/*
+ ** Prototypes
+ */
+void emit_error(char *);
+void emit_warning(char *);
+void bank_finish(void);
+
+void z80_label(char *);
+void z80_empty(void);
+void z80_noop(char *);
+void z80_1op(char *, char *);
+void z80_2op(char *, char *, char *);
+
+int label_hash_value(char *);
+struct label *function_search(char *);
+struct label *function_add(char *);
+struct signedness *signed_search(char *);
+struct signedness *signed_add(char *);
+struct constant *constant_search(char *);
+struct constant *constant_add(char *);
+struct label *label_search(char *);
+struct label *label_add(char *);
+struct label *array_search(char *);
+struct label *array_add(char *);
+struct macro *macro_search(char *);
+struct macro *macro_add(char *);
+
+int lex_skip_spaces(void);
+int lex_sneak_peek(void);
+void get_lex(void);
+
+void check_for_explicit(char *);
+int extend_types(struct node **, int, struct node **, int);
+int mix_types(struct node **, int, struct node **, int);
+struct node *evaluate_save_expression(int, int);
+int evaluate_expression(int, int, int);
+void accumulated_push(enum lexical_component, int, char *);
+void compile_assignment(int);
+void compile_statement(int);
+void compile_basic(void);
 
 /*
  ** Emit an error
@@ -206,7 +247,7 @@ void bank_finish(void)
             fprintf(output, "BANK_0_FREE:\tEQU $3fff-$\n");
             fprintf(output, "\tTIMES $3fff-$ DB $ff\n");
         } else {
-            fprintf(output, "BANK%d_FREE:\tEQU $7fff-$\n", bank_current);
+            fprintf(output, "BANK_%d_FREE:\tEQU $7fff-$\n", bank_current);
             fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
         }
         fprintf(output, "\tDB $%02x\n", bank_current);
@@ -243,9 +284,9 @@ void bank_finish(void)
     }
 }
 
-char z80_a_content[MAX_LINE_SIZE];
-char z80_hl_content[MAX_LINE_SIZE];
-int z80_flag_z_valid;
+static char z80_a_content[MAX_LINE_SIZE];
+static char z80_hl_content[MAX_LINE_SIZE];
+static int z80_flag_z_valid;
 
 /*
  ** Emit a Z80 label
@@ -456,7 +497,7 @@ int label_hash_value(char *name)
     value = 0;
     while (*name) {
         value *= 11;    /* Another prime number */
-        value += *name++;
+        value += (unsigned int) *name++;
     }
     return value % HASH_PRIME;
 }
@@ -767,7 +808,7 @@ void get_lex(void) {
             line_pos++;
         }
         *p = '\0';
-        name_size = p - name;
+        name_size = (int) (p - name);
         if (line_pos < line_size && line[line_pos] == ':' && line_start
             && strcmp(name, "RETURN") != 0 && strcmp(name, "CLS") != 0 && strcmp(name, "WAIT") != 0
             && strcmp(name, "RESTORE") != 0 && strcmp(name, "WEND") != 0
@@ -861,7 +902,7 @@ void get_lex(void) {
                 *p++ = c;
         }
         *p = '\0';
-        name_size = p - name;
+        name_size = (int) (p - name);
         if (line_pos < line_size && line[line_pos] == '"') {
             line_pos++;
         } else {
@@ -1990,6 +2031,8 @@ int replace_macro(void)
             emit_error("syntax error in call to FN");
             break;
         }
+    } else {
+        argument = NULL;
     }
     accumulated_push(lex, value, name); /* The actual one for later */
     
@@ -2248,6 +2291,7 @@ void compile_statement(int check_for_else)
                     z80_1op("JP", temp);
                 } else {
                     there_is_else = 0;
+                    label2 = 0;
                 }
                 sprintf(temp, INTERNAL_PREFIX "%d", label);
                 z80_label(temp);
@@ -3712,7 +3756,10 @@ void compile_statement(int check_for_else)
                             case 'G': note = 7; break;
                             case 'A': note = 9; break;
                             case 'B': note = 11; break;
-                            default: emit_error("bad syntax for note in MUSIC"); break;
+                            default:
+                                note = 0;
+                                emit_error("bad syntax for note in MUSIC");
+                                break;
                         }
                         switch (name[c++]) {
                             case '2': note += 0 * 12; break;
@@ -3721,7 +3768,9 @@ void compile_statement(int check_for_else)
                             case '5': note += 3 * 12; break;
                             case '6': note += 4 * 12; break;
                             case '7': if (note == 0) { note += 5 * 12; break; }
-                            default: emit_error("bad syntax for note in MUSIC"); break;
+                            default:
+                                emit_error("bad syntax for note in MUSIC");
+                                break;
                         }
                         note++;
                         if (name[c] == '#') {
@@ -4347,7 +4396,7 @@ void compile_basic(void)
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
 
-        line_size = strlen(line);
+        line_size = (int) strlen(line);
         if (line_size > 0 && line[line_size - 1] == '\n')
             line[--line_size] = '\0';
         if (line_size > 0 && line[line_size - 1] == '\r')
