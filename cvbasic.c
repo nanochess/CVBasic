@@ -20,7 +20,7 @@
 #include "cvbasic.h"
 #include "node.h"
 
-#define VERSION "v0.5.1 Jun/23/2024"
+#define VERSION "v0.5.2 Jul/17/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -44,12 +44,12 @@ static struct console {
     int vdp_port_write; /* VDP port for writing */
     int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
 } consoles[5] = {
-    /*  RAM     STACK    Size  VDP R   VDP W */
-    {0x7000, 0x7400,  1024,  0xbe,   0xbe},
-    {0xc000, 0xc400,  1024,  0xbe,   0xbe},
-    {0xe000, 0xf000,  4096,  0x98,   0x98},
-    {0x7c00, 0x8000, 23552,  0xbe,   0xbe},
-    {0xc000, 0xf000, 12288,  0x80,   0x84},
+    /*  RAM   STACK    Size  VDP R   VDP W */
+    {0x7000, 0x7400, 0x0400,  0xbe,   0xbe},
+    {0xc000, 0xc400, 0x0400,  0xbe,   0xbe},
+    {0xe000, 0xf380, 0x1380,  0x98,   0x98},
+    {0x7c00, 0x8000, 0x5c00,  0xbe,   0xbe}, /* Because of primary RAM, real RAM at 0x2000 */
+    {0xc000, 0xf000, 0x3000,  0x80,   0x84},
 };
 
 static int err_code;
@@ -4519,6 +4519,7 @@ int main(int argc, char *argv[])
     int available_bytes;
     time_t actual;
     struct tm *date;
+    int extra_ram;
     
     actual = time(0);
     date = localtime(&actual);
@@ -4533,10 +4534,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "    cvbasic --sgm input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --sg1000 input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --msx input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --msx -ram16 input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --svi input.bas output.asm\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    By default, it will create assembler files for Colecovision.\n");
-        fprintf(stderr, "    The options allow to compile for Sega SG-1000, MSX,\n");
+        fprintf(stderr, "    The options allow to compile for Sega SG-1000, MSX (8K or 16K),\n");
         fprintf(stderr, "    SVI-328, and the Super Game Module for Colecovision.\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
@@ -4552,17 +4554,29 @@ int main(int argc, char *argv[])
     if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && memcmp(&argv[c][4], "1000", 5) == 0) {
         machine = SG1000;
         c++;
-    } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 'm' && tolower(argv[c][3]) == 's' && tolower(argv[c][4]) == 'x' && argv[c][5] == '\0') {
+    } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 'm' && tolower(argv[c][3]) == 's' && tolower(argv[c][4]) == 'x' && argv[c][5] == '\0') {
         machine = MSX;
         c++;
-    } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && tolower(argv[c][4]) == 'm' && argv[c][5] == '\0') {
+    } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'g' && tolower(argv[c][4]) == 'm' && argv[c][5] == '\0') {
         machine = COLECOVISION_SGM;
         c++;
-    } else if(argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'v' && tolower(argv[c][4]) == 'i' && argv[c][5] == '\0') {
+    } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'v' && tolower(argv[c][4]) == 'i' && argv[c][5] == '\0') {
         machine = SVI;
         c++;
     } else {
         machine = COLECOVISION;
+    }
+    extra_ram = 0;
+    if (argv[c][0] == '-' && tolower(argv[c][1]) == 'r' && tolower(argv[c][2] == 'a') &&
+        tolower(argv[c][3] == 'm') && argv[c][4] == '1' && argv[c][5] == '6' &&
+        argv[c][6] == '\0') {
+        c++;
+        if (machine == MSX) {
+            extra_ram = 8192;
+        } else {
+            fprintf(stderr, "-ram16 option only applies to MSX.\n");
+            exit(2);
+        }
     }
     strcpy(current_file, argv[c]);
     err_code = 0;
@@ -4629,7 +4643,7 @@ int main(int argc, char *argv[])
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
     fprintf(output, "\n");
-    fprintf(output, "BASE_RAM:\tequ $%04x\t; Base of RAM\n", consoles[machine].base_ram);
+    fprintf(output, "BASE_RAM:\tequ $%04x\t; Base of RAM\n", consoles[machine].base_ram - extra_ram);
     fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", consoles[machine].stack);
     fprintf(output, "VDP:\tequ $%02x\t; VDP port (write)\n", consoles[machine].vdp_port_write);
     fprintf(output, "VDPR:\tequ $%02x\t; VDP port (read)\n", consoles[machine].vdp_port_read);
@@ -4733,7 +4747,7 @@ int main(int argc, char *argv[])
         }
     }
     fclose(output);
-    available_bytes = consoles[machine].memory_size;
+    available_bytes = consoles[machine].memory_size + extra_ram;
     if (machine != COLECOVISION_SGM)
         available_bytes -= 64 +                    /* Stack requirements */
                     (music_used ? 33 : 0) +     /* Music player requirements */

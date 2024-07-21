@@ -1,4 +1,4 @@
-# CVBasic compiler v0.5.1
+# CVBasic compiler v0.5.2
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -42,9 +42,11 @@ Using CVBasic to compile a Sega SG1000 program:
 
     cvbasic --sg1000 game.bas game.asm
 
-Using CVBasic to compile a MSX program:
+Using CVBasic to compile a MSX program for 8K RAM (wider compatibility) and 16K RAM:
 
     cvbasic --msx game.bas game.asm
+
+    cvbasic --msx -ram16 game.bas game.asm
 
 Using CVBasic to compile a Colecovision Super Game Module program:
 
