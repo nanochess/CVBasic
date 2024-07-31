@@ -1,26 +1,96 @@
 /*
-** Z80 assembler output routines for CVBasic
-**
-** by Oscar Toledo G.
-**
-** Creation date: Jul/31/2024. Separated from CVBasic.c
-*/
+ ** Z80 assembler output routines for CVBasic
+ **
+ ** by Oscar Toledo G.
+ **
+ ** Creation date: Jul/31/2024. Separated from CVBasic.c
+ */
 
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "cvbasic.h"
+
+static char z80_line[MAX_LINE_SIZE];
+
+static char z80_line_1[MAX_LINE_SIZE];
+static char z80_line_2[MAX_LINE_SIZE];
+static char z80_line_3[MAX_LINE_SIZE];
 
 static char z80_a_content[MAX_LINE_SIZE];
 static char z80_hl_content[MAX_LINE_SIZE];
 static int z80_flag_z_valid;
+
+static void z80_emit_line(void);
+
+void z80_emit_line(void)
+{
+    int c;
+    int d;
+    
+    /*
+     ** Optimize the following cases:
+     **     JP Z,cv1
+     **     JP somewhere
+     ** cv1:
+     **
+     **     JP Z,cv1
+     **     CALL somewhere
+     ** cv1:
+     */
+    if (memcmp(z80_line_2, "\tJP NZ," INTERNAL_PREFIX, 9) == 0 && isdigit(z80_line_2[9]) &&
+        (memcmp(z80_line_3, "\tJP ", 4) == 0 || memcmp(z80_line_3, "\tCALL ", 6) == 0) &&
+        memcmp(z80_line, INTERNAL_PREFIX, 2) == 0 && isdigit(z80_line[2]) &&
+        atoi(z80_line_2 + 9) == atoi(z80_line + 2)) {
+        if (z80_line_3[1] == 'J') {
+            strcpy(z80_line_2, "\tJP Z,");
+            strcat(z80_line_2, z80_line_3 + 4);
+        } else {
+            strcpy(z80_line_2, "\tCALL Z,");
+            strcat(z80_line_2, z80_line_3 + 6);
+        }
+        z80_line_3[0] = '\0';
+        z80_line[0] = '\0';
+    }
+    
+    /*
+     ** Optimize the following case:
+     **     CALL cv1
+     **     RET
+     */
+    if (memcmp(z80_line_3, "\tCALL " INTERNAL_PREFIX, 8) == 0 && memcmp(z80_line, "\tRET\n", 5) == 0) {
+        strcpy(z80_line, "\tJP ");
+        strcat(z80_line, z80_line_3 + 6);
+        z80_line_3[0] = '\0';
+    }
+    if (z80_line_1[0])
+        fprintf(output, "%s", z80_line_1);
+    strcpy(z80_line_1, z80_line_2);
+    strcpy(z80_line_2, z80_line_3);
+    strcpy(z80_line_3, z80_line);
+}
+
+void z80_dump(void)
+{
+    if (z80_line_1[0])
+        fprintf(output, "%s", z80_line_1);
+    if (z80_line_2[0])
+        fprintf(output, "%s", z80_line_2);
+    if (z80_line_3[0])
+        fprintf(output, "%s", z80_line_3);
+    z80_line_1[0] = '\0';
+    z80_line_2[0] = '\0';
+    z80_line_3[0] = '\0';
+}
 
 /*
  ** Emit a Z80 label
  */
 void z80_label(char *label)
 {
-    fprintf(output, "%s:\n", label);
+    sprintf(z80_line, "%s:\n", label);
+    z80_emit_line();
     z80_a_content[0] = '\0';
     z80_hl_content[0] = '\0';
     z80_flag_z_valid = 0;
@@ -40,7 +110,8 @@ void z80_empty(void)
  */
 void z80_noop(char *mnemonic)
 {
-    fprintf(output, "\t%s\n", mnemonic);
+    sprintf(z80_line, "\t%s\n", mnemonic);
+    z80_emit_line();
     z80_a_content[0] = '\0';
     z80_hl_content[0] = '\0';
     z80_flag_z_valid = 0;
@@ -74,7 +145,8 @@ void z80_1op(char *mnemonic, char *operand)
         }
     }
 
-    fprintf(output, "\t%s %s\n", mnemonic, operand);
+    sprintf(z80_line, "\t%s %s\n", mnemonic, operand);
+    z80_emit_line();
     
     if (strcmp(mnemonic, "PUSH") == 0) {
         /* No affected registers */
@@ -167,8 +239,9 @@ void z80_2op(char *mnemonic, char *operand1, char *operand2)
         }
     }
     
-    fprintf(output, "\t%s %s,%s\n", mnemonic, operand1, operand2);
-    
+    sprintf(z80_line, "\t%s %s,%s\n", mnemonic, operand1, operand2);
+    z80_emit_line();
+
     if (strcmp(mnemonic, "JP") == 0 ||
         strcmp(mnemonic, "JR") == 0 ||
         strcmp(mnemonic, "OUT") == 0 ||

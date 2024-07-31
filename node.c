@@ -271,8 +271,6 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                     left->type = N_MINUS8;
                 else if (left->type == N_MUL16)
                     left->type = N_MUL8;
-                else if (left->type == N_DIV16)
-                    left->type = N_DIV8;
                 else if (left->type == N_AND16)
                     left->type = N_AND8;
                 else if (left->type == N_OR16)
@@ -1639,6 +1637,44 @@ void node_generate(struct node *node, int decision)
             z80_2op("LD", "(DE)", "A");
             break;
         default:    /* Every other node, all remaining are 16-bit operations */
+            if (node->type == N_MINUS16) {  /* Optimize case of subtraction of two addresses */
+                if ((node->left->type == N_ADDR || ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16) && node->left->left->type == N_ADDR && node->left->right->type == N_NUM16)) &&
+                    (node->right->type == N_ADDR || ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) &&
+                                                     node->right->left->type == N_ADDR && node->right->right->type == N_NUM16))) {
+                    int c;
+                    char expression[MAX_LINE_SIZE * 2];
+                    
+                    if (node->left->type == N_PLUS16) {
+                        c = node->left->right->value;
+                        node_get_label(node->left->left, 0);
+                    } else if (node->left->type == N_MINUS16) {
+                        c = -node->left->right->value;
+                        node_get_label(node->left->left, 0);
+                    } else {
+                        c = 0;
+                        node_get_label(node->left, 0);
+                    }
+                    strcpy(expression, temp);
+                    strcat(expression, "-");
+                    if (node->right->type == N_PLUS16) {
+                        c -= node->right->right->value;
+                        node_get_label(node->right->left, 0);
+                    } else if (node->right->type == N_MINUS16) {
+                        c += node->right->right->value;
+                        node_get_label(node->right->left, 0);
+                    } else {
+                        node_get_label(node->right, 0);
+                    }
+                    strcat(expression, temp);
+                    if (c != 0) {
+                        sprintf(temp, "+%d", c & 0xffff);
+                        strcat(expression, temp);
+                    }
+                    z80_2op("LD", "HL", expression);
+                    break;
+                }
+            }
+            /* Optimization of address plus/minus constant */
             if (node->type == N_PLUS16 || node->type == N_MINUS16) {
                 if (node->left->type == N_ADDR) {
                     if (node->right->type == N_NUM16) {

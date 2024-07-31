@@ -6,6 +6,7 @@
 ** Creation date: Jul/31/2024. Separated from CVBasic.c
 */
 
+extern void z80_dump(void);
 extern void z80_label(char *);
 extern void z80_empty(void);
 extern void z80_noop(char *);

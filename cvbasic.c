@@ -2593,6 +2593,7 @@ void compile_statement(int check_for_else)
                 struct node *tree;
                 int c = 0;
 
+                z80_dump();
                 get_lex();
                 if (lex == C_NAME && strcmp(name, "BYTE") == 0) {
                     int d;
@@ -2825,6 +2826,7 @@ void compile_statement(int check_for_else)
                             z80_1op("JP", temp);
                             sprintf(temp, INTERNAL_PREFIX "%d", label);
                             z80_label(temp);
+                            z80_dump();
                             for (c = 0; c < name_size; c++) {
                                 if ((c & 7) == 0) {
                                     fprintf(output, "\tDB ");
@@ -3143,6 +3145,7 @@ void compile_statement(int check_for_else)
                     z80_1op("CALL", "update_sprite");
                 }
             } else if (strcmp(name, "BITMAP") == 0) {
+                z80_dump();
                 get_lex();
                 if (lex != C_STRING || (name_size != 8 && name_size != 16)) {
                     emit_error("syntax error in BITMAP");
@@ -3510,6 +3513,7 @@ void compile_statement(int check_for_else)
                 int c;
                 int label;
                 
+                z80_dump();
                 get_lex();
                 label = 0;
                 notes = 0;
@@ -3919,6 +3923,7 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "ASM") == 0) {  /* ASM statement for inserting assembly code */
                 int c;
                 
+                z80_dump();
                 c = line_pos;
                 while (c < line_size && isspace(line[c]))
                     c++;
@@ -4194,6 +4199,7 @@ void compile_basic(void)
         if (line_size > 0 && line[line_size - 1] == '\r')
             line[--line_size] = '\0';
 
+        z80_dump();
         fprintf(output, "\t; %s\n", line);
         
         line_start = 1;
@@ -4295,6 +4301,7 @@ void compile_basic(void)
         if (lex != C_END)
             emit_error("Extra characters");
     }
+    z80_dump();
 }
 
 /*
