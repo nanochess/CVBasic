@@ -26,7 +26,7 @@ static char *node_types[] = {
     "N_LESS8S", "N_LESS16S", "N_LESSEQUAL8S", "N_LESSEQUAL16S",
     "N_GREATER8S", "N_GREATER16S", "N_GREATEREQUAL8S", "N_GREATEREQUAL16S",
     "N_PLUS8", "N_PLUS16", "N_MINUS8", "N_MINUS16",
-    "N_MUL8", "N_MUL16", "N_DIV16", "N_DIV16S", "N_MOD16", "N_MOD16S",
+    "N_MUL8", "N_MUL16", "N_DIV8", "N_DIV16", "N_DIV16S", "N_MOD16", "N_MOD16S",
     "N_NEG8", "N_NEG16", "N_NOT8", "N_NOT16",
     "N_EXTEND8", "N_EXTEND8S", "N_REDUCE16",
     "N_LOAD8", "N_LOAD16",
@@ -216,13 +216,25 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
              **        |
              **    N_EXTEND8
              */
-            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16 || (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) && (left->left->type == N_EXTEND8 || left->left->type == N_EXTEND8S) && left->right->type == N_NUM16) {
+            if ((left->type == N_PLUS16 ||
+                 left->type == N_MINUS16 ||
+                 left->type == N_AND16 ||
+                 left->type == N_OR16 ||
+                 left->type == N_XOR16 ||
+                 (left->type == N_MUL16 && left->right->type == N_NUM16 &&
+                  is_power_of_two(left->right->value & 0xff)) ||
+                 (left->type == N_DIV16 && left->right->type == N_NUM16 &&
+                  is_power_of_two(left->right->value & 0xff))) &&
+                (left->left->type == N_EXTEND8 || left->left->type == N_EXTEND8S) && left->right->type == N_NUM16) {
+                
                 if (left->type == N_PLUS16)
                     left->type = N_PLUS8;
                 else if (left->type == N_MINUS16)
                     left->type = N_MINUS8;
                 else if (left->type == N_MUL16)
                     left->type = N_MUL8;
+                else if (left->type == N_DIV16)
+                    left->type = N_DIV8;
                 else if (left->type == N_AND16)
                     left->type = N_AND8;
                 else if (left->type == N_OR16)
@@ -241,8 +253,17 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
             
             /*
              ** Optimize expressions to avoid 16-bit operations when 8-bit are enough.
+             **
+             ** Division cannot be optimized to 8-bit because we don't know if there
+             ** are extra precision bits.
              */
-            if ((left->type == N_PLUS16 || left->type == N_MINUS16 || left->type == N_AND16 || left->type == N_OR16 || left->type == N_XOR16 || (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) && (left->right->type == N_NUM16)) {
+            if ((left->type == N_PLUS16 ||
+                 left->type == N_MINUS16 ||
+                 left->type == N_AND16 ||
+                 left->type == N_OR16 ||
+                 left->type == N_XOR16 ||
+                 (left->type == N_MUL16 && left->right->type == N_NUM16 && is_power_of_two(left->right->value & 0xff))) &&
+                (left->right->type == N_NUM16)) {
                 
                 if (left->type == N_PLUS16)
                     left->type = N_PLUS8;
@@ -250,6 +271,8 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
                     left->type = N_MINUS8;
                 else if (left->type == N_MUL16)
                     left->type = N_MUL8;
+                else if (left->type == N_DIV16)
+                    left->type = N_DIV8;
                 else if (left->type == N_AND16)
                     left->type = N_AND8;
                 else if (left->type == N_OR16)
@@ -842,6 +865,7 @@ void node_label(struct node *node)
         case N_PLUS8:   /* 8-bit + */
         case N_MINUS8:  /* 8-bit - */
         case N_MUL8:    /* 8-bit * */
+        case N_DIV8:    /* 8-bit / */
             if (node->type == N_OR8 && node->left->type == N_JOY1 && node->right->type == N_JOY2) {
                 node->regs = REG_HL | REG_AF;
                 break;
@@ -851,6 +875,16 @@ void node_label(struct node *node)
                 break;
             }
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
+                int c;
+                
+                node_label(node->left);
+                node->regs = node->left->regs;
+                c = node->right->value;
+                if (c > 1)
+                    node->regs |= REG_F;
+                break;
+            }
+            if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 int c;
                 
                 node_label(node->left);
@@ -1302,6 +1336,7 @@ void node_generate(struct node *node, int decision)
         case N_PLUS8:   /* 8-bit + */
         case N_MINUS8:  /* 8-bit - */
         case N_MUL8:    /* 8-bit * */
+        case N_DIV8:    /* 8-bit / */
             if (node->type == N_OR8 && node->left->type == N_JOY1 && node->right->type == N_JOY2) {
                 z80_2op("LD", "HL", "(joy1_data)");
                 z80_2op("LD", "A", "H");
@@ -1322,6 +1357,42 @@ void node_generate(struct node *node, int decision)
                 while (c > 1) {
                     z80_2op("ADD", "A", "A");
                     c /= 2;
+                }
+                break;
+            }
+            if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
+                int c;
+                
+                node_generate(node->left, 0);
+                c = node->right->value;
+                if (c == 2) {
+                    z80_1op("SRL", "A");
+                } else if (c == 4) {
+                    z80_1op("SRL", "A");
+                    z80_1op("SRL", "A");
+                } else if (c == 8) {
+                    z80_noop("RRCA");
+                    z80_noop("RRCA");
+                    z80_noop("RRCA");
+                    z80_1op("AND", "31");
+                } else if (c == 16) {
+                    z80_noop("RRCA");
+                    z80_noop("RRCA");
+                    z80_noop("RRCA");
+                    z80_noop("RRCA");
+                    z80_1op("AND", "15");
+                } else if (c == 32) {
+                    z80_noop("RLCA");
+                    z80_noop("RLCA");
+                    z80_noop("RLCA");
+                    z80_1op("AND", "7");
+                } else if (c == 64) {
+                    z80_noop("RLCA");
+                    z80_noop("RLCA");
+                    z80_1op("AND", "3");
+                } else if (c == 128) {
+                    z80_noop("RLCA");
+                    z80_1op("AND", "1");
                 }
                 break;
             }

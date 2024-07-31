@@ -185,12 +185,6 @@ void emit_error(char *);
 void emit_warning(char *);
 void bank_finish(void);
 
-void z80_label(char *);
-void z80_empty(void);
-void z80_noop(char *);
-void z80_1op(char *, char *);
-void z80_2op(char *, char *, char *);
-
 int label_hash_value(char *);
 struct label *function_search(char *);
 struct label *function_add(char *);
