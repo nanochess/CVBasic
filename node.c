@@ -14,9 +14,7 @@
 #include <stdlib.h>
 #include "cvbasic.h"
 #include "node.h"
-
-extern int optimized;
-extern char temp[];
+#include "z80.h"
 
 static char *node_types[] = {
     "N_OR8", "N_OR16",

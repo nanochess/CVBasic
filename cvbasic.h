@@ -16,6 +16,7 @@
 
 extern char temp[MAX_LINE_SIZE];
 extern int optimized;
+extern FILE *output;
 
 #define HASH_PRIME    1103    /* A prime number */
 
@@ -52,8 +53,3 @@ struct label {
 #define LABEL_VAR_ACCESS (LABEL_VAR_READ | LABEL_VAR_WRITE)
 
 extern void emit_error(char *);
-extern void z80_label(char *);
-extern void z80_empty(void);
-extern void z80_noop(char *);
-extern void z80_1op(char *, char *);
-extern void z80_2op(char *, char *, char *);
