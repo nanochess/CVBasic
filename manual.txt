@@ -22,6 +22,12 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
+v0.5.2 Jul/31/2024  o Added VDP() command to set VDP registers.
+                    o Added support for 16K of RAM in MSX using -ram16
+                    o Optimizes 8-bit division by power of two.
+                    o Optimizes pointer subtraction (VARPTR a(0) - VARPTR a(5))
+                    o Added peephole optimizer.
+
 v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                       (both 8-bit and 16-bit) and enable signed comparisons,
                       division, and modulo.
@@ -860,6 +866,10 @@ The following statements are available:
     in the included file.
 
     This is very useful for separating graphics and screen files.
+
+  VDP(reg) = expr
+
+    Sets the VDP register to the expression value.
 
   CALL NAME       
    

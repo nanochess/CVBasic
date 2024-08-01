@@ -290,7 +290,7 @@ print_string:
 	ld b,0
 	ld de,(cursor)
 	ld a,d
-	and $03
+	and $07
 	or $18
 	ld d,a
 	push de
@@ -348,7 +348,7 @@ print_digit:
 	ld hl,(cursor)
 	ex af,af'
 	ld a,h
-	and $03
+	and $07
 	or $18
 	ld h,a
 	ex af,af'

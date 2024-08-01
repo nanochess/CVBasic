@@ -4162,6 +4162,35 @@ void compile_statement(int check_for_else)
                     bank_current = d;
                     z80_empty();
                 }
+            } else if (strcmp(name, "VDP") == 0 && lex_sneak_peek() == '(') {   /* VDP pseudo-array */
+                int vdp_reg;
+                
+                get_lex();
+                if (lex != C_LPAREN)
+                    emit_error("Missing left parenthesis in VDP");
+                else
+                    get_lex();
+                if (lex != C_NUM) {
+                    emit_error("Not a constant in VDP");
+                } else {
+                    vdp_reg = value;
+                    get_lex();
+                }
+                if (lex != C_RPAREN)
+                    emit_error("Missing right parenthesis in VDP");
+                else
+                    get_lex();
+                if (lex != C_EQUAL)
+                    emit_error("Missing equal sign in VDP");
+                else
+                    get_lex();
+                type = evaluate_expression(1, TYPE_8, 0);
+                z80_2op("LD", "B", "A");
+                sprintf(temp, "%d", vdp_reg);
+                z80_2op("LD", "C", temp);
+                z80_1op("CALL", "nmi_off");
+                z80_1op("CALL", "WRTVDP");
+                z80_1op("CALL", "nmi_on");
             } else if (macro_search(name) != NULL) {  // Function (macro)
                 if (!replace_macro()) {
                     compile_statement(check_for_else);
