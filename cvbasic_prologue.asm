@@ -451,6 +451,9 @@ update_sprite:
 	ld de,sprites
 	add a,a
 	add a,a
+    if SORD
+	or $80
+    endif
 	ld e,a
 	ld hl,sprite_data
 	ld bc,4
@@ -1021,6 +1024,9 @@ nmi_handler:
     endif
 	push af
   endif
+    if SORD
+        call sord_reti
+    endif
     if SG1000+MSX+SVI+SORD
 	in a,(VDPR+1)
     endif
@@ -1041,13 +1047,17 @@ nmi_handler:
 	ld a,(flicker)
 	add a,$04
 	ld (flicker),a
-	ld l,a
-	ld h,sprites>>8
 	ld de,24
 	ld b,128
+	ld l,a
+    if SORD
+    else
+	ld h,sprites>>8
+    endif
 .6:
     if SORD
 	set 7,l
+	ld h,sprites>>8
     else
 	res 7,l
     endif
@@ -1245,7 +1255,6 @@ nmi_handler:
 	in a,($a9)
 	cp $ff
 	ld c,$00
-	ld b,$08
 	jr nz,.key1
 	in a,($aa)
 	and $f0
@@ -1256,7 +1265,6 @@ nmi_handler:
 	cp $0f
 	jr z,.key2
 	ld c,$08
-	ld b,$04
 .key1:	rra
 	inc c
 	jr c,.key1
@@ -1357,7 +1365,6 @@ nmi_handler:
 	in a,($99)
 	cp $ff
 	ld c,$00
-	ld b,$08
 	jr nz,.key1
 	ld a,$11
 	out ($96),a
@@ -1366,7 +1373,6 @@ nmi_handler:
 	cp $0f
 	jr z,.key2
 	ld c,$08
-	ld b,$04
 .key1:	rra
 	inc c
 	jr c,.key1
@@ -1487,26 +1493,26 @@ nmi_handler:
 	in a,($31)	; Keyboard 1-8
 	or a
 	ld c,$01
-	ld b,$08
 	jr nz,.key3
 	in a,($35)	; Keyboard 9 0 - ^
 	and $0f
-	cp $0f
 	jr z,.key4
 	ld c,$09
-	ld b,$04
 .key3:	rra
 	inc c
 	jr nc,.key3
 	ld a,c
 	dec a
 	cp $0a
-	jr c,.key4
+	jr c,.key5
 	dec a
 	cp $09
-	jr nz,.key4
+	jr nz,.key5
 	xor a
+	jr .key5
 .key4:
+	ld a,$0f
+.key5:
 	ld (key1_data),a	
 
     endif
@@ -1570,7 +1576,7 @@ nmi_handler:
 	pop af
 	retn
     endif
-    if SG1000+SVI+SORD
+    if SG1000+SVI
 	pop af
         ei
         reti
@@ -1578,6 +1584,23 @@ nmi_handler:
     if MSX
 	pop af
         ret
+    endif
+    if SORD
+	pop af
+        ei
+        ret
+
+sord_reti:
+	reti
+
+wait:
+	ld de,(frame)
+.1:
+	ld hl,(frame)
+	or a
+	sbc hl,de
+	jr z,.1
+	ret
     endif
 
 	;
@@ -2422,7 +2445,9 @@ START:
     endif
     if SORD
 	ld hl,$186c	; Disable handling of CTC Channel 1 interruption.
-	ld ($7002),a
+	ld ($7002),hl
+	ld hl,$7040
+	set 0,(hl)	; Avoid BIOS VDP handling.
     endif
     if SVI
 	ld e,$00
@@ -2450,16 +2475,6 @@ START:
 	out (PSG),a	
 	ld a,$92	; Setup 8255 for SC3000.
 	out ($df),a
-    endif
-    if SORD
-	ld a,$9F	; Turn off PSG
-	out (PSG),a
-	ld a,$BF	
-	out (PSG),a
-	ld a,$DF
-	out (PSG),a
-	ld a,$FF
-	out (PSG),a	
     endif
     if SG1000+SVI
 	; Wait for VDP ready (around 1000 ms)

@@ -2559,7 +2559,10 @@ void compile_statement(int check_for_else)
                 z80_1op("CALL", "cls");
             } else if (strcmp(name, "WAIT") == 0) {
                 get_lex();
-                z80_noop("HALT");
+                if (machine == SORD)
+                    z80_1op("CALL", "wait");
+                else
+                    z80_noop("HALT");
             } else if (strcmp(name, "RESTORE") == 0) {
                 get_lex();
                 if (lex != C_NAME) {
