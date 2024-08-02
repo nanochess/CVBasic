@@ -4,7 +4,7 @@
 
 CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5, with a syntax alike to Qbasic.
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328 and Sord M5 doesn't have bank-switch support because there's no cartridge hardware supporting it.
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328, Sord M5 and Memotech doesn't have bank-switch support because there's no cartridge hardware supporting it.
 
     CVBasic.c                   The CVBasic compiler C language source code
     LICENSE                     Source code license
@@ -79,7 +79,7 @@ The Spectravideo SVI-328 only has one button in the joystick. The keyboard can b
 
 The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for the first controller.
 
-Currently the Memotech only handles joysticks and not keypad.
+Currently for Memotech the expressions CONT1.KEY and CONT2.KEY aren't operative..
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
