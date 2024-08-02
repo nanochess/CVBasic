@@ -90,7 +90,7 @@ RDPSG:	equ $0096
     endif
     if SORD
 	ORG $2000
-	db $03		; Avoid checking $4000
+	db $02		; Avoid checking $4000
 	dw START	; Start address.
 	dw $002e	; Prestart address (just point to RET in BIOS).
     endif
