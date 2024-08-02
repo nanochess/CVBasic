@@ -56,6 +56,10 @@ Using CVBasic to compile a Spectravideo SVI-318/328 program:
 
     cvbasic --svi game.bas game.asm
 
+Using CVBasic to compile a Sord M5 program:
+
+    cvbasic --sord game.bas game.asm
+
 
 ### Notes
 
@@ -66,6 +70,8 @@ MSX controller support only handles the two joysticks and keyboard arrows (plus 
 The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD)
 
 The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad.
+
+The Sord M5 keyboard can be used for the first controller.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
@@ -79,6 +85,8 @@ If you find a bug, please report it to the same email address, and I'll try to l
 You can also get my book **Programming Games for Colecovision** including an introductory course to game programming with CVBasic and full examples with source code: Game of Ball, Monkey Moon, Space Raider, Bouncy Cube, and Dungeon Warrior.
 
 The foreword is written by the legendary David R. Megarry, programmer of Zaxxon™ for Colecovision, and creator of the Dungeon!™ Board game.
+
+All the games in the book compile for **all** the platforms.
 
 * [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)
