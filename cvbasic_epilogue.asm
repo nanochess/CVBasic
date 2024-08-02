@@ -16,9 +16,18 @@
 	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
 	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
 	;                             can remain accessible in bank 0 (bank switching).
+	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
 	;
 
+rom_end:
+
+    if MEMOTECH
+	; Align following data to a 256-byte page.
+        TIMES $100-($&$ff) DB $4f
+    else
 	org BASE_RAM
+    endif
+ram_start:
 
 sprites:
 	rb 128

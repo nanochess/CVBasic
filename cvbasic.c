@@ -21,7 +21,7 @@
 #include "node.h"
 #include "z80.h"
 
-#define VERSION "v0.5.2 Jul/31/2024"
+#define VERSION "v0.5.2 Aug/02/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -32,7 +32,14 @@
  ** Supported platforms.
  */
 static enum {
-    COLECOVISION, SG1000, MSX, COLECOVISION_SGM, SVI, SORD, TOTAL_TARGETS
+    COLECOVISION,
+    SG1000,
+    MSX,
+    COLECOVISION_SGM,
+    SVI,
+    SORD,
+    MEMOTECH,
+    TOTAL_TARGETS
 } machine;
 
 /*
@@ -44,14 +51,16 @@ static struct console {
     int memory_size;    /* Memory available */
     int vdp_port_write; /* VDP port for writing */
     int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
+    int psg_port;       /* PSG port (SN76489) */
 } consoles[TOTAL_TARGETS] = {
-    /*  RAM   STACK    Size  VDP R   VDP W */
-    {0x7000, 0x7400, 0x0400,  0xbe,   0xbe},
-    {0xc000, 0xc400, 0x0400,  0xbe,   0xbe},
-    {0xe000, 0xf380, 0x1380,  0x98,   0x98},
-    {0x7c00, 0x8000, 0x5c00,  0xbe,   0xbe}, /* Because of primary RAM, real RAM at 0x2000 */
-    {0xc000, 0xf000, 0x3000,  0x80,   0x84},
-    {0x7080, 0x7080, 0x0380,  0x10,   0x10},
+    /*  RAM   STACK    Size  VDP R   VDP W  PSG */
+    {0x7000, 0x7400, 0x0400,  0xbe,   0xbe, 0xff},
+    {0xc000, 0xc400, 0x0400,  0xbe,   0xbe, 0x7f},
+    {0xe000, 0xf380, 0x1380,  0x98,   0x98, 0},
+    {0x7c00, 0x8000, 0x5c00,  0xbe,   0xbe, 0xff}, /* Note: Real RAM at 0x2000 */
+    {0xc000, 0xf000, 0x3000,  0x80,   0x84, 0},
+    {0x7080, 0x7080, 0x0380,  0x10,   0x10, 0x20},
+    {0,      0xa000, 0,       0x01,   0x01, 0x06},
 };
 
 static int err_code;
@@ -3741,7 +3750,7 @@ void compile_statement(int check_for_else)
                 } else {
                     if (value < 3 && (machine == MSX || machine == SVI))
                         emit_warning("using SOUND 0-3 with AY-3-8910 target");
-                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD)
+                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH)
                         emit_warning("using SOUND 5-9 with SN76489 target");
                     switch (value) {
                         case 0:
@@ -4352,6 +4361,7 @@ int main(int argc, char *argv[])
     time_t actual;
     struct tm *date;
     int extra_ram;
+    int cpm_option;
     
     actual = time(0);
     date = localtime(&actual);
@@ -4369,10 +4379,13 @@ int main(int argc, char *argv[])
         fprintf(stderr, "    cvbasic --msx -ram16 input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --svi input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --sord input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --memotech input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --memotech -cpm input.bas output.asm\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    By default, it will create assembler files for Colecovision.\n");
         fprintf(stderr, "    The options allow to compile for Sega SG-1000, MSX (8K or 16K),\n");
-        fprintf(stderr, "    SVI-328, Sord M5, and the Super Game Module for Colecovision.\n");
+        fprintf(stderr, "    SVI-328, Sord M5, Memotech (RUN and COM), and the Super Game\n");
+        fprintf(stderr, "    Module for Colecovision.\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
@@ -4399,6 +4412,9 @@ int main(int argc, char *argv[])
     } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'o' && tolower(argv[c][4]) == 'r' && tolower(argv[c][5]) == 'd' && argv[c][6] == '\0') {
         machine = SORD;
         c++;
+    } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 'm' && tolower(argv[c][3]) == 'e' && tolower(argv[c][4]) == 'm' && tolower(argv[c][5]) == 'o' && tolower(argv[c][6]) == 't' && tolower(argv[c][7]) == 'e' && tolower(argv[c][8]) == 'c' && tolower(argv[c][9]) == 'h' && argv[c][10] == '\0') {
+        machine = MEMOTECH;
+        c++;
     } else {
         machine = COLECOVISION;
     }
@@ -4411,6 +4427,17 @@ int main(int argc, char *argv[])
             extra_ram = 8192;
         } else {
             fprintf(stderr, "-ram16 option only applies to MSX.\n");
+            exit(2);
+        }
+    }
+    cpm_option = 0;
+    if (argv[c][0] == '-' && tolower(argv[c][1]) == 'c' && tolower(argv[c][2] == 'p') &&
+        tolower(argv[c][3] == 'm') && argv[c][4] == '\0') {
+        c++;
+        if (machine == MEMOTECH) {
+            cpm_option = 1;
+        } else {
+            fprintf(stderr, "-cpm option only applies to Memotech.\n");
             exit(2);
         }
     }
@@ -4475,15 +4502,21 @@ int main(int argc, char *argv[])
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
     fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
+    fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
+    fprintf(output, "CPM:\tequ %d\n", cpm_option);
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
     fprintf(output, "\n");
     fprintf(output, "BASE_RAM:\tequ $%04x\t; Base of RAM\n", consoles[machine].base_ram - extra_ram);
-    fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", consoles[machine].stack);
+    if (machine == MEMOTECH && cpm_option != 0)
+        fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", 0xe000);
+    else
+        fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", consoles[machine].stack);
     fprintf(output, "VDP:\tequ $%02x\t; VDP port (write)\n", consoles[machine].vdp_port_write);
     fprintf(output, "VDPR:\tequ $%02x\t; VDP port (read)\n", consoles[machine].vdp_port_read);
+    fprintf(output, "PSG:\tequ $%02x\t; PSG port (write)\n", consoles[machine].psg_port);
     fprintf(output, "\n");
     if (bank_switching) {
         if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
@@ -4583,19 +4616,24 @@ int main(int argc, char *argv[])
             label = label->next;
         }
     }
+    fprintf(output, "ram_end:\n");
     fclose(output);
-    available_bytes = consoles[machine].memory_size + extra_ram;
-    if (machine == SORD)    /* Because stack is set apart */
-        available_bytes -= (music_used ? 33 : 0) + 146;
-    else if (machine != COLECOVISION_SGM)
-        available_bytes -= 64 +                    /* Stack requirements */
-                    (music_used ? 33 : 0) +     /* Music player requirements */
-                        146;                    /* Support variables */
-    if (bytes_used > available_bytes) {
-        fprintf(stderr, "ERROR: ");
-        err_code = 1;
+    if (machine == MEMOTECH) {
+        fprintf(stderr, "%d RAM bytes used for variables.\n", bytes_used);
+    } else {
+        available_bytes = consoles[machine].memory_size + extra_ram;
+        if (machine == SORD)    /* Because stack is set apart */
+            available_bytes -= (music_used ? 33 : 0) + 146;
+        else if (machine != COLECOVISION_SGM)
+            available_bytes -= 64 +                    /* Stack requirements */
+            (music_used ? 33 : 0) +     /* Music player requirements */
+            146;                    /* Support variables */
+        if (bytes_used > available_bytes) {
+            fprintf(stderr, "ERROR: ");
+            err_code = 1;
+        }
+        fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used, available_bytes);
     }
-    fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used, available_bytes);
     fprintf(stderr, "Compilation finished.\n\n");
     exit(err_code);
 }

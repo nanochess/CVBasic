@@ -60,6 +60,12 @@ Using CVBasic to compile a Sord M5 program:
 
     cvbasic --sord game.bas game.asm
 
+Using CVBasic to compile a Memotech MTX program:
+
+    cvbasic --memotech game.bas game.asm
+    cvbasic --memotech -cpm game.bas game.asm
+
+For Memotech, use .run extension instead of .rom, and for CP/M option use .com extension.
 
 ### Notes
 
@@ -72,6 +78,8 @@ The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't opera
 The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad.
 
 The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for the first controller.
+
+Currently the Memotech only handles joysticks and not keypad.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 

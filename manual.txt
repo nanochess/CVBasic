@@ -22,7 +22,9 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.5.2 Jul/31/2024  o Added VDP() command to set VDP registers.
+v0.5.2 Jul/31/2024  o Added support for Sord M5 computers using --sord
+                    o Added support for Memotech MTX computers using --memotech and -cpm
+                    o Added VDP() command to set VDP registers.
                     o Added support for 16K of RAM in MSX using -ram16
                     o Optimizes 8-bit division by power of two.
                     o Optimizes pointer subtraction (VARPTR a(0) - VARPTR a(5))
@@ -52,7 +54,7 @@ v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
 
 >>>>>>>>>>>>>>. Description
 
-CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, and Spectravideo SVI-318/328. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, and Memotech MTX. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
 Platforms requirements:
   o PC with Windows XP or better.
@@ -68,8 +70,12 @@ Usage:
   cvbasic in.bas output.asm
   cvbasic --sg1000 in.bas output.asm
   cvbasic --msx in.bas output.asm
+  cvbasic --msx -ram16 in.bas output.asm
   cvbasic --sgm in.bas output.asm
   cvbasic --svi in.bas output.asm
+  cvbasic --sord in.bas output.asm
+  cvbasic --memotech in.bas output.asm
+  cvbasic --memotech -cpm in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
@@ -79,6 +85,8 @@ The following modules are automatically included as the prologue and epilogue of
 Afterwards, you should assemble your program using the included Gasm80 assembler.
 
   gasm80 output.asm -o output.rom
+
+For Memotech you should use the .run extension or .com extension (if used -cpm option)
 
 And finally, you can test the generated output.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
 

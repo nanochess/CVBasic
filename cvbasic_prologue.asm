@@ -27,12 +27,13 @@
 	; Revision date: Jun/07/2024. Keys 0-9, = and - emulate keypad in MSX.
 	; Revision date: Jun/17/2024. Added SVI-328 support.
 	; Revision date: Aug/01/2024. Added Sord M5 support.
+	; Revision date: Aug/02/2024. PSG label now defined by CVBasic. Added Memotech
+	;                             support.
 	;
 
 JOYSEL:	equ $c0
 KEYSEL:	equ $80
 
-PSG:    equ $ff-$80*SG1000-$df*SORD
 JOY1:   equ $fc-$20*SG1000
 JOY2:   equ $ff-$22*SG1000
 
@@ -94,6 +95,28 @@ RDPSG:	equ $0096
 	dw START	; Start address.
 	dw $002e	; Prestart address (just point to RET in BIOS).
     endif
+
+    if MEMOTECH
+      if CPM
+	org $0100
+      else
+	org $40fc
+	dw rom_start
+	dw rom_end-rom_start
+      endif
+rom_start:
+	jp START
+	db 0,0,0,0,0
+	dw nmi_handler
+	dw null_vector
+	dw null_vector
+	dw rom_start
+
+null_vector:
+	ei
+	reti
+    endif
+
     if SVI
 WRTPSG:	
 	out ($88),a
@@ -186,6 +209,10 @@ LDIRVM:
     if SG1000+SORD
 	NOP	; SG1000 is faster (reported by SiRioKD)
     endif
+    if MEMOTECH
+	NOP
+	NOP
+    endif
 	OUTI
         JP NZ,.1
         DEC A
@@ -255,7 +282,7 @@ nmi_off:
 	set 0,(hl)
 	pop hl
     endif
-    if SG1000+MSX+SVI+SORD
+    if SG1000+MSX+SVI+SORD+MEMOTECH
         di
     endif
 	ret
@@ -272,7 +299,7 @@ nmi_on:
 	pop hl
 	pop af
     endif
-    if SG1000+MSX+SVI+SORD
+    if SG1000+MSX+SVI+SORD+MEMOTECH
         ei
     endif
 	ret
@@ -612,12 +639,15 @@ random:
         ret
 
 sn76489_freq:
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH
 	ld b,a
 	ld a,l
 	and $0f
 	or b
 	out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
 	add hl,hl
 	add hl,hl
 	add hl,hl
@@ -625,23 +655,32 @@ sn76489_freq:
 	ld a,h
 	and $3f
 	out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
     endif
 	ret
 
 sn76489_vol:
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH
 	cpl
 	and $0f
 	or b
 	out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
     endif
 	ret
 
 sn76489_control:
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH
 	and $0f
 	or $e0
 	out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
     endif
 	ret
 
@@ -654,7 +693,7 @@ ay3_reg:
 	out ($51),a
 	ret
     endif
-    if SG1000+SORD
+    if SG1000+SORD+MEMOTECH
         ret
     endif
     if MSX
@@ -687,7 +726,7 @@ ay3_freq:
 	pop af
 	ret
     endif
-    if SG1000+SORD
+    if SG1000+SORD+MEMOTECH
 	ret
     endif
     if MSX
@@ -713,7 +752,7 @@ ay3_freq:
 	ret
     endif
 
-    if SG1000+SVI+SORD
+    if SG1000+SVI+SORD+MEMOTECH
 	; Required for SG1000 as it doesn't have a BIOS
 	; Required for SVI because we don't have access to BIOS in cartridge.
 	; Required for Sord M5 because it doesn't provide an ASCII charset.
@@ -854,7 +893,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD
+    if SG1000+SVI+SORD+MEMOTECH
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -930,7 +969,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD
+    if SG1000+SVI+SORD+MEMOTECH
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1024,10 +1063,10 @@ nmi_handler:
     endif
 	push af
   endif
-    if SORD
-        call sord_reti
+    if SORD+MEMOTECH
+        call ctc_reti
     endif
-    if SG1000+MSX+SVI+SORD
+    if SG1000+MSX+SVI+SORD+MEMOTECH
 	in a,(VDPR+1)
     endif
 	ld bc,$8000+VDP
@@ -1037,8 +1076,16 @@ nmi_handler:
 	ld hl,$1b00
 	call SETWRT
 	ld hl,sprites
+.7:
+    if MEMOTECH
+	nop
+	nop
+    endif
+    if SG1000
+	nop
+    endif
 	outi
-	jp nz,$-2
+	jp nz,.7
 	jr .5
 
 .4:
@@ -1063,12 +1110,40 @@ nmi_handler:
     endif
 	outi
 	jp $+3
+    if MEMOTECH
+	nop
+	nop
+    endif
+    if SG1000
+	nop
+    endif
 	outi
 	jp $+3
+    if MEMOTECH
+	nop
+	nop
+    endif
+    if SG1000
+	nop
+    endif
 	outi
 	jp $+3
+    if MEMOTECH
+	nop
+	nop
+    endif
+    if SG1000
+	nop
+    endif
 	outi
 	jp $+3
+    if MEMOTECH
+	nop
+	nop
+    endif
+    if SG1000
+	nop
+    endif
 	add hl,de
 	jp nz,.6
 .5:
@@ -1516,6 +1591,88 @@ nmi_handler:
 	ld (key1_data),a	
 
     endif
+    if MEMOTECH
+	ld bc,$ffff
+
+        ld a,$fb
+        out ($05),a	; Select keyboard row.
+        ex (sp),hl
+        ex (sp),hl
+        in a,($05)	; Read keyboard data.
+        bit 7,a
+        jr nz,$+4
+        res 0,b         ; Up direction.
+        bit 3,a		; Y
+        jr nz,$+4
+        res 0,c		; Up direction.
+
+        ld a,$ef
+        out ($05),a	; Select keyboard row.
+        ex (sp),hl
+        ex (sp),hl
+        in a,($05)	; Read keyboard data.
+        bit 7,a
+        jr nz,$+4
+        res 1,b         ; Right key.
+        ld a,$bf
+        out ($05),a	; Select keyboard row.
+        ex (sp),hl
+        ex (sp),hl
+        in a,($05)	; Read keyboard data.
+        bit 7,a
+        jr nz,$+4
+        res 2,b         ; Down key.
+        ld a,$f7
+        out ($05),a	; Select keyboard row.
+        ex (sp),hl
+        ex (sp),hl
+        in a,($05)	; Read keyboard data.
+        bit 7,a
+        jr nz,$+4
+        res 3,b         ; Left key.
+        ld a,$df
+        out ($05),a	; Select keyboard row.
+        ex (sp),hl
+        ex (sp),hl
+        in a,($05)	; Read keyboard data.
+        bit 7,a         ; Home key.
+        jr nz,$+4
+        res 6,b         ; Button 1
+
+        ld a,$7F
+        out ($05),a	; Select keyboard row.
+        ex (sp),hl
+        ex (sp),hl
+        in a,($05)	; Read keyboard data.
+        bit 2,a		; B
+        jr nz,$+4
+        res 0,c         ; Up key.
+        bit 1,a		; C
+        jr nz,$+4
+        res 1,c         ; Right key.
+        bit 3,a		; M
+        jr nz,$+4
+        res 2,c         ; Down key.
+        bit 0,a		; Z
+        jr nz,$+4
+        res 3,c         ; Left key.
+	bit 5,a		; -
+	jr nz,$+4
+	res 7,c		; Button 2 for player 2.
+	bit 7,a		; -
+	jr nz,$+4
+	res 7,b		; Button 2 for player 1.
+        in a,($06)	; Read keyboard data.
+        bit 0,a         ; Space
+        jr nz,$+4
+        res 6,c         ; Button 1.
+	ld a,b
+	cpl
+	ld (joy1_data),a
+	ld a,c
+	cpl
+	ld (joy2_data),a
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -1585,14 +1742,16 @@ nmi_handler:
 	pop af
         ret
     endif
-    if SORD
+    if SORD+MEMOTECH
 	pop af
         ei
         ret
 
-sord_reti:
+ctc_reti:
 	reti
+    endif
 
+    if SORD
 wait:
 	ld de,(frame)
 .1:
@@ -1612,17 +1771,32 @@ wait:
         ; Init music player.
         ;
 music_init:
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH
         ld a,$9f
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,$bf
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,$df
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,$ff
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,$ec
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
     endif
     if MSX+SVI
 	ld a,$08
@@ -2030,7 +2204,7 @@ music_flute:
         ; Emit sound.
         ;
 music_hardware:
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.7		; Yes, jump.
@@ -2055,12 +2229,18 @@ music_hardware:
         and $0f
         or $80
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         add hl,hl
         add hl,hl
         add hl,hl
         add hl,hl
         ld a,h
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,(audio_vol1)
         add a,ay2sn&255
         ld l,a
@@ -2070,6 +2250,9 @@ music_hardware:
         ld a,(hl)
         or $90
 .1:     out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
 
         ld hl,(audio_freq2)
         ld a,h
@@ -2080,12 +2263,18 @@ music_hardware:
         and $0f
         or $a0
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         add hl,hl
         add hl,hl
         add hl,hl
         add hl,hl
         ld a,h
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,(audio_vol2)
         add a,ay2sn&255
         ld l,a
@@ -2095,6 +2284,9 @@ music_hardware:
         ld a,(hl)
         or $b0
 .2:     out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
 
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
@@ -2109,12 +2301,18 @@ music_hardware:
         and $0f
         or $c0
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         add hl,hl
         add hl,hl
         add hl,hl
         add hl,hl
         ld a,h
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ld a,(audio_vol3)
         add a,ay2sn&255
         ld l,a
@@ -2124,6 +2322,9 @@ music_hardware:
         ld a,(hl)
         or $d0
 .3:     out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
 
 .6:
 	ld a,(music_mode)
@@ -2145,8 +2346,14 @@ music_hardware:
         ld a,b
         ld (audio_control),a
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
 .4:     ld a,(audio_vol4hw)
         out (PSG),a
+      if MEMOTECH
+	in a,($03)
+      endif
         ret
     endif
     if MSX+SVI
@@ -2228,6 +2435,22 @@ enable_drum:
 music_notes_table:
         ; Silence - 0
         dw 0
+    if MEMOTECH
+	; Frequencies for 4 mhz.
+        ; 2nd octave - 1
+        dw 1923,1812,1712,1603,1524,1437,1359,1276,1202,1136,1068,1016
+        ; 3rd octave - 13
+        dw 954,899,850,801,758,714,676,638,601,568,536,506
+        ; 4th octave - 25
+        dw 477,451,425,402,379,358,338,319,301,284,268,253
+        ; 5th octave - 37
+        dw 239,226,213,201,190,179,169,159,150,142,134,127
+        ; 6th octave - 49
+        dw 120,113,106,100,95,89,84,80,75,71,67,63
+        ; 7th octave - 61
+        dw 60
+    else
+	; Frequencies for 3.58 mhz.
         ; 2nd octave - 1
         dw 1721,1621,1532,1434,1364,1286,1216,1141,1076,1017,956,909
         ; 3rd octave - 13
@@ -2240,8 +2463,9 @@ music_notes_table:
         dw 107,101,95,90,85,80,76,71,67,64,60,57
         ; 7th octave - 61
 	dw 54,51,48
+    endif
 
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH
         ;
         ; Converts AY-3-8910 volume to SN76489
         ;
@@ -2443,6 +2667,35 @@ START:
     if SVI+SG1000
 	im 1
     endif
+    if MEMOTECH
+	di
+	im 2
+	ld a,rom_start>>8
+	ld i,a
+	ld a,$03	; Reset Z80 CTC
+	out ($08),a
+	out ($09),a
+	out ($0a),a
+	out ($0b),a
+	out ($08),a
+	out ($09),a
+	out ($0a),a
+	out ($0b),a
+	ld a,$08	; Interrupt vector offset
+	out ($08),a
+	ld a,$25	; Disable channel 2 interrupt.
+	out ($0a),a
+	ld a,$9c
+	out ($0a),a
+	ld a,$25	; Disable channel 1 interrupt.
+	out ($09),a
+	ld a,$9c
+	out ($09),a
+	ld a,$c5	; Enable channel 0 interrupt (VDP).
+	out ($08),a
+	ld a,$01
+	out ($08),a
+    endif
     if SORD
 	ld hl,$186c	; Disable handling of CTC Channel 1 interruption.
 	ld ($7002),hl
@@ -2509,6 +2762,15 @@ START:
         ld ($7000),a
     endif
   endif
+    if MEMOTECH
+	ld ix,(lfsr)
+	ld hl,ram_start
+	ld de,ram_start+1
+	ld bc,ram_end-ram_start-1
+	ld (hl),0
+	ldir
+	ld (lfsr),ix
+    else
 	ld hl,(lfsr)	; Save RAM trash for random generator.
 	ld de,BASE_RAM
 	xor a
@@ -2517,6 +2779,7 @@ START:
 	bit 2,d
 	jp z,$-4
 	ld (lfsr),hl
+    endif
 
     if SGM
 WRITE_REGISTER:	equ $1fd9
@@ -2602,6 +2865,9 @@ WRITE_VRAM:	equ $1fdf
     endif
     if SG1000+SVI+SORD
 	ld a,1
+    endif
+    if MEMOTECH
+	ld a,0
     endif
     if MSX
         call RSLREG
