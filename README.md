@@ -2,9 +2,9 @@
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-318/328, with a syntax alike to Qbasic.
+CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5, with a syntax alike to Qbasic.
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328 doesn't have bank-switch support because there's no cartridge hardware supporting it.
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328 and Sord M5 doesn't have bank-switch support because there's no cartridge hardware supporting it.
 
     CVBasic.c                   The CVBasic compiler C language source code
     LICENSE                     Source code license
@@ -71,7 +71,7 @@ The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't opera
 
 The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad.
 
-The Sord M5 keyboard can be used for the first controller.
+The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for the first controller.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
@@ -86,7 +86,7 @@ You can also get my book **Programming Games for Colecovision** including an int
 
 The foreword is written by the legendary David R. Megarry, programmer of Zaxxon™ for Colecovision, and creator of the Dungeon!™ Board game.
 
-All the games in the book compile for **all** the platforms.
+All the games in the book will compile for **all** the platforms.
 
 * [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)
