@@ -26,12 +26,13 @@
 	; Revision date: Jun/04/2024. SGM supported deleted NTSC flag.
 	; Revision date: Jun/07/2024. Keys 0-9, = and - emulate keypad in MSX.
 	; Revision date: Jun/17/2024. Added SVI-328 support.
+	; Revision date: Aug/01/2024. Added Sord M5 support.
 	;
 
 JOYSEL:	equ $c0
 KEYSEL:	equ $80
 
-PSG:    equ $ff-$80*SG1000
+PSG:    equ $ff-$80*SG1000-$df*SORD
 JOY1:   equ $fc-$20*SG1000
 JOY2:   equ $ff-$22*SG1000
 
@@ -86,6 +87,12 @@ JOY2:   equ $ff-$22*SG1000
 WRTPSG:	equ $0093
 RDPSG:	equ $0096
 
+    endif
+    if SORD
+	ORG $2000
+	db $03		; Avoid checking $4000
+	dw START	; Start address.
+	dw $002e	; Prestart address (just point to RET in BIOS).
     endif
     if SVI
 WRTPSG:	
@@ -176,7 +183,7 @@ LDIRVM:
         INC A
         LD C,VDP
 .1:
-    if SG1000
+    if SG1000+SORD
 	NOP	; SG1000 is faster (reported by SiRioKD)
     endif
 	OUTI
@@ -248,7 +255,7 @@ nmi_off:
 	set 0,(hl)
 	pop hl
     endif
-    if SG1000+MSX+SVI
+    if SG1000+MSX+SVI+SORD
         di
     endif
 	ret
@@ -265,7 +272,7 @@ nmi_on:
 	pop hl
 	pop af
     endif
-    if SG1000+MSX+SVI
+    if SG1000+MSX+SVI+SORD
         ei
     endif
 	ret
@@ -602,7 +609,7 @@ random:
         ret
 
 sn76489_freq:
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
 	ld b,a
 	ld a,l
 	and $0f
@@ -619,7 +626,7 @@ sn76489_freq:
 	ret
 
 sn76489_vol:
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
 	cpl
 	and $0f
 	or b
@@ -628,7 +635,7 @@ sn76489_vol:
 	ret
 
 sn76489_control:
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
 	and $0f
 	or $e0
 	out (PSG),a
@@ -644,7 +651,7 @@ ay3_reg:
 	out ($51),a
 	ret
     endif
-    if SG1000
+    if SG1000+SORD
         ret
     endif
     if MSX
@@ -677,7 +684,7 @@ ay3_freq:
 	pop af
 	ret
     endif
-    if SG1000
+    if SG1000+SORD
 	ret
     endif
     if MSX
@@ -703,9 +710,10 @@ ay3_freq:
 	ret
     endif
 
-    if SG1000+SVI
+    if SG1000+SVI+SORD
 	; Required for SG1000 as it doesn't have a BIOS
 	; Required for SVI because we don't have access to BIOS in cartridge.
+	; Required for Sord M5 because it doesn't provide an ASCII charset.
 	;
         ; My personal font for TMS9928.
         ;
@@ -843,7 +851,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI
+    if SG1000+SVI+SORD
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -919,7 +927,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI
+    if SG1000+SVI+SORD
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1013,7 +1021,7 @@ nmi_handler:
     endif
 	push af
   endif
-    if SG1000+MSX+SVI
+    if SG1000+MSX+SVI+SORD
 	in a,(VDPR+1)
     endif
 	ld bc,$8000+VDP
@@ -1038,7 +1046,11 @@ nmi_handler:
 	ld de,24
 	ld b,128
 .6:
+    if SORD
+	set 7,l
+    else
 	res 7,l
+    endif
 	outi
 	jp $+3
 	outi
@@ -1424,6 +1436,80 @@ nmi_handler:
 	cpl
 	ld (joy1_data),a
     endif
+    if SORD
+	ld bc,$ffff
+	in a,($37)	; Read joystick
+	rra
+	jr nc,$+4
+	res 1,b
+	rra
+	jr nc,$+4
+	res 0,b
+	rra
+	jr nc,$+4
+	res 3,b
+	rra
+	jr nc,$+4
+	res 2,b
+	rra
+	jr nc,$+4
+	res 1,c
+	rra
+	jr nc,$+4
+	res 0,c
+	rra
+	jr nc,$+4
+	res 3,c
+	rra
+	jr nc,$+4
+	res 2,c
+	in a,($31)
+	rra
+	jr nc,$+4
+	res 6,b
+	rra
+	jr nc,$+4
+	res 7,b
+	rra
+	rra
+	rra
+	jr nc,$+4
+	res 6,c
+	rra
+	jr nc,$+4
+	res 7,c
+	ld a,b
+	cpl
+	ld (joy1_data),a
+	ld a,c
+	cpl
+	ld (joy2_data),a
+	in a,($31)	; Keyboard 1-8
+	or a
+	ld c,$01
+	ld b,$08
+	jr nz,.key3
+	in a,($35)	; Keyboard 9 0 - ^
+	and $0f
+	cp $0f
+	jr z,.key4
+	ld c,$09
+	ld b,$04
+.key3:	rra
+	inc c
+	jr nc,.key3
+	ld a,c
+	dec a
+	cp $0a
+	jr c,.key4
+	dec a
+	cp $09
+	jr nz,.key4
+	xor a
+.key4:
+	ld (key1_data),a	
+
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -1484,7 +1570,7 @@ nmi_handler:
 	pop af
 	retn
     endif
-    if SG1000+SVI
+    if SG1000+SVI+SORD
 	pop af
         ei
         reti
@@ -1503,7 +1589,7 @@ nmi_handler:
         ; Init music player.
         ;
 music_init:
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
         ld a,$9f
         out (PSG),a
         ld a,$bf
@@ -1921,7 +2007,7 @@ music_flute:
         ; Emit sound.
         ;
 music_hardware:
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.7		; Yes, jump.
@@ -2098,7 +2184,7 @@ music_hardware:
         ; Enable drum.
         ;
 enable_drum:
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
         ld a,$f5
         ld (audio_vol4hw),a
     else
@@ -2132,7 +2218,7 @@ music_notes_table:
         ; 7th octave - 61
 	dw 54,51,48
 
-    if COLECO+SG1000
+    if COLECO+SG1000+SORD
         ;
         ; Converts AY-3-8910 volume to SN76489
         ;
@@ -2334,6 +2420,10 @@ START:
     if SVI+SG1000
 	im 1
     endif
+    if SORD
+	ld hl,$186c	; Disable handling of CTC Channel 1 interruption.
+	ld ($7002),a
+    endif
     if SVI
 	ld e,$00
 	ld a,$08
@@ -2360,6 +2450,16 @@ START:
 	out (PSG),a	
 	ld a,$92	; Setup 8255 for SC3000.
 	out ($df),a
+    endif
+    if SORD
+	ld a,$9F	; Turn off PSG
+	out (PSG),a
+	ld a,$BF	
+	out (PSG),a
+	ld a,$DF
+	out (PSG),a
+	ld a,$FF
+	out (PSG),a	
     endif
     if SG1000+SVI
 	; Wait for VDP ready (around 1000 ms)
@@ -2485,7 +2585,7 @@ WRITE_VRAM:	equ $1fdf
 	jr nz,$+3
 	dec a
     endif
-    if SG1000+SVI
+    if SG1000+SVI+SORD
 	ld a,1
     endif
     if MSX
@@ -2521,6 +2621,10 @@ WRITE_VRAM:	equ $1fdf
 	ld ($fd9b),hl
 	ld a,$c3
 	ld ($fd9a),a
+    endif
+    if SORD
+	ld hl,nmi_handler
+	ld ($7006),hl
     endif
 
 	; CVBasic program start.

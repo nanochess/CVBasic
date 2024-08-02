@@ -32,7 +32,7 @@
  ** Supported platforms.
  */
 static enum {
-    COLECOVISION, SG1000, MSX, COLECOVISION_SGM, SVI,
+    COLECOVISION, SG1000, MSX, COLECOVISION_SGM, SVI, SORD, TOTAL_TARGETS
 } machine;
 
 /*
@@ -44,13 +44,14 @@ static struct console {
     int memory_size;    /* Memory available */
     int vdp_port_write; /* VDP port for writing */
     int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
-} consoles[5] = {
+} consoles[TOTAL_TARGETS] = {
     /*  RAM   STACK    Size  VDP R   VDP W */
     {0x7000, 0x7400, 0x0400,  0xbe,   0xbe},
     {0xc000, 0xc400, 0x0400,  0xbe,   0xbe},
     {0xe000, 0xf380, 0x1380,  0x98,   0x98},
     {0x7c00, 0x8000, 0x5c00,  0xbe,   0xbe}, /* Because of primary RAM, real RAM at 0x2000 */
     {0xc000, 0xf000, 0x3000,  0x80,   0x84},
+    {0x7080, 0x7080, 0x0380,  0x10,   0x10},
 };
 
 static int err_code;
@@ -3736,9 +3737,9 @@ void compile_statement(int check_for_else)
                     emit_error("syntax error in SOUND");
                 } else {
                     if (value < 3 && (machine == MSX || machine == SVI))
-                        emit_warning("using SOUND 0-3 with MSX/SVI target");
-                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI)
-                        emit_warning("using SOUND 5-9 with non-MSX/SVI/SGM target");
+                        emit_warning("using SOUND 0-3 with AY-3-8910 target");
+                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD)
+                        emit_warning("using SOUND 5-9 with SN76489 target");
                     switch (value) {
                         case 0:
                             get_lex();
@@ -4364,10 +4365,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "    cvbasic --msx input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --msx -ram16 input.bas output.asm\n");
         fprintf(stderr, "    cvbasic --svi input.bas output.asm\n");
+        fprintf(stderr, "    cvbasic --sord input.bas output.asm\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    By default, it will create assembler files for Colecovision.\n");
         fprintf(stderr, "    The options allow to compile for Sega SG-1000, MSX (8K or 16K),\n");
-        fprintf(stderr, "    SVI-328, and the Super Game Module for Colecovision.\n");
+        fprintf(stderr, "    SVI-328, Sord M5, and the Super Game Module for Colecovision.\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
@@ -4390,6 +4392,9 @@ int main(int argc, char *argv[])
         c++;
     } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'v' && tolower(argv[c][4]) == 'i' && argv[c][5] == '\0') {
         machine = SVI;
+        c++;
+    } else if (argv[c][0] == '-' && argv[c][1] == '-' && tolower(argv[c][2]) == 's' && tolower(argv[c][3]) == 'o' && tolower(argv[c][4]) == 'r' && tolower(argv[c][5]) == 'd' && argv[c][6] == '\0') {
+        machine = SORD;
         c++;
     } else {
         machine = COLECOVISION;
@@ -4466,6 +4471,7 @@ int main(int argc, char *argv[])
     fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
+    fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
@@ -4576,7 +4582,9 @@ int main(int argc, char *argv[])
     }
     fclose(output);
     available_bytes = consoles[machine].memory_size + extra_ram;
-    if (machine != COLECOVISION_SGM)
+    if (machine == SORD)    /* Because stack is set apart */
+        available_bytes -= (music_used ? 33 : 0) + 146;
+    else if (machine != COLECOVISION_SGM)
         available_bytes -= 64 +                    /* Stack requirements */
                     (music_used ? 33 : 0) +     /* Music player requirements */
                         146;                    /* Support variables */
