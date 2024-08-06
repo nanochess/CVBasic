@@ -45,7 +45,8 @@ mode:           equ $24
 flicker:	equ $25
 ntsc:		equ $26
 sprite_data:	equ $27
-music_playing:	equ $2b
+music_mode:	equ $2b
+music_playing:	equ $2c
 
 sprites:	equ $0180
 
@@ -1075,6 +1076,7 @@ int_handler:
 	LDA music_mode
 	BEQ .9
 	JSR music_generate
+.9:
     endif
 	; This is like saving extra registers, because these
 	; are used by the compiled code.
