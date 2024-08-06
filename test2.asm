@@ -1,3 +1,26 @@
+	; CVBasic compiler v0.6.0 Aug/05/2024
+	; Command: ./cvbasic --vtech examples/test2.bas test2.asm 
+	; Created: Tue Aug  6 11:35:14 2024
+
+COLECO:	equ 0
+SG1000:	equ 0
+MSX:	equ 0
+SGM:	equ 0
+SVI:	equ 0
+SORD:	equ 0
+MEMOTECH:	equ 0
+CPM:	equ 0
+
+CVBASIC_MUSIC_PLAYER:	equ 0
+CVBASIC_COMPRESSION:	equ 0
+CVBASIC_BANK_SWITCHING:	equ 0
+
+BASE_RAM:	equ $0000	; Base of RAM
+STACK:	equ $017f	; Base stack pointer
+VDP:	equ $00	; VDP port (write)
+VDPR:	equ $00	; VDP port (read)
+PSG:	equ $00	; PSG port (write)
+
 	;
 	; CVBasic prologue (BASIC compiler, 6502 target)
 	;
@@ -1029,7 +1052,6 @@ int_handler:
 	BEQ .9
 	JSR music_generate
     endif
-	;CVBASIC MARK DON'T CHANGE
 	PLA
 	TAY
 	PLA
@@ -1239,3 +1261,219 @@ START:
 	STA key1_data
 	STA key2_data
 
+cvb_C:	equ $0040
+cvb_#POINTER:	equ $0041
+ram_end:
+	; 	'
+	; 	' Test 2 - Multiply/Divide/Modulo + READ DATA 
+	; 	'
+	; 	' by Oscar Toledo G.
+	; 	' https://nanochess.org/
+	; 	'
+	; 	' Creation date: Feb/29/2024.
+	; 	'
+	; 
+	; 	FOR c = 0 TO 23
+	LDA #0
+	STA cvb_C
+cv1:
+	; 
+	; 		PRINT AT c * 32, c * 3
+	LDA cvb_C
+	LDY #0
+	STY temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	LDY temp
+	STA cursor
+	STY cursor+1
+	LDA cvb_C
+	LDY #0
+	PHA
+	TYA
+	PHA
+	LDA #3
+	LDY #0
+	STA temp
+	STY temp+1
+	JSR _mul16
+	JSR print_number
+	; 		PRINT AT c * 32 + 8, c / 3
+	LDA cvb_C
+	LDY #0
+	STY temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	LDY temp
+	CLC
+	ADC #8
+	PHA
+	TYA
+	ADC #0
+	TAY
+	PLA
+	STA cursor
+	STY cursor+1
+	LDA cvb_C
+	LDY #0
+	PHA
+	TYA
+	PHA
+	LDA #3
+	LDY #0
+	STA temp
+	STY temp+1
+	JSR _div16
+	JSR print_number
+	; 		PRINT AT c * 32 + 16, c % 3
+	LDA cvb_C
+	LDY #0
+	STY temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	ASL A
+	ROL temp
+	LDY temp
+	CLC
+	ADC #16
+	PHA
+	TYA
+	ADC #0
+	TAY
+	PLA
+	STA cursor
+	STY cursor+1
+	LDA cvb_C
+	LDY #0
+	PHA
+	TYA
+	PHA
+	LDA #3
+	LDY #0
+	STA temp
+	STY temp+1
+	JSR _mod16
+	JSR print_number
+	; 
+	; 	NEXT c
+	LDA cvb_C
+	CLC
+	ADC #1
+	STA cvb_C
+	LDA cvb_C
+	CMP #24
+	BCS cv2
+	JMP cv1
+cv2:
+	; 
+	; 	#pointer = $1800
+	LDA #0
+	LDY #24
+	STA cvb_#POINTER
+	STY cvb_#POINTER+1
+	; 
+	; 	RESTORE saved_string
+	LDA #cvb_SAVED_STRING
+	LDY #cvb_SAVED_STRING>>8
+	STA read_pointer
+	STA read_pointer+1
+	; 
+	; 	DO
+cv3:
+	; 		READ BYTE c
+	JSR _read8
+	STA cvb_C
+	; 		IF c = 0 THEN EXIT DO
+	LDA cvb_C
+	CMP #0
+	BEQ cv6
+	JMP cv5
+cv6:
+	JMP cv4
+cv5:
+	; 
+	; 		VPOKE #pointer, c
+	LDA cvb_C
+	PHA
+	LDA cvb_#POINTER
+	LDY cvb_#POINTER+1
+	STA temp
+	STY temp+1
+	PLA
+	TAX
+	LDA temp
+	SEI
+	JSR WRTVRM
+	CLI
+	; 		#pointer = #pointer + 1		
+	LDA cvb_#POINTER
+	LDY cvb_#POINTER+1
+	CLC
+	ADC #1
+	PHA
+	TYA
+	ADC #0
+	TAY
+	PLA
+	STA cvb_#POINTER
+	STY cvb_#POINTER+1
+	; 	LOOP WHILE 1
+	JMP cv3
+cv7:
+cv4:
+	; 
+	; 	WHILE 1: WEND
+cv8:
+	JMP cv8
+cv9:
+	; 
+	; saved_string:
+cvb_SAVED_STRING:
+	; 	DATA BYTE "Test string",0
+	DB $54,$65,$73,$74,$20,$73,$74,$72
+	DB $69,$6e,$67,$00
+rom_end:
+	times $bfe8-$ db $ff
+
+	dw START
+	dw 0		; IRQ2 handler.
+
+	dw 0
+	dw 0
+
+	; Initial VDP registers
+	db $02
+	db $82
+	db $06
+	db $ff
+	db $00
+	db $36
+	db $07
+	db $01
+
+	dw 0
+	dw 0
+	dw BIOS_NMI_RESET_ADDR	; Handler for reset.
+	dw int_handler	; IRQ1 handler.

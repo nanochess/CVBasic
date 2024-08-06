@@ -2631,7 +2631,7 @@ void compile_statement(int check_for_else)
                         strcat(temp, ">>8");
                         cpu6502_1op("LDY", temp);
                         cpu6502_1op("STA", "read_pointer");
-                        cpu6502_1op("STA", "read_pointer+1");
+                        cpu6502_1op("STY", "read_pointer+1");
                     } else {
                         sprintf(temp, LABEL_PREFIX "%s", name);
                         cpuz80_2op("LD", "HL", temp);
@@ -3056,7 +3056,7 @@ void compile_statement(int check_for_else)
                                 strcat(temp, ">>8");
                                 cpu6502_1op("LDY", temp);
                                 cpu6502_1op("STA", "temp");
-                                cpu6502_1op("STA", "temp+1");
+                                cpu6502_1op("STY", "temp+1");
                             } else {
                                 strcpy(temp, LABEL_PREFIX);
                                 strcat(temp, name);

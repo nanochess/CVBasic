@@ -1,0 +1,1637 @@
+                        00001 	; CVBasic compiler v0.6.0 Aug/05/2024
+                        00002 	; Command: ./cvbasic --vtech examples/test2.bas test2.asm 
+                        00003 	; Created: Tue Aug  6 11:35:14 2024
+                        00004 
+                        00005 COLECO:	EQU 0
+                        00006 SG1000:	EQU 0
+                        00007 MSX:	EQU 0
+                        00008 SGM:	EQU 0
+                        00009 SVI:	EQU 0
+                        00010 SORD:	EQU 0
+                        00011 MEMOTECH:	EQU 0
+                        00012 CPM:	EQU 0
+                        00013 
+                        00014 CVBASIC_MUSIC_PLAYER:	EQU 0
+                        00015 CVBASIC_COMPRESSION:	EQU 0
+                        00016 CVBASIC_BANK_SWITCHING:	EQU 0
+                        00017 
+                        00018 BASE_RAM:	EQU $0000	; Base of RAM
+                        00019 STACK:	EQU $017F	; Base stack pointer
+                        00020 VDP:	EQU $00	; VDP port (write)
+                        00021 VDPR:	EQU $00	; VDP port (read)
+                        00022 PSG:	EQU $00	; PSG port (write)
+                        00023 
+                        00024 	;
+                        00025 	; CVBasic prologue (BASIC compiler, 6502 target)
+                        00026 	;
+                        00027 	; by Oscar Toledo G.
+                        00028 	; https://nanochess.org/
+                        00029 	;
+                        00030 	; Creation date: Aug/05/2024.
+                        00031 	;
+                        00032 
+                        00033 	CPU 6502
+                        00034 
+                        00035 BIOS_NMI_RESET_ADDR:	EQU $F808
+                        00036 BIOS_READ_CONTROLLERS:	EQU $FA00
+                        00037 BIOS_WRITE_PSG:		EQU $FE77
+                        00038 
+                        00039 	;
+                        00040 	; Platforms supported:
+                        00041 	; o Vtech Creativision.
+                        00042 	; o Dick Smith's Wizzard.
+                        00043 	;
+                        00044 
+                        00045 	;
+                        00046 	; CVBasic variables in zero page.
+                        00047 	;
+                        00048 TEMP:		EQU $02
+                        00049 TEMP2:		EQU $04
+                        00050 READ_POINTER:	EQU $06
+                        00051 CURSOR:		EQU $08
+                        00052 LFSR:		EQU $0A
+                        00053 POINTER:	EQU $0C
+                        00054 FRAME:		EQU $0E
+                        00055 
+                        00056 	; Zero page $00-$01 and $10-$1f are used by
+                        00057 	; the Creativision BIOS to read the controllers.
+                        00058 JOY1_DIR:	EQU $11
+                        00059 JOY2_DIR:	EQU $13
+                        00060 JOY1_BUTTONS:	EQU $16
+                        00061 JOY2_BUTTONS:	EQU $17
+                        00062 
+                        00063 JOY1_DATA:	EQU $20
+                        00064 JOY2_DATA:	EQU $21
+                        00065 KEY1_DATA:	EQU $22
+                        00066 KEY2_DATA:	EQU $23
+                        00067 MODE:           EQU $24
+                        00068 FLICKER:	EQU $25
+                        00069 NTSC:		EQU $26
+                        00070 SPRITE_DATA:	EQU $27
+                        00071 MUSIC_PLAYING:	EQU $2B
+                        00072 
+                        00073 SPRITES:	EQU $0180
+                        00074 
+4000                    00075 	ORG $4000
+4000                    00076 	
+4000                    00077 WRTVDP:
+4000  8D0130            00078 	STA $3001
+4003  8A                00079 	TXA
+4004  0980              00080 	ORA #$80
+4006  8D0130            00081 	STA $3001
+4009  60                00082 	RTS
+400A                    00083 
+400A                    00084 SETWRT:
+400A  8D0130            00085 	STA $3001
+400D  98                00086 	TYA
+400E  0940              00087 	ORA #$40
+4010  8D0130            00088 	STA $3001
+4013  60                00089 	RTS
+4014                    00090 
+4014                    00091 SETRD:
+4014  8D0130            00092 	STA $3001
+4017  98                00093 	TYA
+4018  293F              00094 	AND #$3F
+401A  8D0130            00095 	STA $3001
+401D  60                00096 	RTS
+401E                    00097 
+401E                    00098 WRTVRM:
+401E  200A40            00099 	JSR SETWRT
+4021  8A                00100 	TXA		; !!! Delay
+4022  8D0030            00101 	STA $3000
+4025  60                00102 	RTS
+4026                    00103 
+4026                    00104 RDVRM:
+4026  201440            00105 	JSR SETRD
+4029  48                00106 	PHA		; !!! Delay
+402A  68                00107 	PLA
+402B  AD0020            00108 	LDA $2000
+402E  60                00109 	RTS
+402F                    00110 
+402F                    00111 FILVRM:
+402F  A50C              00112 	LDA POINTER
+4031  A40D              00113 	LDY POINTER+1
+4033  200A40            00114 	JSR SETWRT
+4036  A504              00115 	LDA TEMP2
+4038  F002              00116 	BEQ .1
+403A  E605              00117 	INC TEMP2+1
+403C                    00118 .1:
+403C  A502              00119 	LDA TEMP
+403E  8D0030            00120 	STA $3000
+4041  C604              00121 	DEC TEMP2
+4043  D0F7              00122 	BNE .1
+4045  C605              00123 	DEC TEMP2+1
+4047  D0F3              00124 	BNE .1
+4049  60                00125 	RTS	
+404A                    00126 
+404A                    00127 LDIRVM:
+404A  A50C              00128 	LDA POINTER
+404C  A40D              00129 	LDY POINTER+1
+404E  200A40            00130 	JSR SETWRT
+4051  A504              00131 	LDA TEMP2
+4053  F002              00132 	BEQ .1
+4055  E605              00133 	INC TEMP2+1
+4057                    00134 .1:
+4057  A000              00135 	LDY #0
+4059                    00136 .2:
+4059  B102              00137 	LDA (TEMP),Y
+405B  8D0030            00138 	STA $3000
+405E  E602              00139 	INC TEMP
+4060  D002              00140 	BNE .3
+4062  E603              00141 	INC TEMP+1
+4064                    00142 .3:
+4064  C604              00143 	DEC TEMP2
+4066  D0F1              00144 	BNE .2
+4068  C605              00145 	DEC TEMP2+1
+406A  D0ED              00146 	BNE .2
+406C  60                00147 	RTS
+406D                    00148 
+406D                    00149 LDIRVM3:
+406D  207340            00150 	JSR .1
+4070  207340            00151 	JSR .1
+4073  A502              00152 .1:	LDA TEMP
+4075  48                00153 	PHA
+4076  A503              00154 	LDA TEMP+1
+4078  48                00155 	PHA
+4079  A504              00156 	LDA TEMP2
+407B  48                00157 	PHA
+407C  A505              00158 	LDA TEMP2+1
+407E  48                00159 	PHA
+407F  204A40            00160 	JSR LDIRVM
+4082  A50D              00161 	LDA POINTER+1
+4084  18                00162 	CLC
+4085  6908              00163 	ADC #8
+4087  850D              00164 	STA POINTER+1
+4089  68                00165 	PLA
+408A  8505              00166 	STA TEMP2+1
+408C  68                00167 	PLA
+408D  8504              00168 	STA TEMP2
+408F  68                00169 	PLA
+4090  8503              00170 	STA TEMP+1
+4092  68                00171 	PLA
+4093  8502              00172 	STA TEMP
+4095  60                00173 	RTS
+4096                    00174 
+4096                    00175 DISSCR:
+4096  78                00176 	SEI
+4097  A9A2              00177 	LDA #$A2
+4099  A201              00178 	LDX #$01
+409B  200040            00179 	JSR WRTVDP
+409E  58                00180 	CLI
+409F  60                00181 	RTS
+40A0                    00182 
+40A0                    00183 ENASCR:
+40A0  78                00184 	SEI
+40A1  A9E2              00185 	LDA #$E2
+40A3  A201              00186 	LDX #$01
+40A5  200040            00187 	JSR WRTVDP
+40A8  58                00188 	CLI
+40A9  60                00189 	RTS
+40AA                    00190 
+40AA                    00191 CPYBLK:
+40AA                    00192 	; !!!
+40AA  60                00193 	RTS
+40AB                    00194 
+40AB                    00195 CLS:
+40AB  A900              00196 	LDA #$00
+40AD  A018              00197 	LDY #$18
+40AF  8508              00198 	STA CURSOR
+40B1  8409              00199 	STY CURSOR+1
+40B3  850C              00200 	STA POINTER
+40B5  840D              00201 	STY POINTER+1
+40B7  A900              00202 	LDA #$00
+40B9  A003              00203 	LDY #$03
+40BB  8504              00204 	STA TEMP2
+40BD  8405              00205 	STY TEMP2+1
+40BF  A920              00206 	LDA #$20
+40C1  8502              00207 	STA TEMP
+40C3  78                00208 	SEI
+40C4  202F40            00209 	JSR FILVRM
+40C7  58                00210 	CLI
+40C8  60                00211 	RTS
+40C9                    00212 
+40C9                    00213 PRINT_STRING:
+40C9  8502              00214 	STA TEMP
+40CB  8403              00215 	STY TEMP+1
+40CD  8604              00216 	STX TEMP2
+40CF  8A                00217 	TXA
+40D0  48                00218 	PHA
+40D1  A900              00219 	LDA #0
+40D3  8505              00220 	STA TEMP2+1
+40D5  A508              00221 	LDA CURSOR
+40D7  850C              00222 	STA POINTER
+40D9  A509              00223 	LDA CURSOR+1
+40DB  2907              00224 	AND #$07
+40DD  0918              00225 	ORA #$18
+40DF  850D              00226 	STA POINTER+1
+40E1  78                00227 	SEI
+40E2  204A40            00228 	JSR LDIRVM
+40E5  58                00229 	CLI
+40E6  68                00230 	PLA
+40E7  18                00231 	CLC
+40E8  6508              00232 	ADC CURSOR
+40EA  8508              00233 	STA CURSOR
+40EC  9002              00234 	BCC .1
+40EE  E609              00235 	INC CURSOR+1
+40F0                    00236 .1:
+40F0  60                00237 	RTS
+40F1                    00238 
+40F1                    00239 PRINT_NUMBER:
+40F1  A200              00240 	LDX #0
+40F3  8602              00241 	STX TEMP
+40F5  78                00242 	SEI
+40F6                    00243 PRINT_NUMBER5:
+40F6  A210              00244 	LDX #10000
+40F8  8604              00245 	STX TEMP2
+40FA  A227              00246 	LDX #10000/256
+40FC  8605              00247 	STX TEMP2+1
+40FE  203141            00248 	JSR PRINT_DIGIT
+4101                    00249 PRINT_NUMBER4:
+4101  A2E8              00250 	LDX #1000
+4103  8604              00251 	STX TEMP2
+4105  A203              00252 	LDX #1000/256
+4107  8605              00253 	STX TEMP2+1
+4109  203141            00254 	JSR PRINT_DIGIT
+410C                    00255 PRINT_NUMBER3:
+410C  A264              00256 	LDX #100
+410E  8604              00257 	STX TEMP2
+4110  A200              00258 	LDX #0
+4112  8605              00259 	STX TEMP2+1
+4114  203141            00260 	JSR PRINT_DIGIT
+4117                    00261 PRINT_NUMBER2:
+4117  A20A              00262 	LDX #10
+4119  8604              00263 	STX TEMP2
+411B  A200              00264 	LDX #0
+411D  8605              00265 	STX TEMP2+1
+411F  203141            00266 	JSR PRINT_DIGIT
+4122                    00267 PRINT_NUMBER1:
+4122  A201              00268 	LDX #1
+4124  8604              00269 	STX TEMP2
+4126  8602              00270 	STX TEMP
+4128  A200              00271 	LDX #0
+412A  8605              00272 	STX TEMP2+1
+412C  203141            00273 	JSR PRINT_DIGIT
+412F  58                00274 	CLI
+4130  60                00275 	RTS
+4131                    00276 
+4131                    00277 PRINT_DIGIT:
+4131  A22F              00278 	LDX #$2F
+4133                    00279 .2:
+4133  E8                00280 	INX
+4134  38                00281 	SEC
+4135  E504              00282 	SBC TEMP2
+4137  48                00283 	PHA
+4138  98                00284 	TYA
+4139  E505              00285 	SBC TEMP2+1
+413B  A8                00286 	TAY
+413C  68                00287 	PLA
+413D  B0F4              00288 	BCS .2
+413F  18                00289 	CLC
+4140  6504              00290 	ADC TEMP2
+4142  48                00291 	PHA
+4143  98                00292 	TYA
+4144  6505              00293 	ADC TEMP2+1
+4146  A8                00294 	TAY
+4147  68                00295 	PLA
+4148  E030              00296 	CPX #$30
+414A  D00E              00297 	BNE .3
+414C  A602              00298 	LDX TEMP
+414E  D001              00299 	BNE .4
+4150  60                00300 	RTS
+4151                    00301 
+4151  CA                00302 .4:	DEX
+4152  F004              00303 	BEQ .6
+4154  A603              00304 	LDX TEMP+1
+4156  D008              00305 	BNE .5
+4158                    00306 .6:
+4158  A230              00307 	LDX #$30
+415A  48                00308 .3:	PHA
+415B  A901              00309 	LDA #1
+415D  8502              00310 	STA TEMP
+415F  68                00311 	PLA
+4160  48                00312 .5:	PHA
+4161  98                00313 	TYA
+4162  48                00314 	PHA
+4163  A509              00315 	LDA CURSOR+1
+4165  2907              00316 	AND #$07
+4167  0918              00317 	ORA #$18
+4169  A8                00318 	TAY
+416A  A508              00319 	LDA CURSOR
+416C  201E40            00320 	JSR WRTVRM
+416F  E608              00321 	INC CURSOR
+4171  D002              00322 	BNE .1
+4173  E609              00323 	INC CURSOR+1
+4175                    00324 .1:
+4175  68                00325 	PLA
+4176  A8                00326 	TAY
+4177  68                00327 	PLA
+4178  60                00328 	RTS
+4179                    00329 
+4179                    00330 DEFINE_SPRITE:
+4179  A907              00331 	LDA #7
+417B  850D              00332 	STA POINTER+1
+417D  A50C              00333 	LDA POINTER
+417F  0A                00334 	ASL A
+4180  0A                00335 	ASL A
+4181  0A                00336 	ASL A
+4182  260D              00337 	ROL POINTER+1
+4184  0A                00338 	ASL A
+4185  260D              00339 	ROL POINTER+1
+4187  0A                00340 	ASL A
+4188  260D              00341 	ROL POINTER+1
+418A  850C              00342 	STA POINTER
+418C  A504              00343 	LDA TEMP2
+418E  0A                00344 	ASL A
+418F  2605              00345 	ROL TEMP2+1
+4191  0A                00346 	ASL A
+4192  2605              00347 	ROL TEMP2+1
+4194  0A                00348 	ASL A
+4195  2605              00349 	ROL TEMP2+1
+4197  0A                00350 	ASL A
+4198  2605              00351 	ROL TEMP2+1
+419A  0A                00352 	ASL A
+419B  2605              00353 	ROL TEMP2+1
+419D  8504              00354 	STA TEMP2
+419F  78                00355 	SEI
+41A0  204A40            00356 	JSR LDIRVM
+41A3  58                00357 	CLI
+41A4  60                00358 	RTS
+41A5                    00359 
+41A5                    00360 DEFINE_CHAR:
+41A5  A900              00361 	LDA #0
+41A7  850D              00362 	STA POINTER+1
+41A9  8505              00363 	STA TEMP2+1
+41AB  A50C              00364 	LDA POINTER
+41AD  0A                00365 	ASL A
+41AE  260D              00366 	ROL POINTER+1
+41B0  0A                00367 	ASL A
+41B1  260D              00368 	ROL POINTER+1
+41B3  0A                00369 	ASL A
+41B4  260D              00370 	ROL POINTER+1
+41B6  850C              00371 	STA POINTER
+41B8  A504              00372 	LDA TEMP2
+41BA  0A                00373 	ASL A
+41BB  2605              00374 	ROL TEMP2+1
+41BD  0A                00375 	ASL A
+41BE  2605              00376 	ROL TEMP2+1
+41C0  0A                00377 	ASL A
+41C1  2605              00378 	ROL TEMP2+1
+41C3  8504              00379 	STA TEMP2
+41C5  78                00380 	SEI
+41C6  A524              00381 	LDA MODE
+41C8  2904              00382 	AND #$04
+41CA  D005              00383 	BNE .1
+41CC  206D40            00384 	JSR LDIRVM3
+41CF  58                00385 	CLI
+41D0  60                00386 	RTS
+41D1                    00387 
+41D1  204A40            00388 .1:	JSR LDIRVM
+41D4  58                00389 	CLI
+41D5  60                00390 	RTS
+41D6                    00391 
+41D6                    00392 DEFINE_COLOR:
+41D6  A904              00393 	LDA #$04
+41D8  850D              00394 	STA POINTER+1
+41DA  A900              00395 	LDA #0
+41DC  8505              00396 	STA TEMP2+1
+41DE  A50C              00397 	LDA POINTER
+41E0  0A                00398 	ASL A
+41E1  260D              00399 	ROL POINTER+1
+41E3  0A                00400 	ASL A
+41E4  260D              00401 	ROL POINTER+1
+41E6  0A                00402 	ASL A
+41E7  260D              00403 	ROL POINTER+1
+41E9  850C              00404 	STA POINTER
+41EB  A504              00405 	LDA TEMP2
+41ED  0A                00406 	ASL A
+41EE  2605              00407 	ROL TEMP2+1
+41F0  0A                00408 	ASL A
+41F1  2605              00409 	ROL TEMP2+1
+41F3  0A                00410 	ASL A
+41F4  2605              00411 	ROL TEMP2+1
+41F6  8504              00412 	STA TEMP2
+41F8  78                00413 	SEI
+41F9  206D40            00414 	JSR LDIRVM3
+41FC  58                00415 	CLI
+41FD  60                00416 	RTS
+41FE                    00417 
+41FE                    00418 UPDATE_SPRITE:
+41FE  852A              00419 	STA SPRITE_DATA+3
+4200  A50C              00420 	LDA POINTER
+4202  0A                00421 	ASL A
+4203  0A                00422 	ASL A
+4204  0980              00423 	ORA #$80
+4206  850C              00424 	STA POINTER
+4208  A901              00425 	LDA #$01
+420A  850D              00426 	STA POINTER+1
+420C  A000              00427 	LDY #0
+420E  A527              00428 	LDA SPRITE_DATA+0
+4210  910C              00429 	STA (POINTER),Y
+4212  C8                00430 	INY
+4213  A528              00431 	LDA SPRITE_DATA+1
+4215  910C              00432 	STA (POINTER),Y
+4217  C8                00433 	INY
+4218  A529              00434 	LDA SPRITE_DATA+2
+421A  910C              00435 	STA (POINTER),Y
+421C  C8                00436 	INY
+421D  A52A              00437 	LDA SPRITE_DATA+3
+421F  910C              00438 	STA (POINTER),Y
+4221  60                00439 	RTS
+4222                    00440 
+4222                    00441 _ABS16:
+4222  48                00442 	PHA
+4223  98                00443 	TYA
+4224  100D              00444 	BPL _NEG16.1
+4226  68                00445 	PLA
+4227                    00446 _NEG16:
+4227  49FF              00447 	EOR #$FF
+4229  18                00448 	CLC
+422A  6901              00449 	ADC #1
+422C  48                00450 	PHA
+422D  98                00451 	TYA
+422E  49FF              00452 	EOR #$FF
+4230  6900              00453 	ADC #0
+4232  A8                00454 	TAY
+4233                    00455 .1:
+4233  68                00456 	PLA
+4234  60                00457 	RTS
+4235                    00458 
+4235                    00459 _SGN16:
+4235  8402              00460 	STY TEMP
+4237  0502              00461 	ORA TEMP
+4239  F00B              00462 	BEQ .1
+423B  98                00463 	TYA
+423C  3006              00464 	BMI .2
+423E  A900              00465 	LDA #0
+4240  A8                00466 	TAY
+4241  A901              00467 	LDA #1
+4243  60                00468 	RTS
+4244                    00469 
+4244  A9FF              00470 .2:	LDA #$FF
+4246  A8                00471 .1:	TAY
+4247  60                00472 	RTS
+4248                    00473 
+4248                    00474 _READ16:
+4248  205242            00475 	JSR _READ8
+424B  48                00476 	PHA
+424C  205242            00477 	JSR _READ8
+424F  A8                00478 	TAY
+4250  68                00479 	PLA
+4251  60                00480 	RTS
+4252                    00481 
+4252                    00482 _READ8:
+4252  A000              00483 	LDY #0
+4254  B106              00484 	LDA (READ_POINTER),Y
+4256  E606              00485 	INC READ_POINTER
+4258  D002              00486 	BNE .1
+425A  E607              00487 	INC READ_POINTER+1
+425C                    00488 .1:
+425C  60                00489 	RTS
+425D                    00490 
+425D                    00491 _PEEK8:
+425D  850C              00492 	STA POINTER
+425F  840D              00493 	STY POINTER+1
+4261  A000              00494 	LDY #0
+4263  B10C              00495 	LDA (POINTER),Y
+4265  60                00496 	RTS
+4266                    00497 
+4266                    00498 _PEEK16:
+4266  850C              00499 	STA POINTER
+4268  840D              00500 	STY POINTER+1
+426A  A000              00501 	LDY #0
+426C  B10C              00502 	LDA (POINTER),Y
+426E  48                00503 	PHA
+426F  C8                00504 	INY
+4270  B10C              00505 	LDA (POINTER),Y
+4272  A8                00506 	TAY
+4273  68                00507 	PLA
+4274  60                00508 	RTS
+4275                    00509 
+4275                    00510 	; temp2 constains left side (dividend)
+4275                    00511 	; temp contains right side (divisor)
+4275                    00512 
+4275                    00513 	; 16-bit multiplication.
+4275                    00514 _MUL16:
+4275  68                00515 	PLA
+4276  850C              00516 	STA POINTER
+4278  68                00517 	PLA
+4279  850D              00518 	STA POINTER+1
+427B  68                00519 	PLA
+427C  8505              00520 	STA TEMP2+1
+427E  68                00521 	PLA
+427F  8504              00522 	STA TEMP2
+4281  A50D              00523 	LDA POINTER+1
+4283  48                00524 	PHA
+4284  A50C              00525 	LDA POINTER
+4286  48                00526 	PHA
+4287  A900              00527 	LDA #0
+4289  850C              00528 	STA POINTER
+428B  850D              00529 	STA POINTER+1
+428D  A20F              00530 	LDX #15
+428F                    00531 .1:
+428F  4605              00532 	LSR TEMP2+1
+4291  6604              00533 	ROR TEMP2
+4293  900D              00534 	BCC .2
+4295  A50C              00535 	LDA POINTER
+4297  18                00536 	CLC
+4298  6502              00537 	ADC TEMP
+429A  850C              00538 	STA POINTER
+429C  A50D              00539 	LDA POINTER+1
+429E  6503              00540 	ADC TEMP+1
+42A0  850D              00541 	STA POINTER+1
+42A2  0602              00542 .2:	ASL TEMP
+42A4  2603              00543 	ROL TEMP+1
+42A6  CA                00544 	DEX
+42A7  10E6              00545 	BPL .1
+42A9  A50C              00546 	LDA POINTER
+42AB  A40D              00547 	LDY POINTER+1
+42AD  60                00548 	RTS
+42AE                    00549 
+42AE                    00550 	; 16-bit signed modulo.
+42AE                    00551 _MOD16S:
+42AE  68                00552 	PLA
+42AF  850C              00553 	STA POINTER
+42B1  68                00554 	PLA
+42B2  850D              00555 	STA POINTER+1
+42B4  68                00556 	PLA
+42B5  8505              00557 	STA TEMP2+1
+42B7  68                00558 	PLA
+42B8  8504              00559 	STA TEMP2
+42BA  A50D              00560 	LDA POINTER+1
+42BC  48                00561 	PHA
+42BD  A50C              00562 	LDA POINTER
+42BF  48                00563 	PHA
+42C0  A405              00564 	LDY TEMP2+1
+42C2  08                00565 	PHP
+42C3  1009              00566 	BPL .1
+42C5  A504              00567 	LDA TEMP2
+42C7  202742            00568 	JSR _NEG16
+42CA  8504              00569 	STA TEMP2
+42CC  8405              00570 	STY TEMP2+1
+42CE                    00571 .1:
+42CE  A403              00572 	LDY TEMP+1
+42D0  1009              00573 	BPL .2
+42D2  A502              00574 	LDA TEMP
+42D4  202742            00575 	JSR _NEG16
+42D7  8502              00576 	STA TEMP
+42D9  8403              00577 	STY TEMP+1
+42DB                    00578 .2:
+42DB  207C43            00579 	JSR _MOD16.1
+42DE  28                00580 	PLP
+42DF  1003              00581 	BPL .3
+42E1  202742            00582 	JSR _NEG16
+42E4                    00583 .3:
+42E4  60                00584 	RTS
+42E5                    00585 
+42E5                    00586 	; 16-bit signed division.
+42E5                    00587 _DIV16S:
+42E5  68                00588 	PLA
+42E6  850C              00589 	STA POINTER
+42E8  68                00590 	PLA
+42E9  850D              00591 	STA POINTER+1
+42EB  68                00592 	PLA
+42EC  8505              00593 	STA TEMP2+1
+42EE  68                00594 	PLA
+42EF  8504              00595 	STA TEMP2
+42F1  A50D              00596 	LDA POINTER+1
+42F3  48                00597 	PHA
+42F4  A50C              00598 	LDA POINTER
+42F6  48                00599 	PHA
+42F7  A503              00600 	LDA TEMP+1
+42F9  4505              00601 	EOR TEMP2+1
+42FB  08                00602 	PHP
+42FC  A405              00603 	LDY TEMP2+1
+42FE  1009              00604 	BPL .1
+4300  A504              00605 	LDA TEMP2
+4302  202742            00606 	JSR _NEG16
+4305  8504              00607 	STA TEMP2
+4307  8405              00608 	STY TEMP2+1
+4309                    00609 .1:
+4309  A403              00610 	LDY TEMP+1
+430B  1009              00611 	BPL .2
+430D  A502              00612 	LDA TEMP
+430F  202742            00613 	JSR _NEG16
+4312  8502              00614 	STA TEMP
+4314  8403              00615 	STY TEMP+1
+4316                    00616 .2:
+4316  203243            00617 	JSR _DIV16.1
+4319  28                00618 	PLP
+431A  1003              00619 	BPL .3
+431C  202742            00620 	JSR _NEG16
+431F                    00621 .3:
+431F  60                00622 	RTS
+4320                    00623 
+4320                    00624 _DIV16:
+4320  68                00625 	PLA
+4321  850C              00626 	STA POINTER
+4323  68                00627 	PLA
+4324  850D              00628 	STA POINTER+1
+4326  68                00629 	PLA
+4327  8505              00630 	STA TEMP2+1
+4329  68                00631 	PLA
+432A  8504              00632 	STA TEMP2
+432C  A50D              00633 	LDA POINTER+1
+432E  48                00634 	PHA
+432F  A50C              00635 	LDA POINTER
+4331  48                00636 	PHA
+4332                    00637 .1:
+4332  A900              00638 	LDA #0
+4334  850C              00639 	STA POINTER
+4336  850D              00640 	STA POINTER+1
+4338  A20F              00641 	LDX #15
+433A                    00642 .2:
+433A  2604              00643 	ROL TEMP2
+433C  2605              00644 	ROL TEMP2+1
+433E  260C              00645 	ROL POINTER
+4340  260D              00646 	ROL POINTER+1
+4342  A50C              00647 	LDA POINTER
+4344  38                00648 	SEC
+4345  E502              00649 	SBC TEMP
+4347  850C              00650 	STA POINTER
+4349  A50D              00651 	LDA POINTER+1
+434B  E503              00652 	SBC TEMP+1
+434D  850D              00653 	STA POINTER+1
+434F  B00D              00654 	BCS .3
+4351  A50C              00655 	LDA POINTER
+4353  6502              00656 	ADC TEMP
+4355  850C              00657 	STA POINTER
+4357  A50D              00658 	LDA POINTER+1
+4359  6503              00659 	ADC TEMP+1
+435B  850D              00660 	STA POINTER+1
+435D  18                00661 	CLC
+435E                    00662 .3:
+435E  CA                00663 	DEX
+435F  10D9              00664 	BPL .2
+4361  2604              00665 	ROL TEMP2
+4363  2605              00666 	ROL TEMP2+1
+4365  A504              00667 	LDA TEMP2
+4367  A405              00668 	LDY TEMP2+1
+4369  60                00669 	RTS
+436A                    00670 
+436A                    00671 _MOD16:
+436A  68                00672 	PLA
+436B  850C              00673 	STA POINTER
+436D  68                00674 	PLA
+436E  850D              00675 	STA POINTER+1
+4370  68                00676 	PLA
+4371  8505              00677 	STA TEMP2+1
+4373  68                00678 	PLA
+4374  8504              00679 	STA TEMP2
+4376  A50D              00680 	LDA POINTER+1
+4378  48                00681 	PHA
+4379  A50C              00682 	LDA POINTER
+437B  48                00683 	PHA
+437C                    00684 .1:
+437C  A900              00685 	LDA #0
+437E  850C              00686 	STA POINTER
+4380  850D              00687 	STA POINTER+1
+4382  A20F              00688 	LDX #15
+4384                    00689 .2:
+4384  2604              00690 	ROL TEMP2
+4386  2605              00691 	ROL TEMP2+1
+4388  260C              00692 	ROL POINTER
+438A  260D              00693 	ROL POINTER+1
+438C  A50C              00694 	LDA POINTER
+438E  38                00695 	SEC
+438F  E502              00696 	SBC TEMP
+4391  850C              00697 	STA POINTER
+4393  A50D              00698 	LDA POINTER+1
+4395  E503              00699 	SBC TEMP+1
+4397  850D              00700 	STA POINTER+1
+4399  B00D              00701 	BCS .3
+439B  A50C              00702 	LDA POINTER
+439D  6502              00703 	ADC TEMP
+439F  850C              00704 	STA POINTER
+43A1  A50D              00705 	LDA POINTER+1
+43A3  6503              00706 	ADC TEMP+1
+43A5  850D              00707 	STA POINTER+1
+43A7  18                00708 	CLC
+43A8                    00709 .3:
+43A8  CA                00710 	DEX
+43A9  10D9              00711 	BPL .2
+43AB  A50C              00712 	LDA POINTER
+43AD  A40D              00713 	LDY POINTER+1
+43AF  60                00714 	RTS
+43B0                    00715 
+43B0                    00716 	; Random number generator.
+43B0                    00717 	; From my game Mecha Eight.
+43B0                    00718 RANDOM:
+43B0  A50A              00719 	LDA LFSR
+43B2  050B              00720 	ORA LFSR+1
+43B4  D008              00721 	BNE .0
+43B6  A911              00722 	LDA #$11
+43B8  850A              00723 	STA LFSR
+43BA  A978              00724 	LDA #$78
+43BC  850B              00725 	STA LFSR+1
+43BE  A50B              00726 .0:	LDA LFSR+1
+43C0  6A                00727 	ROR A
+43C1  6A                00728 	ROR A
+43C2  6A                00729 	ROR A
+43C3  450B              00730 	EOR LFSR+1
+43C5  8502              00731 	STA TEMP
+43C7  A50B              00732 	LDA LFSR+1
+43C9  6A                00733 	ROR A
+43CA  6A                00734 	ROR A
+43CB  4502              00735 	EOR TEMP
+43CD  8502              00736 	STA TEMP
+43CF  A50A              00737 	LDA LFSR
+43D1  0A                00738 	ASL A
+43D2  0A                00739 	ASL A
+43D3  4502              00740 	EOR TEMP
+43D5  2980              00741 	AND #$80
+43D7  2A                00742 	ROL A
+43D8  660B              00743 	ROR LFSR+1
+43DA  660A              00744 	ROR LFSR
+43DC  A50A              00745 	LDA LFSR
+43DE  A40B              00746 	LDY LFSR+1
+43E0  60                00747 	RTS
+43E1                    00748 
+43E1                    00749 SN76489_FREQ:
+43E1  8502              00750 	STA TEMP
+43E3  8403              00751 	STY TEMP+1
+43E5  8604              00752 	STX TEMP2
+43E7  290F              00753 	AND #$0F
+43E9  0504              00754 	ORA TEMP2
+43EB  2077FE            00755 	JSR BIOS_WRITE_PSG
+43EE  A503              00756 	LDA TEMP+1
+43F0  0602              00757 	ASL TEMP
+43F2  2A                00758 	ROL A
+43F3  0602              00759 	ASL TEMP
+43F5  2A                00760 	ROL A
+43F6  0602              00761 	ASL TEMP
+43F8  2A                00762 	ROL A
+43F9  0602              00763 	ASL TEMP
+43FB  2A                00764 	ROL A
+43FC  293F              00765 	AND #$3F	
+43FE  4C77FE            00766 	JMP BIOS_WRITE_PSG
+4401                    00767 	
+4401                    00768 SN76489_VOL:
+4401  8604              00769 	STX TEMP2
+4403  49FF              00770 	EOR #$FF
+4405  290F              00771 	AND #$0F
+4407  0504              00772 	ORA TEMP2
+4409  4C77FE            00773 	JMP BIOS_WRITE_PSG
+440C                    00774 
+440C                    00775 SN76489_CONTROL:
+440C  290F              00776 	AND #$0F
+440E  09E0              00777 	ORA #$E0
+4410  4C77FE            00778 	JMP BIOS_WRITE_PSG
+4413                    00779 
+4413                    00780 VDP_GENERIC_MODE:
+4413  78                00781 	SEI
+4414  200040            00782 	JSR WRTVDP
+4417  A9A2              00783 	LDA #$A2
+4419  A201              00784 	LDX #$01
+441B  200040            00785 	JSR WRTVDP
+441E  A906              00786 	LDA #$06	; $1800 for pattern table.
+4420  A202              00787 	LDX #$02
+4422  200040            00788 	JSR WRTVDP
+4425  A502              00789 	LDA TEMP
+4427  A203              00790 	LDX #$03	; for color table.
+4429  200040            00791 	JSR WRTVDP
+442C  A503              00792 	LDA TEMP+1
+442E  A204              00793 	LDX #$04	; for bitmap table.
+4430  200040            00794 	JSR WRTVDP
+4433  A936              00795 	LDA #$36	; $1b00 for sprite attribute table.
+4435  A205              00796 	LDX #$05
+4437  200040            00797 	JSR WRTVDP
+443A  A907              00798 	LDA #$07	; $3800 for sprites bitmaps.
+443C  A206              00799 	LDX #$06
+443E  200040            00800 	JSR WRTVDP
+4441  A901              00801 	LDA #$01
+4443  A207              00802 	LDX #$07
+4445  4C0040            00803 	JMP WRTVDP
+4448                    00804 
+4448                    00805 MODE_0:
+4448  A524              00806 	LDA MODE
+444A  29FB              00807 	AND #$FB
+444C  8524              00808 	STA MODE
+444E  A9FF              00809 	LDA #$FF	; $2000 for color table.
+4450  8502              00810 	STA TEMP
+4452  A903              00811 	LDA #$03	; $0000 for bitmaps
+4454  8503              00812 	STA TEMP+1
+4456  A902              00813 	LDA #$02
+4458  A200              00814 	LDX #$00
+445A  201344            00815 	JSR VDP_GENERIC_MODE
+445D  A960              00816 	LDA #FONT_BITMAPS
+445F  A046              00817 	LDY #FONT_BITMAPS>>8
+4461  8502              00818 	STA TEMP
+4463  8403              00819 	STY TEMP+1
+4465  A900              00820 	LDA #$0100
+4467  A001              00821 	LDY #$0100>>8
+4469  850C              00822 	STA POINTER
+446B  840D              00823 	STY POINTER+1
+446D  A900              00824 	LDA #$0300
+446F  A003              00825 	LDY #$0300>>8
+4471  8504              00826 	STA TEMP2
+4473  8405              00827 	STY TEMP2+1
+4475  206D40            00828 	JSR LDIRVM3
+4478  58                00829 	CLI
+4479  78                00830 	SEI
+447A  A9F0              00831 	LDA #$F0
+447C  8502              00832 	STA TEMP
+447E  A900              00833 	LDA #$2000
+4480  A020              00834 	LDY #$2000>>8
+4482  850C              00835 	STA POINTER
+4484  840D              00836 	STY POINTER+1
+4486  A900              00837 	LDA #$1800
+4488  A018              00838 	LDY #$1800>>8
+448A  8504              00839 	STA TEMP2
+448C  8405              00840 	STY TEMP2+1
+448E  202F40            00841 	JSR FILVRM
+4491  58                00842 	CLI
+4492  20AB40            00843 	JSR CLS
+4495                    00844 VDP_GENERIC_SPRITES:
+4495  78                00845 	SEI
+4496  A9D1              00846 	LDA #$D1
+4498  8502              00847 	STA TEMP
+449A  A900              00848 	LDA #$1B00
+449C  A01B              00849 	LDY #$1B00>>8
+449E  850C              00850 	STA POINTER
+44A0  840D              00851 	STY POINTER+1
+44A2  A980              00852 	LDA #$0080
+44A4  A000              00853 	LDY #$0080>>8
+44A6  8504              00854 	STA TEMP2
+44A8  8405              00855 	STY TEMP2+1
+44AA  202F40            00856 	JSR FILVRM
+44AD  A27F              00857 	LDX #$7F
+44AF  A9D1              00858 	LDA #$D1
+44B1                    00859 .1:
+44B1  9D8001            00860 	STA SPRITES,X
+44B4  CA                00861 	DEX
+44B5  10FA              00862 	BPL .1
+44B7  58                00863 	CLI
+44B8  78                00864 	SEI
+44B9  A9E2              00865 	LDA #$E2
+44BB  A201              00866 	LDX #$01
+44BD  200040            00867 	JSR WRTVDP
+44C0  58                00868 	CLI
+44C1  60                00869 	RTS
+44C2                    00870 
+44C2                    00871 MODE_1:
+44C2  A524              00872 	LDA MODE
+44C4  29FB              00873 	AND #$FB
+44C6  8524              00874 	STA MODE
+44C8  A9FF              00875 	LDA #$FF	; $2000 for color table.
+44CA  8502              00876 	STA TEMP
+44CC  A903              00877 	LDA #$03	; $0000 for bitmaps
+44CE  8503              00878 	STA TEMP+1
+44D0  A902              00879 	LDA #$02
+44D2  A200              00880 	LDX #$00
+44D4  201344            00881 	JSR VDP_GENERIC_MODE
+44D7  A900              00882 	LDA #00
+44D9  8502              00883 	STA TEMP
+44DB  A900              00884 	LDA #$0000
+44DD  A000              00885 	LDY #$0000>>8
+44DF  850C              00886 	STA POINTER
+44E1  840D              00887 	STY POINTER+1
+44E3  A900              00888 	LDA #$1800
+44E5  A018              00889 	LDY #$1800>>8
+44E7  8504              00890 	STA TEMP2
+44E9  8405              00891 	STY TEMP2+1
+44EB  202F40            00892 	JSR FILVRM
+44EE  58                00893 	CLI
+44EF  78                00894 	SEI
+44F0  A9F0              00895 	LDA #$F0
+44F2  8502              00896 	STA TEMP
+44F4  A900              00897 	LDA #$2000
+44F6  A020              00898 	LDY #$2000>>8
+44F8  850C              00899 	STA POINTER
+44FA  840D              00900 	STY POINTER+1
+44FC  A900              00901 	LDA #$1800
+44FE  A018              00902 	LDY #$1800>>8
+4500  8504              00903 	STA TEMP2
+4502  8405              00904 	STY TEMP2+1
+4504  202F40            00905 	JSR FILVRM
+4507  58                00906 	CLI
+4508  A900              00907 	LDA #$1800
+450A  A018              00908 	LDY #$1800>>8
+450C  850C              00909 	STA POINTER
+450E  840D              00910 	STY POINTER+1
+4510  78                00911 .1:	SEI
+4511  A50C              00912 	LDA POINTER
+4513  A40D              00913 	LDY POINTER+1
+4515  200A40            00914 	JSR SETWRT
+4518  A220              00915 	LDX #32
+451A                    00916 .2:
+451A  A50C              00917 	LDA POINTER
+451C  8D0030            00918 	STA $3000	; !!! Delay
+451F  CA                00919 	DEX
+4520  D0F8              00920 	BNE .2
+4522  58                00921 	CLI
+4523  A50C              00922 	LDA POINTER
+4525  18                00923 	CLC
+4526  6920              00924 	ADC #32
+4528  850C              00925 	STA POINTER
+452A  B002              00926 	BCS .3
+452C  E60D              00927 	INC POINTER+1
+452E                    00928 .3:
+452E  A50D              00929 	LDA POINTER+1
+4530  C91B              00930 	CMP #$1B
+4532  D0DC              00931 	BNE .1
+4534  4C9544            00932 	JMP VDP_GENERIC_SPRITES
+4537                    00933 
+4537                    00934 MODE_2:
+4537  A524              00935 	LDA MODE
+4539  29FB              00936 	AND #$FB
+453B  8524              00937 	STA MODE
+453D  A980              00938 	LDA #$80	; $2000 for color table.
+453F  8502              00939 	STA TEMP
+4541  A900              00940 	LDA #$00	; $0000 for bitmaps
+4543  8503              00941 	STA TEMP+1
+4545  A900              00942 	LDA #$00
+4547  A200              00943 	LDX #$00
+4549  201344            00944 	JSR VDP_GENERIC_MODE
+454C  A960              00945 	LDA #FONT_BITMAPS
+454E  A046              00946 	LDY #FONT_BITMAPS>>8
+4550  8502              00947 	STA TEMP
+4552  8403              00948 	STY TEMP+1
+4554  A900              00949 	LDA #$0100
+4556  A001              00950 	LDY #$0100>>8
+4558  850C              00951 	STA POINTER
+455A  840D              00952 	STY POINTER+1
+455C  A900              00953 	LDA #$0300
+455E  A003              00954 	LDY #$0300>>8
+4560  8504              00955 	STA TEMP2
+4562  8405              00956 	STY TEMP2+1
+4564  204A40            00957 	JSR LDIRVM
+4567  58                00958 	CLI
+4568  78                00959 	SEI
+4569  A9F0              00960 	LDA #$F0
+456B  8502              00961 	STA TEMP
+456D  A900              00962 	LDA #$2000
+456F  A020              00963 	LDY #$2000>>8
+4571  850C              00964 	STA POINTER
+4573  840D              00965 	STY POINTER+1
+4575  A920              00966 	LDA #$0020
+4577  A000              00967 	LDY #$0020>>8
+4579  8504              00968 	STA TEMP2
+457B  8405              00969 	STY TEMP2+1
+457D  202F40            00970 	JSR FILVRM
+4580  58                00971 	CLI
+4581  20AB40            00972 	JSR CLS
+4584  4C9544            00973 	JMP VDP_GENERIC_SPRITES
+4587                    00974 
+4587                    00975 INT_HANDLER:
+4587  48                00976 	PHA
+4588  8A                00977 	TXA
+4589  48                00978 	PHA
+458A  98                00979 	TYA
+458B  48                00980 	PHA
+458C  AD0120            00981 	LDA $2001	; VDP interruption clear.
+458F  A900              00982 	LDA #$1B00
+4591  A01B              00983 	LDY #$1B00>>8
+4593  200A40            00984 	JSR SETWRT
+4596  A524              00985 	LDA MODE
+4598  2904              00986 	AND #$04
+459A  F010              00987 	BEQ .4
+459C  A200              00988 	LDX #0
+459E  BD8001            00989 .7:	LDA SPRITES,X
+45A1  8D0030            00990 	STA $3000	; !!! Delay
+45A4  E8                00991 	INX
+45A5  E080              00992 	CPX #$80
+45A7  D0F5              00993 	BNE .7
+45A9  4CDD45            00994 	JMP .5
+45AC                    00995 
+45AC  A525              00996 .4:	LDA FLICKER
+45AE  18                00997 	CLC
+45AF  6904              00998 	ADC #4
+45B1  297F              00999 	AND #$7F
+45B3  8525              01000 	STA FLICKER
+45B5  AA                01001 	TAX
+45B6  A01F              01002 	LDY #31
+45B8                    01003 .6:
+45B8  BD8001            01004 	LDA SPRITES,X
+45BB  8D0030            01005 	STA $3000	; !!! Delay
+45BE  E8                01006 	INX
+45BF  BD8001            01007 	LDA SPRITES,X
+45C2  8D0030            01008 	STA $3000
+45C5  E8                01009 	INX
+45C6  BD8001            01010 	LDA SPRITES,X
+45C9  8D0030            01011 	STA $3000
+45CC  E8                01012 	INX
+45CD  BD8001            01013 	LDA SPRITES,X
+45D0  8D0030            01014 	STA $3000
+45D3  8A                01015 	TXA
+45D4  18                01016 	CLC
+45D5  6919              01017 	ADC #25
+45D7  297F              01018 	AND #$7F
+45D9  AA                01019 	TAX
+45DA  88                01020 	DEY
+45DB  10DB              01021 	BPL .6
+45DD                    01022 .5:
+45DD  2000FA            01023 	JSR BIOS_READ_CONTROLLERS
+45E0                    01024 
+45E0  A611              01025 	LDX JOY1_DIR
+45E2  A516              01026 	LDA JOY1_BUTTONS
+45E4  200646            01027 	JSR CONVERT_JOYSTICK
+45E7  8520              01028 	STA JOY1_DATA
+45E9                    01029 
+45E9  A613              01030 	LDX JOY2_DIR
+45EB  A517              01031 	LDA JOY2_BUTTONS
+45ED  4A                01032 	LSR A
+45EE  4A                01033 	LSR A
+45EF  200646            01034 	JSR CONVERT_JOYSTICK
+45F2  8521              01035 	STA JOY2_DATA
+45F4                    01036 
+45F4                    01037     IF CVBASIC_MUSIC_PLAYER
+45F4                    01038 	LDA MUSIC_MODE
+45F4                    01039 	BEQ .7
+45F4                    01040 	JSR MUSIC_HARDWARE
+45F4                    01041 .7:
+45F4                    01042     ENDIF
+45F4  E60E              01043 	INC FRAME
+45F6  D002              01044 	BNE .8
+45F8  E60F              01045 	INC FRAME+1
+45FA                    01046 .8:
+45FA  E60A              01047 	INC LFSR	; Make LFSR more random
+45FC  E60A              01048 	INC LFSR
+45FE  E60A              01049 	INC LFSR
+4600                    01050     IF CVBASIC_MUSIC_PLAYER
+4600                    01051 	LDA MUSIC_MODE
+4600                    01052 	BEQ .9
+4600                    01053 	JSR MUSIC_GENERATE
+4600                    01054     ENDIF
+4600  68                01055 	PLA
+4601  A8                01056 	TAY
+4602  68                01057 	PLA
+4603  AA                01058 	TAX
+4604  68                01059 	PLA
+4605  40                01060 	RTI
+4606                    01061 
+4606                    01062 CONVERT_JOYSTICK:
+4606  6A                01063 	ROR A
+4607  6A                01064 	ROR A
+4608  6A                01065 	ROR A
+4609  29C0              01066 	AND #$C0
+460B  A8                01067 	TAY
+460C  8A                01068 	TXA
+460D  F013              01069 	BEQ .1
+460F  290F              01070 	AND #$0F
+4611  AA                01071 	TAX
+4612  A50E              01072 	LDA FRAME
+4614  2901              01073 	AND #1
+4616  F005              01074 	BEQ .2
+4618  98                01075 	TYA
+4619  1D2446            01076 	ORA JOYSTICK_TABLE,X
+461C  60                01077 	RTS
+461D                    01078 .2:
+461D  98                01079 	TYA
+461E  1D3446            01080 	ORA JOYSTICK_TABLE+16,X
+4621  60                01081 	RTS
+4622                    01082 
+4622  98                01083 .1:	TYA
+4623  60                01084 	RTS
+4624                    01085 
+4624                    01086 JOYSTICK_TABLE:
+4624  0404060602020303  01087 	DB $04,$04,$06,$06,$02,$02,$03,$03
+462C  0101090908080C0C  01088 	DB $01,$01,$09,$09,$08,$08,$0C,$0C
+4634                    01089 
+4634  0C04040606020203  01090 	DB $0C,$04,$04,$06,$06,$02,$02,$03
+463C  030101090908080C  01091 	DB $03,$01,$01,$09,$09,$08,$08,$0C
+4644                    01092 
+4644                    01093 WAIT:
+4644  A50E              01094 	LDA FRAME
+4646  C50E              01095 .1:	CMP FRAME
+4648  F0FC              01096 	BEQ .1
+464A  60                01097 	RTS
+464B                    01098 
+464B                    01099 MUSIC_INIT:
+464B  A99F              01100 	LDA #$9F
+464D  2077FE            01101 	JSR BIOS_WRITE_PSG	
+4650  A9BF              01102 	LDA #$BF
+4652  2077FE            01103 	JSR BIOS_WRITE_PSG	
+4655  A9DF              01104 	LDA #$DF
+4657  2077FE            01105 	JSR BIOS_WRITE_PSG	
+465A  A9FF              01106 	LDA #$FF
+465C  2077FE            01107 	JSR BIOS_WRITE_PSG	
+465F                    01108 	; !!!
+465F  60                01109 	RTS
+4660                    01110 
+4660                    01111     IF CVBASIC_MUSIC_PLAYER
+4660                    01112 MUSIC_PLAY:
+4660                    01113 	; !!!
+4660                    01114 	RTS
+4660                    01115 
+4660                    01116 MUSIC_GENERATE:
+4660                    01117 	; !!!
+4660                    01118 	RTS
+4660                    01119 
+4660                    01120 MUSIC_HARDWARE:
+4660                    01121 	; !!!
+4660                    01122 	RTS
+4660                    01123 
+4660                    01124 MUSIC_SILENCE:
+4660                    01125 	DB 8
+4660                    01126 	DB 0,0,0,0
+4660                    01127 	DB -2
+4660                    01128     ENDIF
+4660                    01129 
+4660                    01130     IF CVBASIC_COMPRESSION
+4660                    01131     ENDIF
+4660                    01132 
+4660                    01133 	; Required for Creativision because it doesn't provide an ASCII charset.
+4660                    01134 	;
+4660                    01135         ; My personal font for TMS9928.
+4660                    01136         ;
+4660                    01137         ; Patterned after the TMS9928 programming manual 6x8 letters
+4660                    01138         ; with better lowercase letters, also I made a proper
+4660                    01139         ; AT sign.
+4660                    01140         ;
+4660                    01141 FONT_BITMAPS:
+4660  0000000000000000  01142         DB $00,$00,$00,$00,$00,$00,$00,$00      ; $20 space
+4668  2020202020002000  01143         DB $20,$20,$20,$20,$20,$00,$20,$00      ; $21 !
+4670  5050500000000000  01144         DB $50,$50,$50,$00,$00,$00,$00,$00      ; $22 "
+4678  5050F850F8505000  01145         DB $50,$50,$F8,$50,$F8,$50,$50,$00      ; $23 #
+4680  2078A07028F02000  01146         DB $20,$78,$A0,$70,$28,$F0,$20,$00      ; $24 $
+4688  C0C8102040981800  01147         DB $C0,$C8,$10,$20,$40,$98,$18,$00      ; $25 %
+4690  40A040A0A8906800  01148         DB $40,$A0,$40,$A0,$A8,$90,$68,$00      ; $26 &
+4698  6020400000000000  01149         DB $60,$20,$40,$00,$00,$00,$00,$00      ; $27 '
+46A0  1020404040201000  01150         DB $10,$20,$40,$40,$40,$20,$10,$00      ; $28 (
+46A8  4020101010204000  01151         DB $40,$20,$10,$10,$10,$20,$40,$00      ; $29 )
+46B0  00A8702070A80000  01152         DB $00,$A8,$70,$20,$70,$A8,$00,$00      ; $2a *
+46B8  002020F820200000  01153         DB $00,$20,$20,$F8,$20,$20,$00,$00      ; $2b +
+46C0  0000000000602040  01154         DB $00,$00,$00,$00,$00,$60,$20,$40      ; $2c ,
+46C8  000000FC00000000  01155         DB $00,$00,$00,$FC,$00,$00,$00,$00      ; $2d -
+46D0  0000000000006000  01156         DB $00,$00,$00,$00,$00,$00,$60,$00      ; $2e .
+46D8  0008102040800000  01157         DB $00,$08,$10,$20,$40,$80,$00,$00      ; $2f /
+46E0  708898A8C8887000  01158         DB $70,$88,$98,$A8,$C8,$88,$70,$00      ; $30 0
+46E8  206020202020F800  01159         DB $20,$60,$20,$20,$20,$20,$F8,$00      ; $31 1
+46F0  708808106080F800  01160         DB $70,$88,$08,$10,$60,$80,$F8,$00      ; $32 2
+46F8  7088083008887000  01161         DB $70,$88,$08,$30,$08,$88,$70,$00      ; $33 3
+4700  30509090F8101000  01162         DB $30,$50,$90,$90,$F8,$10,$10,$00      ; $34 4
+4708  F880F0080808F000  01163         DB $F8,$80,$F0,$08,$08,$08,$F0,$00      ; $35 5
+4710  304080F088887000  01164         DB $30,$40,$80,$F0,$88,$88,$70,$00      ; $36 6
+4718  F808102020202000  01165         DB $F8,$08,$10,$20,$20,$20,$20,$00      ; $37 7
+4720  7088887088887000  01166         DB $70,$88,$88,$70,$88,$88,$70,$00      ; $38 8
+4728  7088887808106000  01167         DB $70,$88,$88,$78,$08,$10,$60,$00      ; $39 9
+4730  0000006000600000  01168         DB $00,$00,$00,$60,$00,$60,$00,$00      ; $3a :
+4738  0000006000602040  01169         DB $00,$00,$00,$60,$00,$60,$20,$40      ; $3b ;
+4740  1020408040201000  01170         DB $10,$20,$40,$80,$40,$20,$10,$00      ; $3c <
+4748  0000F800F8000000  01171         DB $00,$00,$F8,$00,$F8,$00,$00,$00      ; $3d =
+4750  0804020102040800  01172         DB $08,$04,$02,$01,$02,$04,$08,$00      ; $3e >
+4758  7088081020002000  01173         DB $70,$88,$08,$10,$20,$00,$20,$00      ; $3f ?
+4760  708898A898807000  01174         DB $70,$88,$98,$A8,$98,$80,$70,$00      ; $40 @
+4768  20508888F8888800  01175         DB $20,$50,$88,$88,$F8,$88,$88,$00      ; $41 A
+4770  F08888F08888F000  01176         DB $F0,$88,$88,$F0,$88,$88,$F0,$00      ; $42 B
+4778  7088808080887000  01177         DB $70,$88,$80,$80,$80,$88,$70,$00      ; $43 C
+4780  F08888888888F000  01178         DB $F0,$88,$88,$88,$88,$88,$F0,$00      ; $44 D
+4788  F88080F08080F800  01179         DB $F8,$80,$80,$F0,$80,$80,$F8,$00      ; $45 E
+4790  F88080F080808000  01180         DB $F8,$80,$80,$F0,$80,$80,$80,$00      ; $46 F
+4798  708880B888887000  01181         DB $70,$88,$80,$B8,$88,$88,$70,$00      ; $47 G
+47A0  888888F888888800  01182         DB $88,$88,$88,$F8,$88,$88,$88,$00      ; $48 H
+47A8  7020202020207000  01183         DB $70,$20,$20,$20,$20,$20,$70,$00      ; $49 I
+47B0  0808080888887000  01184         DB $08,$08,$08,$08,$88,$88,$70,$00      ; $4A J
+47B8  8890A0C0A0908800  01185         DB $88,$90,$A0,$C0,$A0,$90,$88,$00      ; $4B K
+47C0  808080808080F800  01186         DB $80,$80,$80,$80,$80,$80,$F8,$00      ; $4C L
+47C8  88D8A8A888888800  01187         DB $88,$D8,$A8,$A8,$88,$88,$88,$00      ; $4D M
+47D0  88C8C8A898988800  01188         DB $88,$C8,$C8,$A8,$98,$98,$88,$00      ; $4E N
+47D8  7088888888887000  01189         DB $70,$88,$88,$88,$88,$88,$70,$00      ; $4F O
+47E0  F08888F080808000  01190         DB $F0,$88,$88,$F0,$80,$80,$80,$00      ; $50 P
+47E8  7088888888A89068  01191         DB $70,$88,$88,$88,$88,$A8,$90,$68      ; $51 Q
+47F0  F08888F0A0908800  01192         DB $F0,$88,$88,$F0,$A0,$90,$88,$00      ; $52 R
+47F8  7088807008887000  01193         DB $70,$88,$80,$70,$08,$88,$70,$00      ; $53 S
+4800  F820202020202000  01194         DB $F8,$20,$20,$20,$20,$20,$20,$00      ; $54 T
+4808  8888888888887000  01195         DB $88,$88,$88,$88,$88,$88,$70,$00      ; $55 U
+4810  8888888850502000  01196         DB $88,$88,$88,$88,$50,$50,$20,$00      ; $56 V
+4818  888888A8A8D88800  01197         DB $88,$88,$88,$A8,$A8,$D8,$88,$00      ; $57 W
+4820  8888502050888800  01198         DB $88,$88,$50,$20,$50,$88,$88,$00      ; $58 X
+4828  8888887020202000  01199         DB $88,$88,$88,$70,$20,$20,$20,$00      ; $59 Y
+4830  F80810204080F800  01200         DB $F8,$08,$10,$20,$40,$80,$F8,$00      ; $5A Z
+4838  7860606060607800  01201         DB $78,$60,$60,$60,$60,$60,$78,$00      ; $5B [
+4840  0080402010080000  01202         DB $00,$80,$40,$20,$10,$08,$00,$00      ; $5C \
+4848  F03030303030F000  01203         DB $F0,$30,$30,$30,$30,$30,$F0,$00      ; $5D ]
+4850  2050880000000000  01204         DB $20,$50,$88,$00,$00,$00,$00,$00      ; $5E 
+4858  000000000000F800  01205         DB $00,$00,$00,$00,$00,$00,$F8,$00      ; $5F _
+4860  4020100000000000  01206         DB $40,$20,$10,$00,$00,$00,$00,$00      ; $60 
+4868  0000689888986800  01207         DB $00,$00,$68,$98,$88,$98,$68,$00      ; $61 a
+4870  8080F0888888F000  01208         DB $80,$80,$F0,$88,$88,$88,$F0,$00      ; $62 b
+4878  0000788080807800  01209         DB $00,$00,$78,$80,$80,$80,$78,$00      ; $63 c
+4880  0808689888986800  01210         DB $08,$08,$68,$98,$88,$98,$68,$00      ; $64 d
+4888  00007088F8807000  01211         DB $00,$00,$70,$88,$F8,$80,$70,$00      ; $65 e
+4890  304840E040404000  01212         DB $30,$48,$40,$E0,$40,$40,$40,$00      ; $66 f
+4898  0000788888780870  01213         DB $00,$00,$78,$88,$88,$78,$08,$70      ; $67 g
+48A0  8080F08888888800  01214         DB $80,$80,$F0,$88,$88,$88,$88,$00      ; $68 h
+48A8  2000602020207000  01215         DB $20,$00,$60,$20,$20,$20,$70,$00      ; $69 i
+48B0  0800180888887000  01216         DB $08,$00,$18,$08,$88,$88,$70,$00      ; $6a j
+48B8  80808890E0908800  01217         DB $80,$80,$88,$90,$E0,$90,$88,$00      ; $6b k
+48C0  6020202020207000  01218         DB $60,$20,$20,$20,$20,$20,$70,$00      ; $6c l
+48C8  0000D0A8A8A8A800  01219         DB $00,$00,$D0,$A8,$A8,$A8,$A8,$00      ; $6d m
+48D0  0000B0C888888800  01220         DB $00,$00,$B0,$C8,$88,$88,$88,$00      ; $6e n
+48D8  0000708888887000  01221         DB $00,$00,$70,$88,$88,$88,$70,$00      ; $6f o
+48E0  0000F0888888F080  01222         DB $00,$00,$F0,$88,$88,$88,$F0,$80      ; $70 p
+48E8  0000788888887808  01223         DB $00,$00,$78,$88,$88,$88,$78,$08      ; $71 q
+48F0  0000B8C080808000  01224         DB $00,$00,$B8,$C0,$80,$80,$80,$00      ; $72 r
+48F8  000078807008F000  01225         DB $00,$00,$78,$80,$70,$08,$F0,$00      ; $73 s
+4900  2020F82020202000  01226         DB $20,$20,$F8,$20,$20,$20,$20,$00      ; $74 t
+4908  0000888888986800  01227         DB $00,$00,$88,$88,$88,$98,$68,$00      ; $75 u
+4910  0000888888502000  01228         DB $00,$00,$88,$88,$88,$50,$20,$00      ; $76 v
+4918  000088A8A8A85000  01229         DB $00,$00,$88,$A8,$A8,$A8,$50,$00      ; $77 w
+4920  0000885020508800  01230         DB $00,$00,$88,$50,$20,$50,$88,$00      ; $78 x
+4928  0000888898680870  01231         DB $00,$00,$88,$88,$98,$68,$08,$70      ; $79 y
+4930  0000F8102040F800  01232         DB $00,$00,$F8,$10,$20,$40,$F8,$00      ; $7a z
+4938  1820204020201800  01233         DB $18,$20,$20,$40,$20,$20,$18,$00      ; $7b {
+4940  2020202020202000  01234         DB $20,$20,$20,$20,$20,$20,$20,$00      ; $7c |
+4948  C02020102020C000  01235         DB $C0,$20,$20,$10,$20,$20,$C0,$00      ; $7d } 
+4950  000040A810000000  01236         DB $00,$00,$40,$A8,$10,$00,$00,$00      ; $7e
+4958  707020F820705000  01237         DB $70,$70,$20,$F8,$20,$70,$50,$00      ; $7f
+4960                    01238 
+4960                    01239 START:
+4960  78                01240 	SEI
+4961  D8                01241 	CLD
+4962  A27F              01242 	LDX #STACK
+4964  9A                01243 	TXS
+4965  AD0120            01244 	LDA $2001
+4968  A982              01245 	LDA #$82
+496A  A201              01246 	LDX #$01
+496C  200040            01247 	JSR WRTVDP
+496F  AD0120            01248 	LDA $2001
+4972  A982              01249 	LDA #$82
+4974  A201              01250 	LDX #$01
+4976  200040            01251 	JSR WRTVDP
+4979                    01252 
+4979  204B46            01253 	JSR MUSIC_INIT
+497C                    01254 
+497C  204844            01255 	JSR MODE_0
+497F                    01256 
+497F  A900              01257 	LDA #$00
+4981  8520              01258 	STA JOY1_DATA
+4983  8521              01259 	STA JOY2_DATA
+4985  A90F              01260 	LDA #$0F
+4987  8522              01261 	STA KEY1_DATA
+4989  8523              01262 	STA KEY2_DATA
+498B                    01263 
+498B                    01264 CVB_C:	EQU $0040
+498B                    01265 CVB_#POINTER:	EQU $0041
+498B                    01266 RAM_END:
+498B                    01267 	; 	'
+498B                    01268 	; 	' Test 2 - Multiply/Divide/Modulo + READ DATA 
+498B                    01269 	; 	'
+498B                    01270 	; 	' by Oscar Toledo G.
+498B                    01271 	; 	' https://nanochess.org/
+498B                    01272 	; 	'
+498B                    01273 	; 	' Creation date: Feb/29/2024.
+498B                    01274 	; 	'
+498B                    01275 	; 
+498B                    01276 	; 	FOR c = 0 TO 23
+498B  A900              01277 	LDA #0
+498D  8540              01278 	STA CVB_C
+498F                    01279 CV1:
+498F                    01280 	; 
+498F                    01281 	; 		PRINT AT c * 32, c * 3
+498F  A540              01282 	LDA CVB_C
+4991  A000              01283 	LDY #0
+4993  8402              01284 	STY TEMP
+4995  0A                01285 	ASL A
+4996  2602              01286 	ROL TEMP
+4998  0A                01287 	ASL A
+4999  2602              01288 	ROL TEMP
+499B  0A                01289 	ASL A
+499C  2602              01290 	ROL TEMP
+499E  0A                01291 	ASL A
+499F  2602              01292 	ROL TEMP
+49A1  0A                01293 	ASL A
+49A2  2602              01294 	ROL TEMP
+49A4  A402              01295 	LDY TEMP
+49A6  8508              01296 	STA CURSOR
+49A8  8409              01297 	STY CURSOR+1
+49AA  A540              01298 	LDA CVB_C
+49AC  A000              01299 	LDY #0
+49AE  48                01300 	PHA
+49AF  98                01301 	TYA
+49B0  48                01302 	PHA
+49B1  A903              01303 	LDA #3
+49B3  A000              01304 	LDY #0
+49B5  8502              01305 	STA TEMP
+49B7  8403              01306 	STY TEMP+1
+49B9  207542            01307 	JSR _MUL16
+49BC  20F140            01308 	JSR PRINT_NUMBER
+49BF                    01309 	; 		PRINT AT c * 32 + 8, c / 3
+49BF  A540              01310 	LDA CVB_C
+49C1  A000              01311 	LDY #0
+49C3  8402              01312 	STY TEMP
+49C5  0A                01313 	ASL A
+49C6  2602              01314 	ROL TEMP
+49C8  0A                01315 	ASL A
+49C9  2602              01316 	ROL TEMP
+49CB  0A                01317 	ASL A
+49CC  2602              01318 	ROL TEMP
+49CE  0A                01319 	ASL A
+49CF  2602              01320 	ROL TEMP
+49D1  0A                01321 	ASL A
+49D2  2602              01322 	ROL TEMP
+49D4  A402              01323 	LDY TEMP
+49D6  18                01324 	CLC
+49D7  6908              01325 	ADC #8
+49D9  48                01326 	PHA
+49DA  98                01327 	TYA
+49DB  6900              01328 	ADC #0
+49DD  A8                01329 	TAY
+49DE  68                01330 	PLA
+49DF  8508              01331 	STA CURSOR
+49E1  8409              01332 	STY CURSOR+1
+49E3  A540              01333 	LDA CVB_C
+49E5  A000              01334 	LDY #0
+49E7  48                01335 	PHA
+49E8  98                01336 	TYA
+49E9  48                01337 	PHA
+49EA  A903              01338 	LDA #3
+49EC  A000              01339 	LDY #0
+49EE  8502              01340 	STA TEMP
+49F0  8403              01341 	STY TEMP+1
+49F2  202043            01342 	JSR _DIV16
+49F5  20F140            01343 	JSR PRINT_NUMBER
+49F8                    01344 	; 		PRINT AT c * 32 + 16, c % 3
+49F8  A540              01345 	LDA CVB_C
+49FA  A000              01346 	LDY #0
+49FC  8402              01347 	STY TEMP
+49FE  0A                01348 	ASL A
+49FF  2602              01349 	ROL TEMP
+4A01  0A                01350 	ASL A
+4A02  2602              01351 	ROL TEMP
+4A04  0A                01352 	ASL A
+4A05  2602              01353 	ROL TEMP
+4A07  0A                01354 	ASL A
+4A08  2602              01355 	ROL TEMP
+4A0A  0A                01356 	ASL A
+4A0B  2602              01357 	ROL TEMP
+4A0D  A402              01358 	LDY TEMP
+4A0F  18                01359 	CLC
+4A10  6910              01360 	ADC #16
+4A12  48                01361 	PHA
+4A13  98                01362 	TYA
+4A14  6900              01363 	ADC #0
+4A16  A8                01364 	TAY
+4A17  68                01365 	PLA
+4A18  8508              01366 	STA CURSOR
+4A1A  8409              01367 	STY CURSOR+1
+4A1C  A540              01368 	LDA CVB_C
+4A1E  A000              01369 	LDY #0
+4A20  48                01370 	PHA
+4A21  98                01371 	TYA
+4A22  48                01372 	PHA
+4A23  A903              01373 	LDA #3
+4A25  A000              01374 	LDY #0
+4A27  8502              01375 	STA TEMP
+4A29  8403              01376 	STY TEMP+1
+4A2B  206A43            01377 	JSR _MOD16
+4A2E  20F140            01378 	JSR PRINT_NUMBER
+4A31                    01379 	; 
+4A31                    01380 	; 	NEXT c
+4A31  A540              01381 	LDA CVB_C
+4A33  18                01382 	CLC
+4A34  6901              01383 	ADC #1
+4A36  8540              01384 	STA CVB_C
+4A38  A540              01385 	LDA CVB_C
+4A3A  C918              01386 	CMP #24
+4A3C  B003              01387 	BCS CV2
+4A3E  4C8F49            01388 	JMP CV1
+4A41                    01389 CV2:
+4A41                    01390 	; 
+4A41                    01391 	; 	#pointer = $1800
+4A41  A900              01392 	LDA #0
+4A43  A018              01393 	LDY #24
+4A45  8541              01394 	STA CVB_#POINTER
+4A47  8442              01395 	STY CVB_#POINTER+1
+4A49                    01396 	; 
+4A49                    01397 	; 	RESTORE saved_string
+4A49  A98D              01398 	LDA #CVB_SAVED_STRING
+4A4B  A04A              01399 	LDY #CVB_SAVED_STRING>>8
+4A4D  8506              01400 	STA READ_POINTER
+4A4F  8507              01401 	STA READ_POINTER+1
+4A51                    01402 	; 
+4A51                    01403 	; 	DO
+4A51                    01404 CV3:
+4A51                    01405 	; 		READ BYTE c
+4A51  205242            01406 	JSR _READ8
+4A54  8540              01407 	STA CVB_C
+4A56                    01408 	; 		IF c = 0 THEN EXIT DO
+4A56  A540              01409 	LDA CVB_C
+4A58  C900              01410 	CMP #0
+4A5A  F003              01411 	BEQ CV6
+4A5C  4C624A            01412 	JMP CV5
+4A5F                    01413 CV6:
+4A5F  4C8A4A            01414 	JMP CV4
+4A62                    01415 CV5:
+4A62                    01416 	; 
+4A62                    01417 	; 		VPOKE #pointer, c
+4A62  A540              01418 	LDA CVB_C
+4A64  48                01419 	PHA
+4A65  A541              01420 	LDA CVB_#POINTER
+4A67  A442              01421 	LDY CVB_#POINTER+1
+4A69  8502              01422 	STA TEMP
+4A6B  8403              01423 	STY TEMP+1
+4A6D  68                01424 	PLA
+4A6E  AA                01425 	TAX
+4A6F  A502              01426 	LDA TEMP
+4A71  78                01427 	SEI
+4A72  201E40            01428 	JSR WRTVRM
+4A75  58                01429 	CLI
+4A76                    01430 	; 		#pointer = #pointer + 1		
+4A76  A541              01431 	LDA CVB_#POINTER
+4A78  A442              01432 	LDY CVB_#POINTER+1
+4A7A  18                01433 	CLC
+4A7B  6901              01434 	ADC #1
+4A7D  48                01435 	PHA
+4A7E  98                01436 	TYA
+4A7F  6900              01437 	ADC #0
+4A81  A8                01438 	TAY
+4A82  68                01439 	PLA
+4A83  8541              01440 	STA CVB_#POINTER
+4A85  8442              01441 	STY CVB_#POINTER+1
+4A87                    01442 	; 	LOOP WHILE 1
+4A87  4C514A            01443 	JMP CV3
+4A8A                    01444 CV7:
+4A8A                    01445 CV4:
+4A8A                    01446 	; 
+4A8A                    01447 	; 	WHILE 1: WEND
+4A8A                    01448 CV8:
+4A8A  4C8A4A            01449 	JMP CV8
+4A8D                    01450 CV9:
+4A8D                    01451 	; 
+4A8D                    01452 	; saved_string:
+4A8D                    01453 CVB_SAVED_STRING:
+4A8D                    01454 	; 	DATA BYTE "Test string",0
+4A8D  5465737420737472  01455 	DB $54,$65,$73,$74,$20,$73,$74,$72
+4A95  696E6700          01456 	DB $69,$6E,$67,$00
+4A99                    01457 ROM_END:
+4A99  FFFFFFFFFFFFFFFF  01458 	TIMES $BFE8-$ DB $FF
+BFE8                    01459 
+BFE8  6049              01460 	DW START
+BFEA  0000              01461 	DW 0		; IRQ2 handler.
+BFEC                    01462 
+BFEC  0000              01463 	DW 0
+BFEE  0000              01464 	DW 0
+BFF0                    01465 
+BFF0                    01466 	; Initial VDP registers
+BFF0  02                01467 	DB $02
+BFF1  82                01468 	DB $82
+BFF2  06                01469 	DB $06
+BFF3  FF                01470 	DB $FF
+BFF4  00                01471 	DB $00
+BFF5  36                01472 	DB $36
+BFF6  07                01473 	DB $07
+BFF7  01                01474 	DB $01
+BFF8                    01475 
+BFF8  0000              01476 	DW 0
+BFFA  0000              01477 	DW 0
+BFFC  08F8              01478 	DW BIOS_NMI_RESET_ADDR	; Handler for reset.
+BFFE  8745              01479 	DW INT_HANDLER	; IRQ1 handler.
+
+00000 ERRORS FOUND
+00000 WARNINGS FOUND
+
+65536 PROGRAM BYTES
+
+LABEL                VALUE/ADDRESS
+
+BASE_RAM             0000
+BIOS_NMI_RESET_ADDR  f808
+BIOS_READ_CONTROLLERS fa00
+BIOS_WRITE_PSG       fe77
+CLS                  40ab
+COLECO               0000
+CONVERT_JOYSTICK     4606
+CONVERT_JOYSTICK.1   4622
+CONVERT_JOYSTICK.2   461d
+CPM                  0000
+CPYBLK               40aa
+CURSOR               0008
+CV1                  498f
+CV2                  4a41
+CV3                  4a51
+CV4                  4a8a
+CV5                  4a62
+CV6                  4a5f
+CV7                  4a8a
+CV8                  4a8a
+CV9                  4a8d
+CVBASIC_BANK_SWITCHING 0000
+CVBASIC_COMPRESSION  0000
+CVBASIC_MUSIC_PLAYER 0000
+CVB_#POINTER         0041
+CVB_C                0040
+CVB_SAVED_STRING     4a8d
+DEFINE_CHAR          41a5
+DEFINE_CHAR.1        41d1
+DEFINE_COLOR         41d6
+DEFINE_SPRITE        4179
+DISSCR               4096
+ENASCR               40a0
+FILVRM               402f
+FILVRM.1             403c
+FLICKER              0025
+FONT_BITMAPS         4660
+FRAME                000e
+INT_HANDLER          4587
+INT_HANDLER.4        45ac
+INT_HANDLER.5        45dd
+INT_HANDLER.6        45b8
+INT_HANDLER.7        459e
+INT_HANDLER.8        45fa
+JOY1_BUTTONS         0016
+JOY1_DATA            0020
+JOY1_DIR             0011
+JOY2_BUTTONS         0017
+JOY2_DATA            0021
+JOY2_DIR             0013
+JOYSTICK_TABLE       4624
+KEY1_DATA            0022
+KEY2_DATA            0023
+LDIRVM               404a
+LDIRVM.1             4057
+LDIRVM.2             4059
+LDIRVM.3             4064
+LDIRVM3              406d
+LDIRVM3.1            4073
+LFSR                 000a
+MEMOTECH             0000
+MODE                 0024
+MODE_0               4448
+MODE_1               44c2
+MODE_1.1             4510
+MODE_1.2             451a
+MODE_1.3             452e
+MODE_2               4537
+MSX                  0000
+MUSIC_INIT           464b
+MUSIC_PLAYING        002b
+NTSC                 0026
+POINTER              000c
+PRINT_DIGIT          4131
+PRINT_DIGIT.1        4175
+PRINT_DIGIT.2        4133
+PRINT_DIGIT.3        415a
+PRINT_DIGIT.4        4151
+PRINT_DIGIT.5        4160
+PRINT_DIGIT.6        4158
+PRINT_NUMBER         40f1
+PRINT_NUMBER1        4122
+PRINT_NUMBER2        4117
+PRINT_NUMBER3        410c
+PRINT_NUMBER4        4101
+PRINT_NUMBER5        40f6
+PRINT_STRING         40c9
+PRINT_STRING.1       40f0
+PSG                  0000
+RAM_END              498b
+RANDOM               43b0
+RANDOM.0             43be
+RDVRM                4026
+READ_POINTER         0006
+ROM_END              4a99
+SETRD                4014
+SETWRT               400a
+SG1000               0000
+SGM                  0000
+SN76489_CONTROL      440c
+SN76489_FREQ         43e1
+SN76489_VOL          4401
+SORD                 0000
+SPRITES              0180
+SPRITE_DATA          0027
+STACK                017f
+START                4960
+SVI                  0000
+TEMP                 0002
+TEMP2                0004
+UPDATE_SPRITE        41fe
+VDP                  0000
+VDPR                 0000
+VDP_GENERIC_MODE     4413
+VDP_GENERIC_SPRITES  4495
+VDP_GENERIC_SPRITES.1 44b1
+WAIT                 4644
+WAIT.1               4646
+WRTVDP               4000
+WRTVRM               401e
+_ABS16               4222
+_DIV16               4320
+_DIV16.1             4332
+_DIV16.2             433a
+_DIV16.3             435e
+_DIV16S              42e5
+_DIV16S.1            4309
+_DIV16S.2            4316
+_DIV16S.3            431f
+_MOD16               436a
+_MOD16.1             437c
+_MOD16.2             4384
+_MOD16.3             43a8
+_MOD16S              42ae
+_MOD16S.1            42ce
+_MOD16S.2            42db
+_MOD16S.3            42e4
+_MUL16               4275
+_MUL16.1             428f
+_MUL16.2             42a2
+_NEG16               4227
+_NEG16.1             4233
+_PEEK16              4266
+_PEEK8               425d
+_READ16              4248
+_READ8               4252
+_READ8.1             425c
+_SGN16               4235
+_SGN16.1             4246
+_SGN16.2             4244
