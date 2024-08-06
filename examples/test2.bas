@@ -12,6 +12,8 @@
 
 	SIGNED #count, #value
 
+	WHILE 1
+
 	CLS
 
 	PRINT AT 0, "Multiply/Divide/Modulo test"
@@ -134,8 +136,27 @@ label5:		PRINT AT 163,"label5"
 label6:
 	NEXT c
 
+	FOR c = 1 TO 3
+		ON c - 1 GOSUB subroutine_1, subroutine_2, subroutine_3
+	NEXT c
 
-	WHILE 1: WEND
+	FOR c = 1 TO 180
+		WAIT
+	NEXT c
+
+	WEND
+
+subroutine_1:	PROCEDURE
+	PRINT AT 472,"/-----\"
+	END
+
+subroutine_2:	PROCEDURE
+	PRINT AT 504,"|^   ^|"
+	END
+
+subroutine_3:	PROCEDURE
+	PRINT AT 536,"|  A  |"
+	END
 
 saved_string:
 	DATA BYTE "Test string",0

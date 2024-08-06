@@ -4054,7 +4054,7 @@ void compile_statement(int check_for_else)
                         strcat(temp, ">>8");
                         cpu6502_1op("ADC", temp);
                         cpu6502_1op("STA", "temp+1");
-                        cpu6502_1op("LDX", "0");
+                        cpu6502_1op("LDX", "#0");
                         cpu6502_1op("LDA", "(temp,X)");
                         cpu6502_1op("STA", "temp2");
                         cpu6502_noop("INX");
@@ -4090,7 +4090,10 @@ void compile_statement(int check_for_else)
                         } else {
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
                         }
-                        cpuz80_1op("DW", temp);
+                        if (target == CPU_6502)
+                            cpu6502_1op("DW", temp);
+                        else
+                            cpuz80_1op("DW", temp);
                     }
                     sprintf(temp, INTERNAL_PREFIX "%d", new_label);
                     generic_label(temp);
