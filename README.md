@@ -2,7 +2,7 @@
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5/Memotech.
+CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5/Memotech/Creativision.
 
 The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328, Sord M5 and Memotech doesn't have bank-switch support because there's no cartridge hardware supporting it.
 
@@ -69,7 +69,7 @@ For Memotech, use .run extension instead of .rom, and for CP/M option use .com e
 
 Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard) program:
 
-    cvbasic --vtech game.bas game.asm
+    cvbasic --creativision game.bas game.asm
     
 ### Notes
 
