@@ -92,8 +92,8 @@ Many people is developing games using CVBasic, feel free to check some of these 
 
 Vtech Creativision support is experimental (but able to compile Viboritas.bas), it doesn't handle currently CONT1.KEY and CONT2.KEY, and the following things doesn't work because the support code hasn't been coded:
 
-* SCREEN statement doesn't do anything.
-* PLAY statement doesn't do anything.
+* PLETTER compression isn't implemented.
+* PLAY statement works but no music player is implemented.
 
 Notice the 6502 support library hasn't been tested properly. In particular the VDP code could be buggy in real hardware.
 
