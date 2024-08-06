@@ -221,7 +221,6 @@ void cpu6502_node_generate(struct node *node, int decision)
                 p = temp;
                 while (*p)
                     p++;
-                p--;    /* Eat right parenthesis */
                 if (node->left->type == N_PLUS16)
                     *p++ = '+';
                 else
@@ -491,7 +490,6 @@ void cpu6502_node_generate(struct node *node, int decision)
                 p = temp;
                 while (*p)
                     p++;
-                p--;    /* Eat right parenthesis */
                 if (node->right->type == N_PLUS16)
                     *p++ = '+';
                 else
@@ -526,7 +524,6 @@ void cpu6502_node_generate(struct node *node, int decision)
                 p = temp;
                 while (*p)
                     p++;
-                p--;    /* Eat right parenthesis */
                 if (node->right->type == N_PLUS16)
                     *p++ = '+';
                 else
