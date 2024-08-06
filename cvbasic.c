@@ -2231,7 +2231,7 @@ void compile_statement(int check_for_else)
                     type_var = TYPE_16;
                 else
                     type_var = TYPE_8;
-                sign = signed_search(name);
+                sign = signed_search(assigned);
                 if (sign != NULL && sign->sign == 1)
                     type_var |= TYPE_SIGNED;
                 label_loop = next_local++;
@@ -2258,7 +2258,7 @@ void compile_statement(int check_for_else)
                                 step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
                             else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                                 step = node_create(N_REDUCE16, 0, step, NULL);
-                            step = node_create(type_var == TYPE_16 ? N_MINUS16 : N_MINUS8, 0,
+                            step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_MINUS16 : N_MINUS8, 0,
                                             var, step);
                             positive = 0;
                         } else {
@@ -2267,7 +2267,7 @@ void compile_statement(int check_for_else)
                                 step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
                             else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                                 step = node_create(N_REDUCE16, 0, step, NULL);
-                            step = node_create(type_var == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
+                            step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                         }
                     } else {
                         step_value = 1;
