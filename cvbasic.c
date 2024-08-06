@@ -3592,7 +3592,6 @@ void compile_statement(int check_for_else)
                     get_lex();
                     generic_call("DISSCR");
                 } else {
-                    /* !!! Adapt for 6502 */
                     array = array_search(name);
                     if (array != NULL) {
                         strcpy(assigned, ARRAY_PREFIX);
@@ -3623,7 +3622,9 @@ void compile_statement(int check_for_else)
                         node_generate(final, 0);
                         node_delete(final);
                         if (target == CPU_6502) {
-                            /* @@@ */
+                            cpu6502_noop("PHA");
+                            cpu6502_noop("TYA");
+                            cpu6502_noop("PHA");
                         } else {
                             cpuz80_1op("PUSH", "HL");
                         }
@@ -3640,7 +3641,8 @@ void compile_statement(int check_for_else)
                         node_generate(final, 0);
                         node_delete(final);
                         if (target == CPU_6502) {
-                            /* @@@ */
+                            cpu6502_1op("STA", "pointer");
+                            cpu6502_1op("STY", "pointer+1");
                         } else {
                             cpuz80_1op("PUSH", "HL");
                         }
@@ -3656,7 +3658,7 @@ void compile_statement(int check_for_else)
                         node_generate(final, 0);
                         node_delete(final);
                         if (target == CPU_6502) {
-                            /* @@@ */
+                            cpu6502_1op("STA", "temp2");
                         } else {
                             cpuz80_1op("PUSH", "AF");
                         }
@@ -3673,26 +3675,41 @@ void compile_statement(int check_for_else)
                         node_delete(final);
                         if (lex == C_COMMA) {   /* Sixth argument for SCREEN (stride width) */
                             if (target == CPU_6502) {
-                                /* @@@ */
+                                cpu6502_1op("STA", "temp2+1");
                             } else {
                                 cpuz80_1op("PUSH", "AF");
                             }
                             get_lex();
                             final = evaluate_level_0(&type);
-                            if ((type & MAIN_TYPE) == TYPE_16)
-                                final = node_create(N_REDUCE16, 0, final, NULL);
+                            if (target == CPU_6502) {
+                                if ((type & MAIN_TYPE) == TYPE_8)
+                                    final = node_create(N_EXTEND8, 0, final, NULL);
+                            } else {
+                                if ((type & MAIN_TYPE) == TYPE_16)
+                                    final = node_create(N_REDUCE16, 0, final, NULL);
+                            }
                             node_label(final);
                             node_generate(final, 0);
                             node_delete(final);
+                            if (target == CPU_6502)
+                                cpu6502_noop("TAX");
                         } else {
                             if (target == CPU_6502) {
-                                /* @@@ */
+                                cpu6502_1op("STA", "temp2+1");
+                                cpu6502_1op("LDX", "temp2");    /* Copy previous width... */
+                                cpu6502_1op("LDY", "#0");   /* ...as stride width */
                             } else {
                                 cpuz80_2op("LD", "B", "A");
                                 cpuz80_1op("POP", "AF");   /* Extract previous width */
                                 cpuz80_1op("PUSH", "AF");  /* Save width */
                                 cpuz80_1op("PUSH", "BC");  /* Save height */
                             }
+                        }
+                        if (target == CPU_6502) {
+                            cpu6502_noop("PLA");
+                            cpu6502_1op("STA","temp+1");
+                            cpu6502_noop("PLA");
+                            cpu6502_1op("STA","temp");
                         }
                         generic_call("CPYBLK");
                     } else {

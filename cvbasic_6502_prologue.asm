@@ -24,10 +24,10 @@ BIOS_WRITE_PSG:		EQU $FE77
 	;
 temp:		equ $02
 temp2:		equ $04
-read_pointer:	equ $06
-cursor:		equ $08
-lfsr:		equ $0a
-pointer:	equ $0c
+pointer:	equ $06
+read_pointer:	equ $08
+cursor:		equ $0a
+lfsr:		equ $0c
 frame:		equ $0e
 
 	; Zero page $00-$01 and $10-$1f are used by
@@ -166,7 +166,54 @@ ENASCR:
 	RTS
 
 CPYBLK:
-	; !!!
+	SEI
+.1:	
+	LDA temp2
+	PHA
+	LDA temp2+1
+	PHA
+	TXA
+	PHA
+	TYA
+	PHA
+	LDA temp
+	PHA
+	LDA temp+1
+	PHA
+	LDA #0
+	STA temp2+1
+	JSR LDIRVM
+	PLA
+	STA temp+1
+	PLA
+	STA temp
+	PLA
+	STA temp2+1
+	PLA
+	STA temp2
+	LDA temp
+	CLC
+	ADC temp2
+	STA temp
+	LDA temp+1
+	ADC temp2+1
+	STA temp+1
+	LDX temp2
+	LDY temp2+1
+	PLA
+	STA temp2+1
+	PLA
+	STA temp2
+	LDA pointer
+	CLC
+	ADC #$20
+	STA pointer
+	LDA pointer+1
+	ADC #$00
+	STA pointer+1
+	DEC temp2+1
+	BNE .1
+	CLI
 	RTS
 
 cls:
@@ -1029,7 +1076,34 @@ int_handler:
 	BEQ .9
 	JSR music_generate
     endif
+	; This is like saving extra registers, because these
+	; are used by the compiled code.
+	LDA temp+0
+	PHA
+	LDA temp+1
+	PHA
+	LDA temp+2
+	PHA
+	LDA temp+3
+	PHA
+	LDA temp+4
+	PHA
+	LDA temp+5
+	PHA
 	;CVBASIC MARK DON'T CHANGE
+	PLA
+	STA temp+5
+	PLA
+	STA temp+4
+	PLA
+	STA temp+3
+	PLA
+	STA temp+2
+	PLA
+	STA temp+1
+	PLA
+	STA temp+0
+
 	PLA
 	TAY
 	PLA

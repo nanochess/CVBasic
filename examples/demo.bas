@@ -4,6 +4,7 @@
 	' by Oscar Toledo G.
 	'
 	' Creation date: Mar/08/2024.
+	' Revision date: Aug/06/2024. Added endless loop.
 	'
 
 	DIM x(32),y(32),col(32)
@@ -23,6 +24,11 @@
 
 	DEFINE CHAR 128,50,image_char
 	DEFINE COLOR 128,50,image_color
+
+	WHILE 1
+
+	CLS
+
 	SCREEN image_pattern,0,260,8,8,8
 
 	GOSUB small_wait
@@ -97,7 +103,7 @@
 
 	GOSUB small_wait
 
-	WHILE 1: WEND
+	WEND
 
 spaces:
 	DATA BYTE $20,$20,$20,$20,$20,$20,$20,$20
