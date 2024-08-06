@@ -274,6 +274,7 @@ print_digit:
 	LDX temp
 	BNE .4
 	RTS
+
 .4:	DEX
 	BEQ .6
 	LDX temp+1
@@ -619,10 +620,8 @@ _div16:
 	ROL temp2+1
 	ROL pointer
 	ROL pointer+1
-	ROL A
-	EOR #$01
-	ROR A
 	LDA pointer
+	SEC
 	SBC temp
 	STA pointer
 	LDA pointer+1
@@ -635,6 +634,7 @@ _div16:
 	LDA pointer+1
 	ADC temp+1
 	STA pointer+1
+	CLC
 .3:
 	DEX
 	BPL .2
@@ -667,10 +667,8 @@ _mod16:
 	ROL temp2+1
 	ROL pointer
 	ROL pointer+1
-	ROL A
-	EOR #$01
-	ROR A
 	LDA pointer
+	SEC
 	SBC temp
 	STA pointer
 	LDA pointer+1
@@ -683,6 +681,7 @@ _mod16:
 	LDA pointer+1
 	ADC temp+1
 	STA pointer+1
+	CLC
 .3:
 	DEX
 	BPL .2
