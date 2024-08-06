@@ -147,7 +147,7 @@ label6:
 	WEND
 
 subroutine_1:	PROCEDURE
-	PRINT AT 472,"/-----\"
+	PRINT AT 472,"/-----\\"
 	END
 
 subroutine_2:	PROCEDURE

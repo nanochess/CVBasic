@@ -2543,8 +2543,8 @@ void compile_statement(int check_for_else)
                     cpu6502_1op("STA", "temp");
                     cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
-                    cpu6502_1op("LDX", "#0");
-                    cpu6502_1op("STA", "(temp,X)");
+                    cpu6502_1op("LDY", "#0");
+                    cpu6502_1op("STA", "(temp),Y");
                 } else {
                     if ((value->regs & REG_HL) == 0) {
                         node_generate(address, 0);
@@ -4054,11 +4054,11 @@ void compile_statement(int check_for_else)
                         strcat(temp, ">>8");
                         cpu6502_1op("ADC", temp);
                         cpu6502_1op("STA", "temp+1");
-                        cpu6502_1op("LDX", "#0");
-                        cpu6502_1op("LDA", "(temp,X)");
+                        cpu6502_1op("LDY", "#0");
+                        cpu6502_1op("LDA", "(temp),Y");
                         cpu6502_1op("STA", "temp2");
-                        cpu6502_noop("INX");
-                        cpu6502_1op("LDA", "(temp,X)");
+                        cpu6502_noop("INY");
+                        cpu6502_1op("LDA", "(temp),Y");
                         cpu6502_1op("STA", "temp2+1");
                         cpu6502_1op("JMP", "(temp2)");
                     } else {
