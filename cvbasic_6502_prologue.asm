@@ -22,13 +22,16 @@ BIOS_WRITE_PSG:		EQU $FE77
 	;
 	; CVBasic variables in zero page.
 	;
+
+	; This is a block of 8 bytes that should stay together.
 temp:		equ $02
 temp2:		equ $04
-pointer:	equ $06
-read_pointer:	equ $08
-cursor:		equ $0a
-lfsr:		equ $0c
-frame:		equ $0e
+result:		equ $06
+pointer:	equ $08
+
+read_pointer:	equ $0a
+cursor:		equ $0c
+lfsr:		equ $0e
 
 	; Zero page $00-$01 and $10-$1f are used by
 	; the Creativision BIOS to read the controllers.
@@ -41,12 +44,13 @@ joy1_data:	equ $20
 joy2_data:	equ $21
 key1_data:	equ $22
 key2_data:	equ $23
-mode:           equ $24
-flicker:	equ $25
-ntsc:		equ $26
-sprite_data:	equ $27
-music_mode:	equ $2b
-music_playing:	equ $2c
+frame:		equ $24
+mode:           equ $26
+flicker:	equ $27
+sprite_data:	equ $28
+ntsc:		equ $2c
+music_mode:	equ $2d
+music_playing:	equ $2e
 
 sprites:	equ $0180
 
@@ -353,6 +357,9 @@ print_digit:
 	RTS
 
 define_sprite:
+	sta temp2
+	lda #0
+	sta temp2+1
 	lda #7
 	sta pointer+1
 	lda pointer
@@ -383,6 +390,7 @@ define_sprite:
 	rts
 
 define_char:
+	sta temp2
 	lda #0
 	sta pointer+1
 	sta temp2+1
@@ -415,10 +423,11 @@ define_char:
 	rts
 
 define_color:
-	lda #$04
-	sta pointer+1
+	sta temp2
 	lda #0
 	sta temp2+1
+	lda #$04
+	sta pointer+1
 	lda pointer
 	asl a
 	rol pointer+1
@@ -441,14 +450,12 @@ define_color:
 	rts
 
 update_sprite:
-	STA sprite_data+3
-	LDA pointer
 	ASL A
 	ASL A
 	ORA #$80
-	STA POINTER
+	STA pointer
 	LDA #$01
-	STA POINTER+1
+	STA pointer+1
 	LDY #0
 	LDA sprite_data+0
 	STA (pointer),Y
@@ -538,53 +545,53 @@ _peek16:
 	; 16-bit multiplication.
 _mul16:
 	PLA
-	STA pointer
+	STA result
 	PLA
-	STA pointer+1
+	STA result+1
 	PLA
 	STA temp2+1
 	PLA
 	STA temp2
-	LDA pointer+1
+	LDA result+1
 	PHA
-	LDA pointer
+	LDA result
 	PHA
 	LDA #0
-	STA pointer
-	STA pointer+1
+	STA result
+	STA result+1
 	LDX #15
 .1:
 	LSR temp2+1
 	ROR temp2
 	BCC .2
-	LDA pointer
+	LDA result
 	CLC
 	ADC temp
-	STA pointer
-	LDA pointer+1
+	STA result
+	LDA result+1
 	ADC temp+1
-	STA pointer+1
+	STA result+1
 .2:	ASL temp
 	ROL temp+1
 	DEX
 	BPL .1
-	LDA pointer
-	LDY pointer+1
+	LDA result
+	LDY result+1
 	RTS
 
 	; 16-bit signed modulo.
 _mod16s:
 	PLA
-	STA pointer
+	STA result
 	PLA
-	STA pointer+1
+	STA result+1
 	PLA
 	STA temp2+1
 	PLA
 	STA temp2
-	LDA pointer+1
+	LDA result+1
 	PHA
-	LDA pointer
+	LDA result
 	PHA
 	LDY temp2+1
 	PHP
@@ -611,16 +618,16 @@ _mod16s:
 	; 16-bit signed division.
 _div16s:
 	PLA
-	STA pointer
+	STA result
 	PLA
-	STA pointer+1
+	STA result+1
 	PLA
 	STA temp2+1
 	PLA
 	STA temp2
-	LDA pointer+1
+	LDA result+1
 	PHA
-	LDA pointer
+	LDA result
 	PHA
 	LDA temp+1
 	EOR temp2+1
@@ -648,41 +655,41 @@ _div16s:
 
 _div16:
 	PLA
-	STA pointer
+	STA result
 	PLA
-	STA pointer+1
+	STA result+1
 	PLA
 	STA temp2+1
 	PLA
 	STA temp2
-	LDA pointer+1
+	LDA result+1
 	PHA
-	LDA pointer
+	LDA result
 	PHA
 .1:
 	LDA #0
-	STA pointer
-	STA pointer+1
+	STA result
+	STA result+1
 	LDX #15
 .2:
 	ROL temp2
 	ROL temp2+1
-	ROL pointer
-	ROL pointer+1
-	LDA pointer
+	ROL result
+	ROL result+1
+	LDA result
 	SEC
 	SBC temp
-	STA pointer
-	LDA pointer+1
+	STA result
+	LDA result+1
 	SBC temp+1
-	STA pointer+1
+	STA result+1
 	BCS .3
-	LDA pointer
+	LDA result
 	ADC temp
-	STA pointer
-	LDA pointer+1
+	STA result
+	LDA result+1
 	ADC temp+1
-	STA pointer+1
+	STA result+1
 	CLC
 .3:
 	DEX
@@ -695,47 +702,47 @@ _div16:
 
 _mod16:
 	PLA
-	STA pointer
+	STA result
 	PLA
-	STA pointer+1
+	STA result+1
 	PLA
 	STA temp2+1
 	PLA
 	STA temp2
-	LDA pointer+1
+	LDA result+1
 	PHA
-	LDA pointer
+	LDA result
 	PHA
 .1:
 	LDA #0
-	STA pointer
-	STA pointer+1
+	STA result
+	STA result+1
 	LDX #15
 .2:
 	ROL temp2
 	ROL temp2+1
-	ROL pointer
-	ROL pointer+1
-	LDA pointer
+	ROL result
+	ROL result+1
+	LDA result
 	SEC
 	SBC temp
-	STA pointer
-	LDA pointer+1
+	STA result
+	LDA result+1
 	SBC temp+1
-	STA pointer+1
+	STA result+1
 	BCS .3
-	LDA pointer
+	LDA result
 	ADC temp
-	STA pointer
-	LDA pointer+1
+	STA result
+	LDA result+1
 	ADC temp+1
-	STA pointer+1
+	STA result+1
 	CLC
 .3:
 	DEX
 	BPL .2
-	LDA pointer
-	LDY pointer+1
+	LDA result
+	LDY result+1
 	RTS
 
 	; Random number generator.
@@ -1079,7 +1086,8 @@ int_handler:
 .9:
     endif
 	; This is like saving extra registers, because these
-	; are used by the compiled code.
+	; are used by the compiled code, and we don't want
+	; any reentrancy.
 	LDA temp+0
 	PHA
 	LDA temp+1
@@ -1092,7 +1100,15 @@ int_handler:
 	PHA
 	LDA temp+5
 	PHA
+	LDA temp+6
+	PHA
+	LDA temp+7
+	PHA
 	;CVBASIC MARK DON'T CHANGE
+	PLA
+	STA temp+7
+	PLA
+	STA temp+6
 	PLA
 	STA temp+5
 	PLA
