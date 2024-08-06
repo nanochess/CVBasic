@@ -2890,7 +2890,7 @@ WRITE_VRAM:	equ $1fdf
 
 	call mode_0
 
-	ld a,$ff
+	xor a
 	ld (joy1_data),a
 	ld (joy2_data),a
 	ld a,$0f

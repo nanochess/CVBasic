@@ -14,9 +14,16 @@
 
 #define MAX_LINE_SIZE    1024
 
+enum cpu_target {
+    CPU_Z80,
+    CPU_6502,
+};
+
+extern enum cpu_target target;
 extern char temp[MAX_LINE_SIZE];
 extern int optimized;
 extern FILE *output;
+extern int next_local;
 
 #define HASH_PRIME    1103    /* A prime number */
 

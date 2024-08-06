@@ -1,8 +1,8 @@
-# CVBasic compiler v0.5.2
+# CVBasic compiler v0.6.0
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5, with a syntax alike to Qbasic.
+CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5/Memotech.
 
 The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328, Sord M5 and Memotech doesn't have bank-switch support because there's no cartridge hardware supporting it.
 
@@ -67,6 +67,10 @@ Using CVBasic to compile a Memotech MTX program:
 
 For Memotech, use .run extension instead of .rom, and for CP/M option use .com extension.
 
+Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard) program:
+
+    cvbasic --vtech game.bas game.asm
+    
 ### Notes
 
 The current official version is v0.5.1.
@@ -82,6 +86,16 @@ The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for 
 Currently for Memotech the expressions CONT1.KEY and CONT2.KEY aren't operative..
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
+
+
+### Experimental things
+
+Vtech Creativision support is experimental (but able to compile Viboritas.bas), it doesn't handle currently CONT1.KEY and CONT2.KEY, and the following things doesn't work because the support code hasn't been coded:
+
+* SCREEN statement doesn't do anything.
+* PLAY statement doesn't do anything.
+
+Notice the 6502 support library hasn't been tested properly. In particular the VDP code could be buggy in real hardware.
 
 
 ### Supporting the developer
