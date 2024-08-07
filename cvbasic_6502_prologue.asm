@@ -6,6 +6,7 @@
 	;
 	; Creation date: Aug/05/2024.
 	; Revision date: Aug/06/2024. Ported music player from Z80 CVBasic.
+	; Revision date: Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
 	;
 
 	CPU 6502
@@ -32,7 +33,7 @@ pointer:	equ $08
 
 read_pointer:	equ $0a
 cursor:		equ $0c
-lfsr:		equ $0e
+pletter_off:	equ $0e	; Used by Pletter
 
 	; Zero page $00-$01 and $10-$1f are used by
 	; the Creativision BIOS to read the controllers.
@@ -46,37 +47,40 @@ joy2_data:	equ $21
 key1_data:	equ $22
 key2_data:	equ $23
 frame:		equ $24
-mode:           equ $26
-flicker:	equ $27
-sprite_data:	equ $28
-ntsc:		equ $2c
+lfsr:		equ $26
+mode:           equ $28
+flicker:	equ $29
+sprite_data:	equ $2a
+ntsc:		equ $2e
+pletter_bit:	equ $2f
+
 	IF CVBASIC_MUSIC_PLAYER
-music_mode:		EQU $2d
-music_playing:		EQU $2e
-music_timing:		EQU $2f
-music_start:		EQU $30
-music_pointer:		EQU $32
-music_note_counter:	EQU $34
-music_instrument_1:	EQU $35
-music_note_1:		EQU $36
-music_counter_1:	EQU $37
-music_instrument_2:	EQU $38
-music_note_2:		EQU $39
-music_counter_2:	EQU $3a
-music_instrument_3:	EQU $3b
-music_note_3:		EQU $3c
-music_counter_3:	EQU $3d
-music_drum:		EQU $3e
-music_counter_4:	EQU $3f
-audio_freq1:		EQU $40
-audio_freq2:		EQU $42
-audio_freq3:		EQU $44
-audio_vol1:		EQU $46
-audio_vol2:		EQU $47
-audio_vol3:		EQU $48
-audio_vol4hw:		EQU $49
-audio_noise:		EQU $4a
-audio_control:		EQU $4b
+music_playing:		EQU $30
+music_timing:		EQU $31
+music_start:		EQU $32
+music_pointer:		EQU $34
+music_note_counter:	EQU $36
+music_instrument_1:	EQU $37
+music_note_1:		EQU $38
+music_counter_1:	EQU $39
+music_instrument_2:	EQU $3a
+music_note_2:		EQU $3b
+music_counter_2:	EQU $3c
+music_instrument_3:	EQU $3d
+music_note_3:		EQU $3e
+music_counter_3:	EQU $3f
+music_drum:		EQU $40
+music_counter_4:	EQU $41
+audio_freq1:		EQU $42
+audio_freq2:		EQU $44
+audio_freq3:		EQU $46
+audio_vol1:		EQU $48
+audio_vol2:		EQU $49
+audio_vol3:		EQU $4a
+audio_vol4hw:		EQU $4b
+audio_noise:		EQU $4c
+audio_control:		EQU $4d
+music_mode:		EQU $4e
 	ENDIF
 
 sprites:	equ $0180
@@ -876,42 +880,39 @@ mode_0:
 	LDY #font_bitmaps>>8
 	STA temp
 	STY temp+1
-	LDA #$0100
-	LDY #$0100>>8
+	LDA #$00
 	STA pointer
-	STY pointer+1
-	LDA #$0300
-	LDY #$0300>>8
 	STA temp2
-	STY temp2+1
+	LDA #$01
+	STA pointer+1
+	LDA #$03
+	STA temp2+1
 	JSR LDIRVM3
 	CLI
 	SEI
 	LDA #$f0
 	STA temp
-	LDA #$2000
-	LDY #$2000>>8
+	LDA #$00
 	STA pointer
-	STY pointer+1
-	LDA #$1800
-	LDY #$1800>>8
 	STA temp2
+	LDY #$2000>>8
+	STY pointer+1
+	LDY #$1800>>8
 	STY temp2+1
 	JSR FILVRM
 	CLI
 	JSR cls
 vdp_generic_sprites:
-	SEI
 	LDA #$d1
 	STA temp
-	LDA #$1b00
-	LDY #$1b00>>8
+	LDA #$00
 	STA pointer
+	STA temp2+1
+	LDY #$1b00>>8
 	STY pointer+1
-	LDA #$0080
-	LDY #$0080>>8
+	LDA #$80
 	STA temp2
-	STY temp2+1
+	SEI
 	JSR FILVRM
 	LDX #$7F
 	LDA #$D1
@@ -919,8 +920,6 @@ vdp_generic_sprites:
 	STA sprites,X
 	DEX
 	BPL .1
-	CLI
-	SEI
 	LDA #$E2
 	LDX #$01
 	JSR WRTVDP
@@ -938,29 +937,25 @@ mode_1:
 	LDA #$02
 	LDX #$00
 	JSR vdp_generic_mode
-	LDA #00
+	LDA #$00
 	STA temp
-	LDA #$0000
-	LDY #$0000>>8
 	STA pointer
-	STY pointer+1
-	LDA #$1800
-	LDY #$1800>>8
+	STA pointer+1
 	STA temp2
-	STY temp2+1
+	LDA #$18
+	STA temp2+1
 	JSR FILVRM
 	CLI
-	SEI
 	LDA #$f0
 	STA temp
-	LDA #$2000
-	LDY #$2000>>8
+	LDA #$00
 	STA pointer
-	STY pointer+1
-	LDA #$1800
-	LDY #$1800>>8
 	STA temp2
+	LDY #$2000>>8
+	STY pointer+1
+	LDY #$1800>>8
 	STY temp2+1
+	SEI
 	JSR FILVRM
 	CLI
 	LDA #$1800
@@ -972,9 +967,11 @@ mode_1:
 	LDY pointer+1
 	JSR SETWRT
 	LDX #32
+	LDY pointer
 .2:
-	LDA pointer
+	TYA
 	STA $3000	; !!! Delay
+	INY
 	DEX
 	BNE .2
 	CLI
@@ -982,9 +979,8 @@ mode_1:
 	CLC
 	ADC #32
 	STA pointer
-	BCS .3
+	BCC .1
 	INC pointer+1
-.3:
 	LDA pointer+1
 	CMP #$1B
 	BNE .1
@@ -1005,27 +1001,25 @@ mode_2:
 	LDY #font_bitmaps>>8
 	STA temp
 	STY temp+1
-	LDA #$0100
-	LDY #$0100>>8
+	LDA #$00
 	STA pointer
-	STY pointer+1
-	LDA #$0300
-	LDY #$0300>>8
 	STA temp2
+	LDY #$0100>>8
+	STY pointer+1
+	LDY #$0300>>8
 	STY temp2+1
 	JSR LDIRVM
 	CLI
 	SEI
 	LDA #$f0
 	STA temp
-	LDA #$2000
-	LDY #$2000>>8
+	LDA #$00
 	STA pointer
+	STA temp2+1
+	LDY #$2000>>8
 	STY pointer+1
-	LDA #$0020
-	LDY #$0020>>8
+	LDA #$20
 	STA temp2
-	STY temp2+1
 	JSR FILVRM
 	CLI
 	JSR cls
@@ -1652,6 +1646,259 @@ music_silence:
     endif
 
     if CVBASIC_COMPRESSION
+define_char_unpack:
+	lda pointer
+	asl a
+	rol pointer+1
+	asl a
+	rol pointer+1
+	asl a
+	rol pointer+1
+	sta pointer
+	lda mode
+	and #$04
+	beq unpack3
+	bne unpack
+
+define_color_unpack:
+	lda #4
+	sta pointer+1
+	lda pointer
+	asl a
+	rol pointer+1
+	asl a
+	rol pointer+1
+	asl a
+	rol pointer+1
+	sta pointer
+unpack3:
+	jsr .1
+	jsr .1
+.1:	lda pointer
+	pha
+	lda pointer+1
+	pha
+	lda temp
+	pha
+	lda temp+1
+	pha
+	jsr unpack
+	pla
+	sta temp+1
+	pla
+	sta temp
+	pla
+	clc
+	adc #8
+	sta pointer+1
+	pla
+	sta pointer
+	rts
+
+        ;
+        ; Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
+        ; Ported from Z80 original
+	; temp = Pointer to source data
+	; pointer = Pointer to target VRAM
+	; temp2
+	; temp2+1
+	; result
+	; result+1
+	; pletter_off
+	; pletter_off+1
+	;
+unpack:
+	; Initialization
+	ldy #0
+	sty temp2
+	lda (temp),y
+	inc temp
+	bne $+4
+	inc temp+1
+	asl a
+	rol temp2
+	adc #1
+	asl a
+	rol temp2
+	asl a
+	sta pletter_bit
+	rol temp2
+	rol temp2
+	lda #.modes
+	adc temp2
+	sta temp2
+	lda #.modes>>8
+	adc #0
+	sta temp2+1
+	lda (temp2),y
+	tax
+	iny
+	lda (temp2),y
+	stx temp2	; IX (temp2)
+	sta temp2+1
+	lda pletter_bit
+.literal:
+	sta pletter_bit
+	ldy #0
+	lda (temp),y
+	inc temp
+	bne $+4
+	inc temp+1
+	tax
+	lda pointer
+	ldy pointer+1
+	sei
+	jsr WRTVRM
+	cli
+	inc pointer
+	bne $+4
+	inc pointer+1
+	lda pletter_bit
+.loop:
+	asl a
+	bne $+5
+	jsr .getbit
+	bcc .literal
+
+	; Compressed data
+	ldx #1
+	stx result
+	dex
+	stx result+1
+.getlen:
+	asl a
+	bne $+5
+	jsr .getbit
+	bcc .lenok
+.lus:	asl a
+	bne $+5
+	jsr .getbit
+	rol result
+	rol result+1
+	bcc $+3
+	rts
+	asl a
+	bne $+5
+	jsr .getbit
+	bcc .lenok
+	asl a
+	bne $+5
+	jsr .getbit
+	rol result
+	rol result+1
+	bcc $+3
+	rts
+	asl a
+	bne $+5
+	jsr .getbit
+	bcs .lus
+.lenok:
+	inc result
+	bne $+4
+	inc result+1
+	sta pletter_bit
+	ldy #0
+	sty pletter_off+1
+	lda (temp),y
+	inc temp
+	bne $+4
+	inc temp+1
+	sta pletter_off
+	lda pletter_off
+	bpl .offsok
+	lda pletter_bit
+	jmp (temp2)
+	
+.mode6:
+	asl a
+	bne $+5
+	jsr .getbit
+	rol pletter_off+1
+.mode5:
+	asl a
+	bne $+5
+	jsr .getbit
+	rol pletter_off+1
+.mode4:
+	asl a
+	bne $+5
+	jsr .getbit
+	rol pletter_off+1
+.mode3:
+	asl a
+	bne $+5
+	jsr .getbit
+	rol pletter_off+1
+.mode2:
+	asl a
+	bne $+5
+	jsr .getbit
+	rol pletter_off+1
+	asl a
+	bne $+5
+	jsr .getbit
+	sta pletter_bit
+	bcc .offsok
+	inc pletter_off+1
+	lda pletter_off
+	and #$7f
+	sta pletter_off
+.offsok:
+	inc pletter_off
+	bne $+4
+	inc pletter_off+1
+
+	lda result
+	beq $+4
+	inc result+1
+
+	lda pointer
+	sec
+	sbc pletter_off
+	sta pletter_off
+	lda pointer+1
+	sbc pletter_off+1
+	sta pletter_off+1
+.loop2:
+	sei
+	lda pletter_off
+	ldy pletter_off+1
+	jsr RDVRM
+	tax
+	lda pointer
+	ldy pointer+1
+	jsr WRTVRM
+	cli
+	inc pletter_off
+	bne $+4
+	inc pletter_off+1
+	inc pointer
+	bne $+4
+	inc pointer+1
+	dec result
+	bne .loop2
+	dec result+1
+	bne .loop2
+
+	lda pletter_bit
+	jmp .loop
+
+.getbit:
+	ldy #0
+	lda (temp),y
+	inc temp
+	bne $+4
+	inc temp+1
+	rol a
+	rts
+
+.modes:
+	dw .offsok
+	dw .mode2
+	dw .mode3
+	dw .mode4
+	dw .mode5
+	dw .mode6
     endif
 
 	; Required for Creativision because it doesn't provide an ASCII charset.
