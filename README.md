@@ -73,7 +73,7 @@ Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard) program:
     
 ### Notes
 
-The current official version is v0.5.1.
+The current official version is v0.6.0.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
