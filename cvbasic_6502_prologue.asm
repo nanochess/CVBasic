@@ -7,6 +7,7 @@
 	; Creation date: Aug/05/2024.
 	; Revision date: Aug/06/2024. Ported music player from Z80 CVBasic.
 	; Revision date: Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
+	;                             Added VDP delays.
 	;
 
 	CPU 6502
@@ -95,31 +96,45 @@ WRTVDP:
 	RTS
 
 SETWRT:
-	STA $3001
-	TYA
-	ORA #$40
-	STA $3001
-	RTS
+	STA $3001	; 4
+	TYA		; 2
+	ORA #$40	; 2
+	STA $3001	; 4
+	RTS		; 6
 
 SETRD:
-	STA $3001
-	TYA
-	AND #$3F
-	STA $3001
-	RTS
+	STA $3001	; 4
+	TYA		; 2
+	AND #$3F	; 2
+	STA $3001	; 4
+	RTS		; 6
 
+	; VDP delays calculated for 6502 running at 2 mhz.
 WRTVRM:
-	JSR SETWRT
-	TXA		; !!! Delay
-	STA $3000
-	RTS
+	JSR SETWRT	; 6
+	TXA		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2 = RTS + 14 = Minimum cycles
+	NOP		; 2
+	STA $3000	; 4
+	RTS		; 6
 
 RDVRM:
-	JSR SETRD
-	PHA		; !!! Delay
-	PLA
-	LDA $2000
-	RTS
+	JSR SETRD	; 6
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	LDA $2000	; 4
+	RTS		; 6
 
 FILVRM:
 	LDA pointer
@@ -129,12 +144,14 @@ FILVRM:
 	BEQ .1
 	INC temp2+1
 .1:
-	LDA temp
-	STA $3000
-	DEC temp2
-	BNE .1
-	DEC temp2+1
-	BNE .1
+	LDA temp	; 3
+	STA $3000	; 4
+	NOP		; 2
+	NOP		; 2
+	DEC temp2	; 5
+	BNE .1		; 2/3/4
+	DEC temp2+1	; 5
+	BNE .1		; 2/3/4
 	RTS	
 
 LDIRVM:
@@ -147,16 +164,16 @@ LDIRVM:
 .1:
 	LDY #0
 .2:
-	LDA (temp),Y
-	STA $3000
-	INC temp
-	BNE .3
-	INC temp+1
+	LDA (temp),Y	; 5/6
+	STA $3000	; 4
+	INC temp	; 5
+	BNE .3		; 2/3/4
+	INC temp+1	; 5
 .3:
-	DEC temp2
-	BNE .2
-	DEC temp2+1
-	BNE .2
+	DEC temp2	; 5
+	BNE .2		; 2/3/4
+	DEC temp2+1	; 5
+	BNE .2		; 2/3/4
 	RTS
 
 LDIRVM3:
@@ -969,11 +986,14 @@ mode_1:
 	LDX #32
 	LDY pointer
 .2:
-	TYA
-	STA $3000	; !!! Delay
-	INY
-	DEX
-	BNE .2
+	TYA		; 2
+	STA $3000	; 4
+	NOP		; 2
+	NOP		; 2
+	NOP		; 2
+	INY		; 2
+	DEX		; 2
+	BNE .2		; 2/3/4
 	CLI
 	LDA pointer
 	CLC
@@ -1039,11 +1059,13 @@ int_handler:
 	AND #$04
 	BEQ .4
 	LDX #0
-.7:	LDA sprites,X
-	STA $3000	; !!! Delay
-	INX
-	CPX #$80
-	BNE .7
+.7:	LDA sprites,X	; 4
+	STA $3000	; 4
+	NOP		; 2
+	NOP		; 2
+	INX		; 2
+	CPX #$80	; 2
+	BNE .7		; 2/3/4
 	JMP .5
 
 .4:	LDA flicker
@@ -1055,13 +1077,28 @@ int_handler:
 	LDY #31
 .6:
 	LDA sprites,X
-	STA $3000	; !!! Delay
+	STA $3000	
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
 	INX
 	LDA sprites,X
 	STA $3000
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
 	INX
 	LDA sprites,X
 	STA $3000
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
 	INX
 	LDA sprites,X
 	STA $3000
