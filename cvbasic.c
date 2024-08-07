@@ -78,7 +78,7 @@ static struct console {
     {"memotech","-cpm",     "Memotech MTX (64K RAM), generates .run files, use -cpm for .com files",
         0,      0xa000, 0,       0x01,   0x01, 0x06, CPU_Z80},
     {"creativision","",     "Vtech Creativision (Dick Smith's Wizzard), 6502 with 1K of RAM.",
-        0x0000, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
+        0x0050, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
 };
 
 static int err_code;
@@ -4840,8 +4840,8 @@ int process_variables(void)
     int size;
     int address;
     
-    if (target == CREATIVISION)
-        address = 0x0040;
+    if (machine == CREATIVISION)
+        address = consoles[machine].base_ram;
     bytes_used = 0;
     for (c = 0; c < HASH_PRIME; c++) {
         label = label_hash[c];
@@ -4857,13 +4857,13 @@ int process_variables(void)
             if (label->used & LABEL_IS_VARIABLE) {
                 if (target == CPU_6502) {
                     if ((label->used & MAIN_TYPE) == TYPE_8) {
-                        if (address + 1 > 0x0140)
+                        if (address < 0x0200 && address + 1 > 0x0140)
                             address = 0x0200;
                         sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
                         address++;
                         bytes_used++;
                     } else {
-                        if (address + 2 > 0x0140)
+                        if (address < 0x0200 && address + 2 > 0x0140)
                             address = 0x0200;
                         sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
                         address += 2;
@@ -4906,7 +4906,7 @@ int process_variables(void)
                 size = 1;
             size *= label->length;
             if (target == CPU_6502) {
-                if (address + size > 0x0140)
+                if (address < 0x0200 && address + size > 0x0140)
                     address = 0x0200;
                 sprintf(temp, ARRAY_PREFIX "%s:\tequ $%04x", label->name, address);
                 address += size;

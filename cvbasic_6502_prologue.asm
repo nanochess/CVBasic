@@ -5,6 +5,7 @@
 	; https://nanochess.org/
 	;
 	; Creation date: Aug/05/2024.
+	; Revision date: Aug/06/2024. Ported music player from Z80 CVBasic.
 	;
 
 	CPU 6502
@@ -49,8 +50,34 @@ mode:           equ $26
 flicker:	equ $27
 sprite_data:	equ $28
 ntsc:		equ $2c
-music_mode:	equ $2d
-music_playing:	equ $2e
+	IF CVBASIC_MUSIC_PLAYER
+music_mode:		EQU $2d
+music_playing:		EQU $2e
+music_timing:		EQU $2f
+music_start:		EQU $30
+music_pointer:		EQU $32
+music_note_counter:	EQU $34
+music_instrument_1:	EQU $35
+music_note_1:		EQU $36
+music_counter_1:	EQU $37
+music_instrument_2:	EQU $38
+music_note_2:		EQU $39
+music_counter_2:	EQU $3a
+music_instrument_3:	EQU $3b
+music_note_3:		EQU $3c
+music_counter_3:	EQU $3d
+music_drum:		EQU $3e
+music_counter_4:	EQU $3f
+audio_freq1:		EQU $40
+audio_freq2:		EQU $42
+audio_freq3:		EQU $44
+audio_vol1:		EQU $46
+audio_vol2:		EQU $47
+audio_vol3:		EQU $48
+audio_vol4hw:		EQU $49
+audio_noise:		EQU $4a
+audio_control:		EQU $4b
+	ENDIF
 
 sprites:	equ $0180
 
@@ -1068,9 +1095,9 @@ int_handler:
 
     if CVBASIC_MUSIC_PLAYER
 	LDA music_mode
-	BEQ .7
+	BEQ .10
 	JSR music_hardware
-.7:
+.10:
     endif
 	INC frame
 	BNE .8
@@ -1174,22 +1201,449 @@ music_init:
 	LDA #$df
 	JSR BIOS_WRITE_PSG	
 	LDA #$ff
-	JSR BIOS_WRITE_PSG	
-	; !!!
+	JSR BIOS_WRITE_PSG
+    if CVBASIC_MUSIC_PLAYER
+    else	
 	RTS
+    endif
 
     if CVBASIC_MUSIC_PLAYER
+	LDA #$ff
+	STA audio_vol4hw
+	LDA #$00
+	STA audio_control
+	LDA #music_silence
+	LDY #music_silence>>8
+	;
+	; Play music.
+	; YA = Pointer to music.
+	;
 music_play:
-	; !!!
+	SEI
+	STA music_pointer
+	STY music_pointer+1
+	LDY #0
+	STY music_note_counter
+	LDA (music_pointer),Y
+	STA music_timing
+	INY
+	STY music_playing
+	INC music_pointer
+	BNE $+4
+	INC music_pointer+1
+	LDA music_pointer
+	LDY music_pointer+1
+	STA music_start
+	STY music_start+1
+	CLI
 	RTS
 
+	;
+	; Generates music
+	;
 music_generate:
-	; !!!
+	LDA #0
+	STA audio_vol1
+	STA audio_vol2
+	STA audio_vol3
+	LDA #$FF
+	STA audio_vol4hw
+	LDA music_note_counter
+	BEQ .1
+	JMP .2
+.1:
+	LDY #0
+	LDA (music_pointer),Y
+	CMP #$fe	; End of music?
+	BNE .3		; No, jump.
+	LDA #0		; Keep at same place.
+	STA music_playing
 	RTS
+
+.3:	CMP #$fd	; Repeat music?
+	BNE .4
+	LDA music_start
+	LDY music_start+1
+	STA music_pointer
+	STY music_pointer+1
+	JMP .1
+
+.4:	LDA music_timing
+	AND #$3f	; Restart note time.
+	STA music_note_counter
+
+	LDA (music_pointer),Y
+	CMP #$3F	; Sustain?
+	BEQ .5
+	AND #$C0
+	STA music_instrument_1
+	LDA (music_pointer),Y
+	AND #$3F
+	ASL A
+	STA music_note_1
+	LDA #0
+	STA music_counter_1
+.5:
+	INY
+	LDA (music_pointer),Y
+	CMP #$3F	; Sustain?
+	BEQ .6
+	AND #$C0
+	STA music_instrument_2
+	LDA (music_pointer),Y
+	AND #$3F
+	ASL A
+	STA music_note_2
+	LDA #0
+	STA music_counter_2
+.6:
+	INY
+	LDA (music_pointer),Y
+	CMP #$3F	; Sustain?
+	BEQ .7
+	AND #$C0
+	STA music_instrument_3
+	LDA (music_pointer),Y
+	AND #$3F
+	ASL A
+	STA music_note_3
+	LDA #0
+	STA music_counter_3
+.7:
+	INY
+	LDA (music_pointer),Y
+	STA music_drum
+	LDA #0	
+	STA music_counter_4
+	LDA music_pointer
+	CLC
+	ADC #4
+	STA music_pointer
+	LDA music_pointer+1
+	ADC #0
+	STA music_pointer+1
+.2:
+	LDY music_note_1
+	BEQ .8
+	LDA music_instrument_1
+	LDX music_counter_1
+	JSR music_note2freq
+	STA audio_freq1
+	STY audio_freq1+1
+	STX audio_vol1
+.8:
+	LDY music_note_2
+	BEQ .9
+	LDA music_instrument_2
+	LDX music_counter_2
+	JSR music_note2freq
+	STA audio_freq2
+	STY audio_freq2+1
+	STX audio_vol2
+.9:
+	LDY music_note_3
+	BEQ .10
+	LDA music_instrument_3
+	LDX music_counter_3
+	JSR music_note2freq
+	STA audio_freq3
+	STY audio_freq3+1
+	STX audio_vol3
+.10:
+	LDA music_drum
+	BEQ .11
+	CMP #1		; 1 - Long drum.
+	BNE .12
+	LDA music_counter_4
+	CMP #3
+	BCS .11
+.15:
+	LDA #$ec
+	STA audio_noise
+	LDA #$f5
+	STA audio_vol4hw
+	JMP .11
+
+.12:	CMP #2		; 2 - Short drum.
+	BNE .14
+	LDA music_counter_4
+	CMP #0
+	BNE .11
+	LDA #$ed
+	STA audio_noise
+	LDA #$F5
+	STA audio_vol4hw
+	JMP .11
+
+.14:	;CMP #3		; 3 - Roll.
+	;BNE
+	LDA music_counter_4
+	CMP #2
+	BCC .15
+	ASL A
+	SEC
+	SBC music_timing
+	BCC .11
+	CMP #4
+	BCC .15
+.11:
+	LDX music_counter_1
+	INX
+	CPX #$18
+	BNE $+4
+	LDX #$10
+	STX music_counter_1
+
+	LDX music_counter_2
+	INX
+	CPX #$18
+	BNE $+4
+	LDX #$10
+	STX music_counter_2
+
+	LDX music_counter_3
+	INX
+	CPX #$18
+	BNE $+4
+	LDX #$10
+	STX music_counter_3
+
+	INC music_counter_4
+	DEC music_note_counter
+	RTS
+
+music_flute:
+	LDA music_notes_table,Y
+	CLC
+	ADC .2,X
+	PHA
+	LDA music_notes_table+1,Y
+	ADC #0
+	TAY
+	LDA .1,X
+	TAX
+	PLA
+	RTS
+
+.1:
+        db 10,12,13,13,12,12,12,12
+        db 11,11,11,11,10,10,10,10
+        db 11,11,11,11,10,10,10,10
+
+.2:
+	db 0,0,0,0,0,1,1,1
+	db 0,1,1,1,0,1,1,1
+	db 0,1,1,1,0,1,1,1
+
+	;
+	; Converts note to frequency.
+	; Input:
+	;   A = Instrument.
+	;   Y = Note (1-62)
+	;   X = Instrument counter.
+	; Output:
+	;   YA = Frequency.
+	;   X = Volume.
+	;
+music_note2freq:
+	CMP #$40
+	BCC music_piano
+	BEQ music_clarinet
+	CMP #$80
+	BEQ music_flute
+	;
+	; Bass instrument
+	; 
+music_bass:
+	LDA music_notes_table,Y
+	ASL A
+	PHA
+	LDA music_notes_table+1,Y
+	ROL A
+	TAY
+	LDA .1,X
+	TAX
+	PLA
+	RTS
+
+.1:
+	db 13,13,12,12,11,11,10,10
+	db 9,9,8,8,7,7,6,6
+	db 5,5,4,4,3,3,2,2
+
+music_piano:
+	LDA music_notes_table,Y
+	PHA
+	LDA music_notes_table+1,Y
+	TAY
+	LDA .1,X
+	TAX
+	PLA
+	RTS
+
+.1:	db 12,11,11,10,10,9,9,8
+	db 8,7,7,6,6,5,5,4
+	db 4,4,5,5,4,4,3,3
+
+music_clarinet:
+	LDA music_notes_table,Y
+	CLC
+	ADC .2,X
+	PHA
+	LDA .2,X
+	BMI .3
+	LDA #$00
+	DB $2C
+.3:	LDA #$ff
+	ADC music_notes_table+1,Y
+	LSR A
+	TAY
+	LDA .1,X
+	TAX
+	PLA
+	ROR A
+	RTS
+
+.1:
+        db 13,14,14,13,13,12,12,12
+        db 11,11,11,11,12,12,12,12
+        db 11,11,11,11,12,12,12,12
+
+.2:
+	db 0,0,0,0,-1,-2,-1,0
+	db 1,2,1,0,-1,-2,-1,0
+	db 1,2,1,0,-1,-2,-1,0
+
+	;
+	; Musical notes table.
+	;
+music_notes_table:
+	; Silence - 0
+	dw 0
+	; Values for 2.00 mhz.
+	; 2nd octave - Index 1
+	dw 956,902,851,804,758,716,676,638,602,568,536,506
+	; 3rd octave - Index 13
+	dw 478,451,426,402,379,358,338,319,301,284,268,253
+	; 4th octave - Index 25
+	dw 239,225,213,201,190,179,169,159,150,142,134,127
+	; 5th octave - Index 37
+	dw 119,113,106,100,95,89,84,80,75,71,67,63
+	; 6th octave - Index 49
+	dw 60,56,53,50,47,45,42,40,38,36,34,32
+	; 7th octave - Index 61
+	dw 30,28,27
 
 music_hardware:
-	; !!!
+	LDA music_mode
+	CMP #4		; PLAY SIMPLE?
+	BCC .7		; Yes, jump.
+	LDA audio_vol2
+	BNE .7
+	LDA audio_vol3
+	BEQ .7
+	STA audio_vol2
+	LDA #0
+	STA audio_vol3
+	LDA audio_freq3
+	LDY audio_freq3+1
+	STA audio_freq2
+	STY audio_freq2+1
+.7:
+	LDA audio_freq1+1
+	CMP #$04
+	LDA #$9F
+	BCS .1
+	LDA audio_freq1
+	AND #$0F
+	ORA #$80
+	JSR BIOS_WRITE_PSG
+	LDA audio_freq1+1
+	ASL audio_freq1
+	ROL A
+	ASL audio_freq1
+	ROL A
+	ASL audio_freq1
+	ROL A
+	ASL audio_freq1
+	ROL A
+	JSR BIOS_WRITE_PSG
+	LDX audio_vol1
+	LDA ay2sn,X
+	ORA #$90
+.1:	JSR BIOS_WRITE_PSG
+
+	LDA audio_freq2+1
+	CMP #$04
+	LDA #$BF
+	BCS .2
+	LDA audio_freq2
+	AND #$0F
+	ORA #$A0
+	JSR BIOS_WRITE_PSG
+	LDA audio_freq2+1
+	ASL audio_freq2
+	ROL A
+	ASL audio_freq2
+	ROL A
+	ASL audio_freq2
+	ROL A
+	ASL audio_freq2
+	ROL A
+	JSR BIOS_WRITE_PSG
+	LDX audio_vol2
+	LDA ay2sn,X
+	ORA #$b0
+.2:	JSR BIOS_WRITE_PSG
+
+	LDA music_mode
+	CMP #4		; PLAY SIMPLE?
+	BCC .6		; Yes, jump.
+
+	LDA audio_freq3+1
+	CMP #$04
+	LDA #$DF
+	BCS .3
+	LDA audio_freq3
+	AND #$0F
+	ORA #$C0
+	JSR BIOS_WRITE_PSG
+	LDA audio_freq3+1
+	ASL audio_freq3
+	ROL A
+	ASL audio_freq3
+	ROL A
+	ASL audio_freq3
+	ROL A
+	ASL audio_freq3
+	ROL A
+	JSR BIOS_WRITE_PSG
+	LDX audio_vol3
+	LDA ay2sn,X
+	ORA #$D0
+.3:	JSR BIOS_WRITE_PSG
+
+.6:	LDA music_mode
+	LSR A		; NO DRUMS?
+	BCC .8
+	LDA audio_vol4hw
+	CMP #$ff
+	BEQ .4
+	LDA audio_noise
+	CMP audio_control
+	BEQ .4
+	STA audio_control
+	JSR BIOS_WRITE_PSG
+.4:	LDA audio_vol4hw
+	JSR BIOS_WRITE_PSG
+.8:
 	RTS
+
+        ;
+        ; Converts AY-3-8910 volume to SN76489
+        ;
+ay2sn:
+        db $0f,$0f,$0f,$0e,$0e,$0e,$0d,$0b,$0a,$08,$07,$05,$04,$03,$01,$00
 
 music_silence:
 	db 8
