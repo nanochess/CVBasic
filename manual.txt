@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Jun/25/2024.
+Last revision: Aug/07/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,13 +22,15 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.5.2 Jul/31/2024  o Added support for Sord M5 computers using --sord
+v0.6.0 Aug/07/2024  o Added support for Creativision / Dick Smith's Wizzard (6502
+                      processors!) using --creativision
+                    o Added support for Sord M5 computers using --sord
                     o Added support for Memotech MTX computers using --memotech and -cpm
                     o Added VDP() command to set VDP registers.
                     o Added support for 16K of RAM in MSX using -ram16
                     o Optimizes 8-bit division by power of two.
                     o Optimizes pointer subtraction (VARPTR a(0) - VARPTR a(5))
-                    o Added peephole optimizer.
+                    o Added peephole optimizer for Z80 backend.
 
 v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
                       (both 8-bit and 16-bit) and enable signed comparisons,
@@ -54,7 +56,7 @@ v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
 
 >>>>>>>>>>>>>>. Description
 
-CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, and Memotech MTX. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, and Creativision. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
 Platforms requirements:
   o PC with Windows XP or better.
@@ -76,6 +78,7 @@ Usage:
   cvbasic --sord in.bas output.asm
   cvbasic --memotech in.bas output.asm
   cvbasic --memotech -cpm in.bas output.asm
+  cvbasic --creativision in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
@@ -600,7 +603,7 @@ The following statements are available:
 
   OUT port,data
 
-     It outputs "data" in the hardware port "port".
+     It outputs "data" in the hardware port "port". Not available in 6502 targets.
 
   CLS
 
@@ -886,7 +889,7 @@ The following statements are available:
 
   CALL NAME(expr)  
 
-    Calls assembly function NAME with one argument in HL.
+    Calls assembly function NAME with one argument in HL (or Y,A for 6502)
 
   ASM code
   
@@ -985,7 +988,7 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   A=USR NAME        Calls assembly function NAME (all in uppercase) without
                     arguments, and expects a result in HL.
   A=USR NAME(expr)  Calls assembly function NAME with one argument in HL, and
-                    expects a result in HL.
+                    expects a result in HL (or Y,A for 6502).
 
   #A=VARPTR B       Gets a pointer to a variable. Useful when linking assembler
                     routines.
@@ -1039,7 +1042,7 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
     The expression is analyzed but no code is generated.
 
   INP(expr)
-    Reads 8-bit data from the I/O port expr.
+    Reads 8-bit data from the I/O port expr. Not available in 6502 targets.
 
   FRAME
     Returns the current frame number (0-65535, it cycles back to
