@@ -23,7 +23,7 @@
 #include "cpuz80.h"
 #include "cpu6502.h"
 
-#define VERSION "v0.6.0 Aug/05/2024"
+#define VERSION "v0.6.1 Aug/08/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -83,6 +83,7 @@ static struct console {
 
 static int err_code;
 
+static char library_path[4096];
 static char path[4096];
 
 static int last_is_return;
@@ -4952,11 +4953,11 @@ int main(int argc, char *argv[])
         machine = COLECOVISION;
         while (machine < TOTAL_TARGETS) {
             if (machine == COLECOVISION)
-                fprintf(stderr, "    cvbasic input.bas output.asm\n");
+                fprintf(stderr, "    cvbasic input.bas output.asm [library_path]\n");
             else
-                fprintf(stderr, "    cvbasic --%s input.bas output.asm\n", consoles[machine].name);
+                fprintf(stderr, "    cvbasic --%s input.bas output.asm [library_path]\n", consoles[machine].name);
             if (consoles[machine].options[0])
-                fprintf(stderr, "    cvbasic --%s %s input.bas output.asm\n", consoles[machine].name, consoles[machine].options);
+                fprintf(stderr, "    cvbasic --%s %s input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
             fprintf(stderr, "        %s\n",
                     consoles[machine].description);
             machine++;
@@ -5069,6 +5070,18 @@ int main(int argc, char *argv[])
     }
     c++;
     
+    if (c < argc) {
+        strcpy(library_path, argv[c]);
+        c++;
+#ifdef _WIN32
+        if (strlen(library_path) > 0 && library_path[strlen(library_path) - 1] != '\\')
+            strcat(library_path, "\\");
+#else
+        if (strlen(library_path) > 0 && library_path[strlen(library_path) - 1] != '/')
+            strcat(library_path, "/");
+#endif
+    }
+    
     fprintf(output, "\t; CVBasic compiler " VERSION "\n");
     fprintf(output, "\t; Command: ");
     for (c = 0; c < argc; c++) {
@@ -5112,10 +5125,12 @@ int main(int argc, char *argv[])
             fprintf(output, "\tforg $00000\n");
         }
     }
+    strcpy(path, library_path);
     if (target == CPU_6502)
-        prologue = fopen("cvbasic_6502_prologue.asm", "r");
+        strcat(path, "cvbasic_6502_prologue.asm");
     else
-        prologue = fopen("cvbasic_prologue.asm", "r");
+        strcat(path, "cvbasic_prologue.asm");
+    prologue = fopen(path, "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
         exit(2);
@@ -5151,10 +5166,12 @@ int main(int argc, char *argv[])
     fclose(input);
     remove(TEMPORARY_ASSEMBLER);
     
+    strcpy(path, library_path);
     if (target == CPU_6502)
-        prologue = fopen("cvbasic_6502_epilogue.asm", "r");
+        strcat(path, "cvbasic_6502_epilogue.asm");
     else
-        prologue = fopen("cvbasic_epilogue.asm", "r");
+        strcat(path, "cvbasic_epilogue.asm");
+    prologue = fopen(path, "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open cvbasic_epilogue.asm.\n");
         exit(2);
