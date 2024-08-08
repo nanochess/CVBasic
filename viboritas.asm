@@ -1,3 +1,27 @@
+	; CVBasic compiler v0.6.1 Aug/08/2024
+	; Command: ./cvbasic --pencil examples/viboritas.bas viboritas.asm 
+	; Created: Thu Aug  8 14:15:21 2024
+
+COLECO:	equ 1
+SG1000:	equ 0
+MSX:	equ 0
+SGM:	equ 0
+SVI:	equ 0
+SORD:	equ 0
+MEMOTECH:	equ 0
+CPM:	equ 0
+PENCIL:	equ 1
+
+CVBASIC_MUSIC_PLAYER:	equ 0
+CVBASIC_COMPRESSION:	equ 0
+CVBASIC_BANK_SWITCHING:	equ 0
+
+BASE_RAM:	equ $7000	; Base of RAM
+STACK:	equ $7400	; Base stack pointer
+VDP:	equ $be	; VDP port (write)
+VDPR:	equ $be	; VDP port (read)
+PSG:	equ $ff	; PSG port (write)
+
 	;
 	; CVBasic prologue (BASIC compiler for Colecovision)
 	;
@@ -29,7 +53,6 @@
 	; Revision date: Aug/01/2024. Added Sord M5 support.
 	; Revision date: Aug/02/2024. PSG label now defined by CVBasic. Added Memotech
 	;                             support.
-	; Revision date: Aug/08/2024. Added Soundic/Hanimex Pencil II support.
 	;
 
 JOYSEL:	equ $c0
@@ -1736,7 +1759,6 @@ nmi_handler:
 	call nz,music_generate
 .3:
     endif
-	;CVBASIC MARK DON'T CHANGE
 
   if CVBASIC_BANK_SWITCHING
 	pop af
@@ -2936,3 +2958,1958 @@ WRITE_VRAM:	equ $1fdf
     endif
 
 	; CVBasic program start.
+	; 	'
+	; 	' Viboritas (demo for CVBasic)
+	; 	'
+	; 	' by Oscar Toledo G.
+	; 	' https://nanochess.org/
+	; 	'
+	; 	' Creation date: Oct/1990.
+	; 	' Revision date: Feb/29/2024. Ported to CVBasic.
+	; 	'
+	; 
+	; 	' The original game was made in Z80 assembler,
+	; 	' you can see it here: https://nanochess.org/viboritas.html
+	; 
+	; 	' It is easier to understand in CVBasic ;)
+	; 
+	; 	DEFINE CHAR 128,21,game_bitmaps
+	LD HL,128
+	PUSH HL
+	LD A,21
+	LD HL,cvb_GAME_BITMAPS
+	CALL define_char
+	; 	DEFINE COLOR 128,21,game_colors
+	LD HL,128
+	PUSH HL
+	LD A,21
+	LD HL,cvb_GAME_COLORS
+	CALL define_color
+	; 	DEFINE SPRITE 0,10,game_sprites
+	LD HL,0
+	PUSH HL
+	LD A,10
+	LD HL,cvb_GAME_SPRITES
+	CALL define_sprite
+	; 
+	; restart_game:
+cvb_RESTART_GAME:
+	; 	lives = 2
+	LD A,2
+	LD (cvb_LIVES),A
+	; 	level = 1
+	LD A,1
+	LD (cvb_LEVEL),A
+	; restart_level:
+cvb_RESTART_LEVEL:
+	; 	
+	; 	PRINT AT 684,"Lives: ",lives
+	LD HL,684
+	LD (cursor),HL
+	LD HL,cv1
+	LD A,7
+	CALL print_string
+	JP cv2
+cv1:
+	DB $4c,$69,$76,$65,$73,$3a,$20
+cv2:
+	LD HL,(cvb_LIVES)
+	LD H,0
+	CALL print_number
+	; 	PRINT AT 745,"nanochess 1990"
+	LD HL,745
+	LD (cursor),HL
+	LD HL,cv3
+	LD A,14
+	CALL print_string
+	JP cv4
+cv3:
+	DB $6e,$61,$6e,$6f,$63,$68,$65,$73
+	DB $73,$20,$31,$39,$39,$30
+cv4:
+	; 	
+	; next_level:
+cvb_NEXT_LEVEL:
+	; 	GOSUB draw_level
+	CALL cvb_DRAW_LEVEL
+	; 
+	; 	x_player = 8
+	LD A,8
+	LD (cvb_X_PLAYER),A
+	; 	y_player = 16
+	LD A,16
+	LD (cvb_Y_PLAYER),A
+	; 	player_frame = 0
+	SUB A
+	LD (cvb_PLAYER_FRAME),A
+	; 
+	; 	x_enemy1 = random(128) + 64
+	CALL random
+	LD A,L
+	AND 127
+	ADD A,64
+	LD (cvb_X_ENEMY1),A
+	; 	y_enemy1 = 56
+	LD A,56
+	LD (cvb_Y_ENEMY1),A
+	; 	enemy1_frame = 24
+	LD A,24
+	LD (cvb_ENEMY1_FRAME),A
+	; 	x_enemy2 = random(128) + 80
+	CALL random
+	LD A,L
+	AND 127
+	ADD A,80
+	LD (cvb_X_ENEMY2),A
+	; 	y_enemy2 = 96
+	LD A,96
+	LD (cvb_Y_ENEMY2),A
+	; 	enemy2_frame = 32
+	LD A,32
+	LD (cvb_ENEMY2_FRAME),A
+	; 	x_enemy3 = random(128) + 48
+	CALL random
+	LD A,L
+	AND 127
+	ADD A,48
+	LD (cvb_X_ENEMY3),A
+	; 	y_enemy3 = 136
+	LD A,136
+	LD (cvb_Y_ENEMY3),A
+	; 	enemy3_frame = 24
+	LD A,24
+	LD (cvb_ENEMY3_FRAME),A
+	; 
+	; 	enemy_speed = 0
+	SUB A
+	LD (cvb_ENEMY_SPEED),A
+	; 
+	; 	GOSUB start_song
+	CALL cvb_START_SONG
+	; 
+	; game_loop:
+cvb_GAME_LOOP:
+	; 	WHILE 1
+cv5:
+	; 		WAIT
+	HALT
+	; 		GOSUB play_song
+	CALL cvb_PLAY_SONG
+	; 
+	; 		SPRITE 0, y_player - 1, x_player, player_frame, 15
+	SUB A
+	PUSH AF
+	LD A,(cvb_Y_PLAYER)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X_PLAYER)
+	PUSH AF
+	LD A,(cvb_PLAYER_FRAME)
+	PUSH AF
+	LD A,15
+	CALL update_sprite
+	; 		SPRITE 1, y_enemy1 - 1, x_enemy1, enemy1_frame, 14
+	LD A,1
+	PUSH AF
+	LD A,(cvb_Y_ENEMY1)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X_ENEMY1)
+	PUSH AF
+	LD A,(cvb_ENEMY1_FRAME)
+	PUSH AF
+	LD A,14
+	CALL update_sprite
+	; 		SPRITE 2, y_enemy2 - 1, x_enemy2, enemy2_frame, 14
+	LD A,2
+	PUSH AF
+	LD A,(cvb_Y_ENEMY2)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X_ENEMY2)
+	PUSH AF
+	LD A,(cvb_ENEMY2_FRAME)
+	PUSH AF
+	LD A,14
+	CALL update_sprite
+	; 		SPRITE 3, y_enemy3 - 1, x_enemy3, enemy3_frame, 14
+	LD A,3
+	PUSH AF
+	LD A,(cvb_Y_ENEMY3)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X_ENEMY3)
+	PUSH AF
+	LD A,(cvb_ENEMY3_FRAME)
+	PUSH AF
+	LD A,14
+	CALL update_sprite
+	; 
+	; 		GOSUB move_player
+	CALL cvb_MOVE_PLAYER
+	; 
+	; 		c = $50 + level * 4
+	LD A,(cvb_LEVEL)
+	ADD A,A
+	ADD A,A
+	ADD A,80
+	LD (cvb_C),A
+	; 		enemy_speed = enemy_speed + c
+	LD B,A
+	LD A,(cvb_ENEMY_SPEED)
+	ADD A,B
+	LD (cvb_ENEMY_SPEED),A
+	; 		WHILE enemy_speed >= $40
+cv7:
+	LD A,(cvb_ENEMY_SPEED)
+	CP 64
+	JP C,cv8
+	; 			enemy_speed = enemy_speed - $40
+	SUB 64
+	LD (cvb_ENEMY_SPEED),A
+	; 			GOSUB move_enemies
+	CALL cvb_MOVE_ENEMIES
+	; 		WEND
+	JP cv7
+cv8:
+	; 		IF cont1.button THEN
+	LD A,(joy1_data)
+	AND 64
+	JP Z,cv9
+	; 			IF x_player > 232 AND x_player < 248 AND y_player = 136 THEN
+	LD A,(cvb_X_PLAYER)
+	CP 248
+	LD A,0
+	JR NC,$+3
+	DEC A
+	LD B,A
+	LD A,(cvb_X_PLAYER)
+	CP 233
+	LD A,0
+	JR C,$+3
+	DEC A
+	AND B
+	LD B,A
+	LD A,(cvb_Y_PLAYER)
+	CP 136
+	LD A,0
+	JR NZ,$+3
+	DEC A
+	AND B
+	JP Z,cv10
+	; 				GOSUB sound_off
+	CALL cvb_SOUND_OFF
+	; 
+	; 				FOR c = 1 to 10
+	LD A,1
+	LD (cvb_C),A
+cv11:
+	; 					WAIT
+	HALT
+	; 					SOUND 0, 200 - c * 10, 13
+	LD HL,(cvb_C)
+	LD H,0
+	LD DE,10
+	CALL _mul16
+	EX DE,HL
+	LD HL,200
+	OR A
+	SBC HL,DE
+	LD A,$80
+	CALL sn76489_freq
+	LD A,13
+	LD B,$90
+	CALL sn76489_vol
+	; 				NEXT c
+	LD A,(cvb_C)
+	INC A
+	LD (cvb_C),A
+	CP 11
+	JP C,cv11
+	; 
+	; 				level = level + 1
+	LD A,(cvb_LEVEL)
+	INC A
+	LD (cvb_LEVEL),A
+	; 				IF level = 6 THEN
+	CP 6
+	JP NZ,cv12
+	; 					GOSUB sound_off
+	CALL cvb_SOUND_OFF
+	; 					PRINT AT 267," YOU WIN! "
+	LD HL,267
+	LD (cursor),HL
+	LD HL,cv13
+	LD A,10
+	CALL print_string
+	JP cv14
+cv13:
+	DB $20,$59,$4f,$55,$20,$57,$49,$4e
+	DB $21,$20
+cv14:
+	; 					#c = FRAME
+	LD HL,(frame)
+	LD (cvb_#C),HL
+	; 					DO
+cv15:
+	; 						WAIT
+	HALT
+	; 					LOOP WHILE FRAME - #c < 300
+	LD HL,(frame)
+	LD DE,(cvb_#C)
+	OR A
+	SBC HL,DE
+	LD DE,300
+	OR A
+	SBC HL,DE
+	JP NC,cv17
+	JP cv15
+cv17:
+	; 					level = 1
+	LD A,1
+	LD (cvb_LEVEL),A
+	; 					GOTO restart_level
+	JP cvb_RESTART_LEVEL
+	; 				END IF
+cv12:
+	; 				GOTO next_level	
+	JP cvb_NEXT_LEVEL
+	; 			END IF
+cv10:
+	; 		END IF
+cv9:
+	; 		IF ABS(y_player + 1 - y_enemy1) < 8 THEN
+	LD HL,(cvb_Y_ENEMY1)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	INC HL
+	OR A
+	SBC HL,DE
+	CALL _abs16
+	LD DE,8
+	OR A
+	SBC HL,DE
+	JP NC,cv18
+	; 			IF ABS(x_player + 1 - x_enemy1) < 8 THEN GOTO player_dies
+	LD HL,(cvb_X_ENEMY1)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_X_PLAYER)
+	LD H,0
+	INC HL
+	OR A
+	SBC HL,DE
+	CALL _abs16
+	LD DE,8
+	OR A
+	SBC HL,DE
+	JP NC,cv19
+	JP cvb_PLAYER_DIES
+cv19:
+	; 		END IF
+cv18:
+	; 		IF ABS(y_player + 1 - y_enemy2) < 8 THEN
+	LD HL,(cvb_Y_ENEMY2)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	INC HL
+	OR A
+	SBC HL,DE
+	CALL _abs16
+	LD DE,8
+	OR A
+	SBC HL,DE
+	JP NC,cv20
+	; 			IF ABS(x_player + 1 - x_enemy2) < 8 THEN GOTO player_dies
+	LD HL,(cvb_X_ENEMY2)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_X_PLAYER)
+	LD H,0
+	INC HL
+	OR A
+	SBC HL,DE
+	CALL _abs16
+	LD DE,8
+	OR A
+	SBC HL,DE
+	JP NC,cv21
+	JP cvb_PLAYER_DIES
+cv21:
+	; 		END IF
+cv20:
+	; 		IF ABS(y_player + 1 - y_enemy3) < 8 THEN
+	LD HL,(cvb_Y_ENEMY3)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	INC HL
+	OR A
+	SBC HL,DE
+	CALL _abs16
+	LD DE,8
+	OR A
+	SBC HL,DE
+	JP NC,cv22
+	; 			IF ABS(x_player + 1 - x_enemy3) < 8 THEN GOTO player_dies
+	LD HL,(cvb_X_ENEMY3)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_X_PLAYER)
+	LD H,0
+	INC HL
+	OR A
+	SBC HL,DE
+	CALL _abs16
+	LD DE,8
+	OR A
+	SBC HL,DE
+	JP NC,cv23
+	JP cvb_PLAYER_DIES
+cv23:
+	; 		END IF
+cv22:
+	; 	WEND
+	JP cv5
+cv6:
+	; 
+	; player_dies:
+cvb_PLAYER_DIES:
+	; 	GOSUB sound_off
+	CALL cvb_SOUND_OFF
+	; 
+	; 	SOUND 0,640,13
+	LD HL,640
+	LD A,$80
+	CALL sn76489_freq
+	LD A,13
+	LD B,$90
+	CALL sn76489_vol
+	; 	SOUND 1,320,13
+	LD HL,320
+	LD A,$a0
+	CALL sn76489_freq
+	LD A,13
+	LD B,$b0
+	CALL sn76489_vol
+	; 	SOUND 2,160,13
+	LD HL,160
+	LD A,$c0
+	CALL sn76489_freq
+	LD A,13
+	LD B,$d0
+	CALL sn76489_vol
+	; 
+	; 	player_frame = 0
+	SUB A
+	LD (cvb_PLAYER_FRAME),A
+	; 	FOR c = 0 TO 30
+	SUB A
+	LD (cvb_C),A
+cv24:
+	; 		WAIT
+	HALT
+	; 		WAIT
+	HALT
+	; 		player_frame = player_frame XOR 8
+	LD A,(cvb_PLAYER_FRAME)
+	XOR 8
+	LD (cvb_PLAYER_FRAME),A
+	; 		SPRITE 0, y_player - 1, x_player, player_frame, 15
+	SUB A
+	PUSH AF
+	LD A,(cvb_Y_PLAYER)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X_PLAYER)
+	PUSH AF
+	LD A,(cvb_PLAYER_FRAME)
+	PUSH AF
+	LD A,15
+	CALL update_sprite
+	; 	NEXT c
+	LD A,(cvb_C)
+	INC A
+	LD (cvb_C),A
+	CP 31
+	JP C,cv24
+	; 
+	; 	GOSUB sound_off
+	CALL cvb_SOUND_OFF
+	; 
+	; 	DO
+cv25:
+	; 		WAIT
+	HALT
+	; 		SOUND 0,200 - y_player,13
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	EX DE,HL
+	LD HL,200
+	OR A
+	SBC HL,DE
+	LD A,$80
+	CALL sn76489_freq
+	LD A,13
+	LD B,$90
+	CALL sn76489_vol
+	; 		player_frame = player_frame XOR 8
+	LD A,(cvb_PLAYER_FRAME)
+	XOR 8
+	LD (cvb_PLAYER_FRAME),A
+	; 		SPRITE 0, y_player - 1, x_player, player_frame, 15
+	SUB A
+	PUSH AF
+	LD A,(cvb_Y_PLAYER)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X_PLAYER)
+	PUSH AF
+	LD A,(cvb_PLAYER_FRAME)
+	PUSH AF
+	LD A,15
+	CALL update_sprite
+	; 		y_player = y_player + 2
+	LD A,(cvb_Y_PLAYER)
+	ADD A,2
+	LD (cvb_Y_PLAYER),A
+	; 	LOOP WHILE y_player < 160
+	CP 160
+	JP NC,cv27
+	JP cv25
+cv27:
+	; 
+	; 	GOSUB sound_off
+	CALL cvb_SOUND_OFF
+	; 
+	; 	IF lives = 0 THEN
+	LD A,(cvb_LIVES)
+	AND A
+	JP NZ,cv28
+	; 		PRINT AT 267," GAME OVER "
+	LD HL,267
+	LD (cursor),HL
+	LD HL,cv29
+	LD A,11
+	CALL print_string
+	JP cv30
+cv29:
+	DB $20,$47,$41,$4d,$45,$20,$4f,$56
+	DB $45,$52,$20
+cv30:
+	; 		#c = FRAME
+	LD HL,(frame)
+	LD (cvb_#C),HL
+	; 		DO
+cv31:
+	; 			WAIT
+	HALT
+	; 		LOOP WHILE FRAME - #c < 300
+	LD HL,(frame)
+	LD DE,(cvb_#C)
+	OR A
+	SBC HL,DE
+	LD DE,300
+	OR A
+	SBC HL,DE
+	JP NC,cv33
+	JP cv31
+cv33:
+	; 		GOTO restart_game
+	JP cvb_RESTART_GAME
+	; 	END IF
+cv28:
+	; 	lives = lives - 1
+	LD A,(cvb_LIVES)
+	DEC A
+	LD (cvb_LIVES),A
+	; 	GOTO restart_level
+	JP cvb_RESTART_LEVEL
+	; 
+	; 	'
+	; 	' Draw the current level.
+	; 	'
+	; draw_level:	PROCEDURE
+cvb_DRAW_LEVEL:
+	; 
+	; 	' Get the base character to draw the level.
+	; 	base_character = 128 + (level - 1) * 4
+	LD A,(cvb_LEVEL)
+	DEC A
+	ADD A,A
+	ADD A,A
+	ADD A,128
+	LD (cvb_BASE_CHARACTER),A
+	; 
+	; 	' Draw the background.
+	; 	FOR #c = $1800 TO $1a7c STEP 4
+	LD HL,6144
+	LD (cvb_#C),HL
+cv34:
+	; 		VPOKE #c, base_character
+	LD HL,(cvb_#C)
+	LD A,(cvb_BASE_CHARACTER)
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 		VPOKE #c + 1, base_character
+	LD HL,(cvb_#C)
+	INC HL
+	LD A,(cvb_BASE_CHARACTER)
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 		VPOKE #c + 2, base_character
+	LD HL,(cvb_#C)
+	INC HL
+	INC HL
+	LD A,(cvb_BASE_CHARACTER)
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 		VPOKE #c + 3, base_character + 1.
+	LD HL,(cvb_#C)
+	INC HL
+	INC HL
+	INC HL
+	LD A,(cvb_BASE_CHARACTER)
+	INC A
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 	NEXT #c
+	LD HL,(cvb_#C)
+	LD DE,4
+	ADD HL,DE
+	LD (cvb_#C),HL
+	LD DE,6781
+	OR A
+	SBC HL,DE
+	JP C,cv34
+	; 
+	; 	' Draw over the floors.
+	; 	FOR #c = $1880 TO $1A60 STEP 160
+	LD HL,6272
+	LD (cvb_#C),HL
+cv35:
+	; 		FOR #d = #c TO #c + 31
+	LD HL,(cvb_#C)
+	LD (cvb_#D),HL
+cv36:
+	; 			VPOKE #d, base_character + 2.
+	LD HL,(cvb_#D)
+	LD A,(cvb_BASE_CHARACTER)
+	ADD A,2
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 		NEXT #d
+	LD HL,(cvb_#D)
+	INC HL
+	LD (cvb_#D),HL
+	LD HL,(cvb_#C)
+	LD DE,31
+	ADD HL,DE
+	LD DE,(cvb_#D)
+	OR A
+	SBC HL,DE
+	JP NC,cv36
+	; 	NEXT #c
+	LD HL,(cvb_#C)
+	LD DE,160
+	ADD HL,DE
+	LD (cvb_#C),HL
+	LD DE,6753
+	OR A
+	SBC HL,DE
+	JP C,cv35
+	; 
+	; 	' Draw the ladders.
+	; 	ladders = 6 - level
+	LD HL,(cvb_LEVEL)
+	LD H,0
+	EX DE,HL
+	LD HL,6
+	OR A
+	SBC HL,DE
+	LD A,L
+	LD (cvb_LADDERS),A
+	; 
+	; 	FOR #c = $1880 TO $19C0 STEP 160
+	LD HL,6272
+	LD (cvb_#C),HL
+cv37:
+	; 		FOR d = 1 TO ladders
+	LD A,1
+	LD (cvb_D),A
+cv38:
+	; 			e = RANDOM(28) + 2
+	CALL random
+	LD DE,28
+	CALL _mod16
+	LD A,L
+	ADD A,2
+	LD (cvb_E),A
+	; 			VPOKE #c + e, base_character + 3.
+	LD HL,(cvb_E)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_#C)
+	ADD HL,DE
+	LD A,(cvb_BASE_CHARACTER)
+	ADD A,3
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 			VPOKE #c + e + 32, base_character + 3.
+	LD HL,(cvb_E)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_#C)
+	ADD HL,DE
+	LD DE,32
+	ADD HL,DE
+	LD A,(cvb_BASE_CHARACTER)
+	ADD A,3
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 			VPOKE #c + e + 64, base_character + 3.
+	LD HL,(cvb_E)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_#C)
+	ADD HL,DE
+	LD DE,64
+	ADD HL,DE
+	LD A,(cvb_BASE_CHARACTER)
+	ADD A,3
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 			VPOKE #c + e + 96, base_character + 3.
+	LD HL,(cvb_E)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_#C)
+	ADD HL,DE
+	LD DE,96
+	ADD HL,DE
+	LD A,(cvb_BASE_CHARACTER)
+	ADD A,3
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 			VPOKE #c + e + 128, base_character + 3.
+	LD HL,(cvb_E)
+	LD H,0
+	EX DE,HL
+	LD HL,(cvb_#C)
+	ADD HL,DE
+	LD DE,128
+	ADD HL,DE
+	LD A,(cvb_BASE_CHARACTER)
+	ADD A,3
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 		NEXT d
+	LD A,(cvb_D)
+	INC A
+	LD (cvb_D),A
+	LD B,A
+	LD A,(cvb_LADDERS)
+	CP B
+	JP NC,cv38
+	; 	NEXT #c
+	LD HL,(cvb_#C)
+	LD DE,160
+	ADD HL,DE
+	LD (cvb_#C),HL
+	LD DE,6593
+	OR A
+	SBC HL,DE
+	JP C,cv37
+	; 
+	; 	' Draw the "exit".
+	; 	VPOKE $1A5E, 148
+	LD HL,6750
+	LD A,148
+	CALL NMI_OFF
+	CALL WRTVRM
+	CALL NMI_ON
+	; 
+	; 	END
+	RET
+	; 
+	; 	'
+	; 	' Move the player
+	; 	'
+	; move_player:	PROCEDURE
+cvb_MOVE_PLAYER:
+	; 	IF cont1.left THEN
+	LD A,(joy1_data)
+	AND 8
+	JP Z,cv39
+	; 		IF y_player % 40 = 16 THEN	' Player aligned on floor
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	LD DE,40
+	CALL _mod16
+	LD DE,16
+	OR A
+	SBC HL,DE
+	JP NZ,cv40
+	; 			IF x_player > 0 THEN x_player = x_player - 1
+	LD A,(cvb_X_PLAYER)
+	CP 1
+	JP C,cv41
+	DEC A
+	LD (cvb_X_PLAYER),A
+cv41:
+	; 			IF FRAME AND 4 THEN player_frame = 8 ELSE player_frame = 12
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	LD A,H
+	OR L
+	JP Z,cv42
+	LD A,8
+	LD (cvb_PLAYER_FRAME),A
+	JP cv43
+cv42:
+	LD A,12
+	LD (cvb_PLAYER_FRAME),A
+cv43:
+	; 		END IF
+cv40:
+	; 	END IF
+cv39:
+	; 	IF cont1.right THEN
+	LD A,(joy1_data)
+	AND 2
+	JP Z,cv44
+	; 		IF y_player % 40 = 16 THEN	' Player aligned on floor
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	LD DE,40
+	CALL _mod16
+	LD DE,16
+	OR A
+	SBC HL,DE
+	JP NZ,cv45
+	; 			IF x_player < 240 THEN x_player = x_player + 1
+	LD A,(cvb_X_PLAYER)
+	CP 240
+	JP NC,cv46
+	INC A
+	LD (cvb_X_PLAYER),A
+cv46:
+	; 			IF FRAME AND 4 THEN player_frame = 0 ELSE player_frame = 4
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	LD A,H
+	OR L
+	JP Z,cv47
+	SUB A
+	LD (cvb_PLAYER_FRAME),A
+	JP cv48
+cv47:
+	LD A,4
+	LD (cvb_PLAYER_FRAME),A
+cv48:
+	; 		END IF
+cv45:
+	; 	END IF
+cv44:
+	; 	IF cont1.up THEN
+	LD A,(joy1_data)
+	AND 1
+	JP Z,cv49
+	; 		IF y_player % 40 = 16 THEN	' Player aligned on floor.
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	LD DE,40
+	CALL _mod16
+	LD DE,16
+	OR A
+	SBC HL,DE
+	JP NZ,cv50
+	; 			column = (x_player + 7) /8
+	LD HL,(cvb_X_PLAYER)
+	LD H,0
+	LD DE,7
+	ADD HL,DE
+	SRL H
+	RR L
+	SRL H
+	RR L
+	SRL H
+	RR L
+	LD A,L
+	LD (cvb_COLUMN),A
+	; 			row = (y_player + 8) / 8
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	LD DE,8
+	ADD HL,DE
+	SRL H
+	RR L
+	SRL H
+	RR L
+	SRL H
+	RR L
+	LD A,L
+	LD (cvb_ROW),A
+	; 			#c = $1800 + row * 32 + column
+	LD HL,(cvb_ROW)
+	LD H,0
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,HL
+	LD DE,6144
+	ADD HL,DE
+	EX DE,HL
+	LD HL,(cvb_COLUMN)
+	LD H,0
+	ADD HL,DE
+	LD (cvb_#C),HL
+	; 			IF VPEEK(#c) = base_character + 3 THEN	' Ladder?
+	LD HL,(cvb_BASE_CHARACTER)
+	LD H,0
+	INC HL
+	INC HL
+	INC HL
+	EX DE,HL
+	LD HL,(cvb_#C)
+	CALL nmi_off
+	CALL RDVRM
+	CALL nmi_on
+	LD L,A
+	LD H,0
+	OR A
+	SBC HL,DE
+	JP NZ,cv51
+	; 				y_player = y_player - 1
+	LD A,(cvb_Y_PLAYER)
+	DEC A
+	LD (cvb_Y_PLAYER),A
+	; 			END IF
+cv51:
+	; 		ELSE
+	JP cv52
+cv50:
+	; 			IF FRAME AND 4 THEN player_frame = 16 ELSE player_frame = 20
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	LD A,H
+	OR L
+	JP Z,cv53
+	LD A,16
+	LD (cvb_PLAYER_FRAME),A
+	JP cv54
+cv53:
+	LD A,20
+	LD (cvb_PLAYER_FRAME),A
+cv54:
+	; 			y_player = y_player - 1
+	LD A,(cvb_Y_PLAYER)
+	DEC A
+	LD (cvb_Y_PLAYER),A
+	; 		END IF
+cv52:
+	; 	END IF
+cv49:
+	; 	IF cont1.down THEN
+	LD A,(joy1_data)
+	AND 4
+	JP Z,cv55
+	; 		IF y_player % 40 = 16 THEN	' Player aligned on floor.
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	LD DE,40
+	CALL _mod16
+	LD DE,16
+	OR A
+	SBC HL,DE
+	JP NZ,cv56
+	; 			column = (x_player + 7) /8
+	LD HL,(cvb_X_PLAYER)
+	LD H,0
+	LD DE,7
+	ADD HL,DE
+	SRL H
+	RR L
+	SRL H
+	RR L
+	SRL H
+	RR L
+	LD A,L
+	LD (cvb_COLUMN),A
+	; 			row = (y_player + 16) / 8
+	LD HL,(cvb_Y_PLAYER)
+	LD H,0
+	LD DE,16
+	ADD HL,DE
+	SRL H
+	RR L
+	SRL H
+	RR L
+	SRL H
+	RR L
+	LD A,L
+	LD (cvb_ROW),A
+	; 			#c = $1800 + row * 32 + column
+	LD HL,(cvb_ROW)
+	LD H,0
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,HL
+	LD DE,6144
+	ADD HL,DE
+	EX DE,HL
+	LD HL,(cvb_COLUMN)
+	LD H,0
+	ADD HL,DE
+	LD (cvb_#C),HL
+	; 			IF VPEEK(#c) = base_character + 3 THEN	' Ladder?
+	LD HL,(cvb_BASE_CHARACTER)
+	LD H,0
+	INC HL
+	INC HL
+	INC HL
+	EX DE,HL
+	LD HL,(cvb_#C)
+	CALL nmi_off
+	CALL RDVRM
+	CALL nmi_on
+	LD L,A
+	LD H,0
+	OR A
+	SBC HL,DE
+	JP NZ,cv57
+	; 				y_player = y_player + 1
+	LD A,(cvb_Y_PLAYER)
+	INC A
+	LD (cvb_Y_PLAYER),A
+	; 			END IF
+cv57:
+	; 		ELSE
+	JP cv58
+cv56:
+	; 			IF FRAME AND 4 THEN player_frame = 16 ELSE player_frame = 20
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	LD A,H
+	OR L
+	JP Z,cv59
+	LD A,16
+	LD (cvb_PLAYER_FRAME),A
+	JP cv60
+cv59:
+	LD A,20
+	LD (cvb_PLAYER_FRAME),A
+cv60:
+	; 			y_player = y_player + 1
+	LD A,(cvb_Y_PLAYER)
+	INC A
+	LD (cvb_Y_PLAYER),A
+	; 		END IF
+cv58:
+	; 	END IF
+cv55:
+	; 	END
+	RET
+	; 
+	; 	'
+	; 	' Move the enemies.
+	; 	'
+	; move_enemies:	PROCEDURE
+cvb_MOVE_ENEMIES:
+	; 	IF enemy1_frame < 32 THEN
+	LD A,(cvb_ENEMY1_FRAME)
+	CP 32
+	JP NC,cv61
+	; 		x_enemy1 = x_enemy1 - 1.
+	LD A,(cvb_X_ENEMY1)
+	DEC A
+	LD (cvb_X_ENEMY1),A
+	; 		IF x_enemy1 = 0 THEN enemy1_frame = 32
+	JP NZ,cv62
+	LD A,32
+	LD (cvb_ENEMY1_FRAME),A
+cv62:
+	; 	ELSE
+	JP cv63
+cv61:
+	; 		x_enemy1 = x_enemy1 + 1.
+	LD A,(cvb_X_ENEMY1)
+	INC A
+	LD (cvb_X_ENEMY1),A
+	; 		IF x_enemy1 = 240 THEN enemy1_frame = 24
+	CP 240
+	JP NZ,cv64
+	LD A,24
+	LD (cvb_ENEMY1_FRAME),A
+cv64:
+	; 	END IF
+cv63:
+	; 	enemy1_frame = (enemy1_frame AND $f8) + (FRAME AND 4)
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	EX DE,HL
+	LD A,(cvb_ENEMY1_FRAME)
+	AND 248
+	LD L,A
+	LD H,0
+	ADD HL,DE
+	LD A,L
+	LD (cvb_ENEMY1_FRAME),A
+	; 
+	; 	IF enemy2_frame < 32 THEN
+	LD A,(cvb_ENEMY2_FRAME)
+	CP 32
+	JP NC,cv65
+	; 		x_enemy2 = x_enemy2 - 1.
+	LD A,(cvb_X_ENEMY2)
+	DEC A
+	LD (cvb_X_ENEMY2),A
+	; 		IF x_enemy2 = 0 THEN enemy2_frame = 32
+	JP NZ,cv66
+	LD A,32
+	LD (cvb_ENEMY2_FRAME),A
+cv66:
+	; 	ELSE
+	JP cv67
+cv65:
+	; 		x_enemy2 = x_enemy2 + 1.
+	LD A,(cvb_X_ENEMY2)
+	INC A
+	LD (cvb_X_ENEMY2),A
+	; 		IF x_enemy2 = 240 THEN enemy2_frame = 24
+	CP 240
+	JP NZ,cv68
+	LD A,24
+	LD (cvb_ENEMY2_FRAME),A
+cv68:
+	; 	END IF
+cv67:
+	; 	enemy2_frame = (enemy2_frame AND $f8) + (FRAME AND 4)
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	EX DE,HL
+	LD A,(cvb_ENEMY2_FRAME)
+	AND 248
+	LD L,A
+	LD H,0
+	ADD HL,DE
+	LD A,L
+	LD (cvb_ENEMY2_FRAME),A
+	; 
+	; 	IF enemy3_frame < 32 THEN
+	LD A,(cvb_ENEMY3_FRAME)
+	CP 32
+	JP NC,cv69
+	; 		x_enemy3 = x_enemy3 - 1.
+	LD A,(cvb_X_ENEMY3)
+	DEC A
+	LD (cvb_X_ENEMY3),A
+	; 		IF x_enemy3 = 0 THEN enemy3_frame = 32
+	JP NZ,cv70
+	LD A,32
+	LD (cvb_ENEMY3_FRAME),A
+cv70:
+	; 	ELSE
+	JP cv71
+cv69:
+	; 		x_enemy3 = x_enemy3 + 1.
+	LD A,(cvb_X_ENEMY3)
+	INC A
+	LD (cvb_X_ENEMY3),A
+	; 		IF x_enemy3 = 240 THEN enemy3_frame = 24
+	CP 240
+	JP NZ,cv72
+	LD A,24
+	LD (cvb_ENEMY3_FRAME),A
+cv72:
+	; 	END IF
+cv71:
+	; 	enemy3_frame = (enemy3_frame AND $f8) + (FRAME AND 4)
+	LD HL,(frame)
+	LD A,L
+	AND 4
+	LD L,A
+	LD H,0
+	EX DE,HL
+	LD A,(cvb_ENEMY3_FRAME)
+	AND 248
+	LD L,A
+	LD H,0
+	ADD HL,DE
+	LD A,L
+	LD (cvb_ENEMY3_FRAME),A
+	; 	END
+	RET
+	; 
+	; game_bitmaps:
+cvb_GAME_BITMAPS:
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	DB $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+	; 
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	; 	BITMAP "XXX..XXX"
+	DB $e7,$e7,$e7,$e7,$e7,$e7,$e7,$e7
+	; 
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	DB $ff,$ff,$00,$ff,$ff,$00,$ff,$ff
+	; 
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	DB $42,$42,$7e,$42,$42,$7e,$42,$42
+	; 
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "X.....X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.X.X.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.....X."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "........"
+	DB $fe,$82,$ba,$aa,$ba,$82,$fe,$00
+	; 
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	; 	BITMAP "X.XXX.X."
+	DB $ba,$ba,$ba,$ba,$ba,$ba,$ba,$ba
+	; 
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	DB $ee,$00,$ff,$ff,$ff,$00,$00,$00
+	; 
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	DB $42,$42,$7e,$42,$42,$7e,$42,$42
+	; 
+	; 	BITMAP "XXX.XXXX"
+	; 	BITMAP "XXX.XXXX"
+	; 	BITMAP "XXX.XXXX"
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "........"
+	DB $ef,$ef,$ef,$00,$fe,$fe,$fe,$00
+	; 
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP "........"
+	; 	BITMAP ".XX.XXX."
+	; 	BITMAP ".XX.XXX."
+	; 	BITMAP ".XX.XXX."
+	; 	BITMAP "........"
+	DB $7e,$7e,$7e,$00,$6e,$6e,$6e,$00
+	; 
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "X.X.X.X."
+	; 	BITMAP ".X...X.."
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	DB $00,$ff,$ff,$aa,$44,$00,$00,$00
+	; 
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP ".X....X."
+	; 	BITMAP ".X....X."
+	DB $42,$42,$7e,$42,$42,$7e,$42,$42
+	; 
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "........"
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "XXX.XXX."
+	; 	BITMAP "........"
+	DB $ee,$ee,$ee,$00,$ee,$ee,$ee,$00
+	; 
+	; 	BITMAP ".X......"
+	; 	BITMAP "..XX...."
+	; 	BITMAP "....XX.."
+	; 	BITMAP "......XX"
+	; 	BITMAP "....XX.."
+	; 	BITMAP "..XX...."
+	; 	BITMAP ".X......"
+	; 	BITMAP ".X......"
+	DB $40,$30,$0c,$03,$0c,$30,$40,$40
+	; 
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "........"
+	; 	BITMAP "X.X.X.X."
+	; 	BITMAP ".X.X.X.X"
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "........"
+	DB $00,$ff,$00,$aa,$55,$00,$ff,$00
+	; 
+	; 	BITMAP "X......X"
+	; 	BITMAP "X......X"
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "X.XXXX.X"
+	; 	BITMAP "X......X"
+	; 	BITMAP "X......X"
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "X.XXXX.X"
+	DB $81,$81,$c3,$bd,$81,$81,$c3,$bd
+	; 
+	; 	BITMAP "X......X"
+	; 	BITMAP ".X.XX..."
+	; 	BITMAP "..XX.XXX"
+	; 	BITMAP ".X...XXX"
+	; 	BITMAP "..XXX..X"
+	; 	BITMAP "..X..XXX"
+	; 	BITMAP ".X..X..X"
+	; 	BITMAP "..X..XXX"
+	DB $81,$58,$37,$47,$39,$27,$49,$27
+	; 
+	; 	BITMAP ".X...XXX"
+	; 	BITMAP ".X..X..X"
+	; 	BITMAP "..X..XXX"
+	; 	BITMAP ".X......"
+	; 	BITMAP "..X.X..."
+	; 	BITMAP "...X.X.X"
+	; 	BITMAP "...X..X."
+	; 	BITMAP "..X..XXX"
+	DB $47,$49,$27,$40,$28,$15,$12,$27
+	; 
+	; 	BITMAP "........"
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "........"
+	; 	BITMAP "XXX.XXXX"
+	; 	BITMAP "XXX.XXXX"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	DB $00,$fe,$fe,$00,$ef,$ef,$00,$00
+	; 
+	; 	BITMAP "....XX.."
+	; 	BITMAP "....XX.."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "..XX...."
+	; 	BITMAP "..XX...."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	DB $0c,$0c,$18,$18,$30,$30,$18,$18
+	; 
+	; 	BITMAP ".X.X.X.."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP ".X.X.X.."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP ".X.X.X.."
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP ".X.X.X.."
+	; 	BITMAP "........"
+	DB $54,$fe,$54,$fe,$54,$fe,$54,$00
+	; 
+	; game_colors:
+cvb_GAME_COLORS:
+	; 	DATA BYTE $CC,$CC,$CC,$CC,$CC,$CC,$CC,$CC
+	DB $cc,$cc,$cc,$cc,$cc,$cc,$cc,$cc
+	; 	DATA BYTE $21,$21,$21,$21,$21,$21,$21,$21
+	DB $21,$21,$21,$21,$21,$21,$21,$21
+	; 	DATA BYTE $A1,$A1,$A1,$A1,$A1,$A1,$A1,$A1
+	DB $a1,$a1,$a1,$a1,$a1,$a1,$a1,$a1
+	; 	DATA BYTE $51,$51,$51,$51,$51,$51,$51,$51
+	DB $51,$51,$51,$51,$51,$51,$51,$51
+	; 
+	; 	DATA BYTE $54,$54,$54,$54,$54,$54,$54,$54
+	DB $54,$54,$54,$54,$54,$54,$54,$54
+	; 	DATA BYTE $51,$51,$51,$51,$51,$51,$51,$51
+	DB $51,$51,$51,$51,$51,$51,$51,$51
+	; 	DATA BYTE $F1,$11,$E1,$E1,$E1,$11,$11,$11
+	DB $f1,$11,$e1,$e1,$e1,$11,$11,$11
+	; 	DATA BYTE $51,$51,$51,$51,$51,$51,$51,$51
+	DB $51,$51,$51,$51,$51,$51,$51,$51
+	; 
+	; 	DATA BYTE $68,$68,$68,$68,$68,$68,$68,$68
+	DB $68,$68,$68,$68,$68,$68,$68,$68
+	; 	DATA BYTE $81,$81,$81,$81,$81,$81,$81,$81
+	DB $81,$81,$81,$81,$81,$81,$81,$81
+	; 	DATA BYTE $51,$51,$51,$51,$51,$51,$51,$51
+	DB $51,$51,$51,$51,$51,$51,$51,$51
+	; 	DATA BYTE $51,$51,$51,$51,$51,$51,$51,$51
+	DB $51,$51,$51,$51,$51,$51,$51,$51
+	; 
+	; 	DATA BYTE $61,$61,$61,$61,$61,$61,$61,$61
+	DB $61,$61,$61,$61,$61,$61,$61,$61
+	; 	DATA BYTE $A1,$A1,$A1,$A1,$A1,$A1,$A1,$A1
+	DB $a1,$a1,$a1,$a1,$a1,$a1,$a1,$a1
+	; 	DATA BYTE $F1,$F1,$F1,$51,$51,$F1,$F1,$F1
+	DB $f1,$f1,$f1,$51,$51,$f1,$f1,$f1
+	; 	DATA BYTE $E1,$E1,$E1,$E1,$E1,$E1,$E1,$E1
+	DB $e1,$e1,$e1,$e1,$e1,$e1,$e1,$e1
+	; 
+	; 	DATA BYTE $86,$86,$86,$86,$86,$86,$86,$86
+	DB $86,$86,$86,$86,$86,$86,$86,$86
+	; 	DATA BYTE $2C,$2C,$2C,$2C,$2C,$2C,$2C,$2C
+	DB $2c,$2c,$2c,$2c,$2c,$2c,$2c,$2c
+	; 	DATA BYTE $11,$6E,$6E,$6E,$6E,$6E,$6E,$11
+	DB $11,$6e,$6e,$6e,$6e,$6e,$6e,$11
+	; 	DATA BYTE $C1,$C1,$C1,$C1,$C1,$C1,$C1,$C1
+	DB $c1,$c1,$c1,$c1,$c1,$c1,$c1,$c1
+	; 
+	; 	DATA BYTE $F1,$F1,$F1,$F1,$F1,$F1,$F1,$F1
+	DB $f1,$f1,$f1,$f1,$f1,$f1,$f1,$f1
+	; 
+	; game_sprites:
+cvb_GAME_SPRITES:
+	; 	BITMAP "................"
+	; 	BITMAP ".......X.X.X...."
+	; 	BITMAP ".....X.XXXXX...."
+	; 	BITMAP "......XXXXXX...."
+	; 	BITMAP ".....XXXXX.X...."
+	; 	BITMAP "......XX.XXX...."
+	; 	BITMAP ".....XXX...X...."
+	; 	BITMAP "...XXXX.XXX....."
+	; 	BITMAP "..XX.XXX........"
+	; 	BITMAP ".XX..XXXX.XXX..."
+	; 	BITMAP ".XXX.XXXX.XXX..."
+	; 	BITMAP ".XXX.X.........."
+	; 	BITMAP "......XXXX......"
+	; 	BITMAP "....XXX.XXXXX..."
+	; 	BITMAP "....XXX..XXXXX.."
+	; 	BITMAP "....XXXX........"
+	DB $00,$01,$05,$03,$07,$03,$07,$1e
+	DB $37,$67,$77,$74,$03,$0e,$0e,$0f
+	DB $00,$50,$f0,$f0,$d0,$70,$10,$e0
+	DB $00,$b8,$b8,$00,$c0,$f8,$7c,$00
+	; 
+	; 	BITMAP "........X.X.X..."
+	; 	BITMAP "......X.XXXXX..."
+	; 	BITMAP ".......XXXXXX..."
+	; 	BITMAP "......XXXXX.X..."
+	; 	BITMAP ".......XX.XXX..."
+	; 	BITMAP "......XXX...X..."
+	; 	BITMAP "......XX.XXX...."
+	; 	BITMAP ".....XXXX......."
+	; 	BITMAP ".....XXXXX......"
+	; 	BITMAP ".....XX.XXX....."
+	; 	BITMAP ".....XX.XXX....."
+	; 	BITMAP ".....XXX........"
+	; 	BITMAP "......XXXX......"
+	; 	BITMAP "......XX........"
+	; 	BITMAP "......XXXX......"
+	; 	BITMAP "......XXXXX....."
+	DB $00,$02,$01,$03,$01,$03,$03,$07
+	DB $07,$06,$06,$07,$03,$03,$03,$03
+	DB $a8,$f8,$f8,$e8,$b8,$88,$70,$80
+	DB $c0,$e0,$e0,$00,$c0,$00,$c0,$e0
+	; 
+	; 	BITMAP "................"
+	; 	BITMAP "....X.X.X......."
+	; 	BITMAP "....XXXXX.X....."
+	; 	BITMAP "....XXXXXX......"
+	; 	BITMAP "....X.XXXXX....."
+	; 	BITMAP "....XXX.XX......"
+	; 	BITMAP "....X...XXX....."
+	; 	BITMAP ".....XXX.XXXX..."
+	; 	BITMAP "........XXX.XX.."
+	; 	BITMAP "...XXX.XXXX..XX."
+	; 	BITMAP "...XXX.XXXX.XXX."
+	; 	BITMAP "..........X.XXX."
+	; 	BITMAP "......XXXX......"
+	; 	BITMAP "...XXXXX.XXX...."
+	; 	BITMAP "..XXXXX..XXX...."
+	; 	BITMAP "........XXXX...."
+	DB $00,$0a,$0f,$0f,$0b,$0e,$08,$07
+	DB $00,$1d,$1d,$00,$03,$1f,$3e,$00
+	DB $00,$80,$a0,$c0,$e0,$c0,$e0,$78
+	DB $ec,$e6,$ee,$2e,$c0,$70,$70,$f0
+	; 
+	; 	BITMAP "...X.X.X........"
+	; 	BITMAP "...XXXXX.X......"
+	; 	BITMAP "...XXXXXX......."
+	; 	BITMAP "...X.XXXXX......"
+	; 	BITMAP "...XXX.XX......."
+	; 	BITMAP "...X...XXX......"
+	; 	BITMAP "....XXX.XX......"
+	; 	BITMAP ".......XXXX....."
+	; 	BITMAP "......XXXXX....."
+	; 	BITMAP ".....XXX.XX....."
+	; 	BITMAP ".....XXX.XX....."
+	; 	BITMAP "........XXX....."
+	; 	BITMAP "......XXXX......"
+	; 	BITMAP "........XX......"
+	; 	BITMAP "......XXXX......"
+	; 	BITMAP ".....XXXXX......"
+	DB $15,$1f,$1f,$17,$1d,$11,$0e,$01
+	DB $03,$07,$07,$00,$03,$00,$03,$07
+	DB $00,$40,$80,$c0,$80,$c0,$c0,$e0
+	DB $e0,$60,$60,$e0,$c0,$c0,$c0,$c0
+	; 
+	; 	BITMAP "....X.X.X.X....."
+	; 	BITMAP ".....XXXXX......"
+	; 	BITMAP "....XXXXXXX....."
+	; 	BITMAP "....XXXXXXX....."
+	; 	BITMAP ".....XXXXX..XXX."
+	; 	BITMAP ".....XXXXX..XXX."
+	; 	BITMAP "......XXX..XX..."
+	; 	BITMAP "....XX...XXX...."
+	; 	BITMAP "...XX.XXXX......"
+	; 	BITMAP ".XXX............"
+	; 	BITMAP ".XXX..XXXX......"
+	; 	BITMAP "......X..XX....."
+	; 	BITMAP ".....XX...XXX..."
+	; 	BITMAP ".....XX...XXXX.."
+	; 	BITMAP "...XXXX........."
+	; 	BITMAP "..XXXXX........."
+	DB $0a,$07,$0f,$0f,$07,$07,$03,$0c
+	DB $1b,$70,$73,$02,$06,$06,$1e,$3e
+	DB $a0,$c0,$e0,$e0,$ce,$ce,$98,$70
+	DB $c0,$00,$c0,$60,$38,$3c,$00,$00
+	; 
+	; 
+	; 	BITMAP ".....X.X.X.X...."
+	; 	BITMAP "......XXXXX....."
+	; 	BITMAP ".....XXXXXXX...."
+	; 	BITMAP ".....XXXXXXX...."
+	; 	BITMAP ".XXX..XXXXX....."
+	; 	BITMAP ".XXX..XXXXX....."
+	; 	BITMAP "...XX..XXX......"
+	; 	BITMAP "....XXX...XX...."
+	; 	BITMAP "......XXXX.XX..."
+	; 	BITMAP "............XXX."
+	; 	BITMAP "......XXXX..XXX."
+	; 	BITMAP ".....XX..X......"
+	; 	BITMAP "...XXX...XX....."
+	; 	BITMAP "..XXX....XX....."
+	; 	BITMAP ".........XXXX..."
+	; 	BITMAP ".........XXXXX.."
+	DB $05,$03,$07,$07,$73,$73,$19,$0e
+	DB $03,$00,$03,$06,$1c,$38,$00,$00
+	DB $50,$e0,$f0,$f0,$e0,$e0,$c0,$30
+	DB $d8,$0e,$ce,$40,$60,$60,$78,$7c
+	; 
+	; 	BITMAP "...XX.XX........"
+	; 	BITMAP "..X.XX.X........"
+	; 	BITMAP "..X.XX.X........"
+	; 	BITMAP "..XX.XX........."
+	; 	BITMAP "...XXXXX........"
+	; 	BITMAP ".XXXXX.XX......."
+	; 	BITMAP "X..XX.XXX......."
+	; 	BITMAP "......XXX.....X."
+	; 	BITMAP "....XXXX......X."
+	; 	BITMAP "...XXXXX.....XX."
+	; 	BITMAP "..XXXXX......XX."
+	; 	BITMAP "..XXXX......XXX."
+	; 	BITMAP "..XXXX..XX..XX.."
+	; 	BITMAP "..XXXXXXXXX.XX.."
+	; 	BITMAP "...XXXXXXXXXXX.."
+	; 	BITMAP "....XXXX..XXX..."
+	DB $1b,$2d,$2d,$36,$1f,$7d,$9b,$03
+	DB $0f,$1f,$3e,$3c,$3c,$3f,$1f,$0f
+	DB $00,$00,$00,$00,$00,$80,$80,$82
+	DB $02,$06,$06,$0e,$cc,$ec,$fc,$38
+	; 
+	; 	BITMAP "................"
+	; 	BITMAP "....XX.XX......."
+	; 	BITMAP "...X.XX.X......."
+	; 	BITMAP "...X.XX.X......."
+	; 	BITMAP "...XX.XX........"
+	; 	BITMAP "....XXXXX......."
+	; 	BITMAP "...XXXX.XX......"
+	; 	BITMAP ".X.XXX.XXX......"
+	; 	BITMAP ".XX....XXX......"
+	; 	BITMAP "....XXXXX....X.."
+	; 	BITMAP "...XXXXX....XX.."
+	; 	BITMAP "...XXXX.XX..XX.."
+	; 	BITMAP "...XXXX.XX.XX..."
+	; 	BITMAP "...XXXXXXXXXX..."
+	; 	BITMAP "....XXXXX.XXX..."
+	; 	BITMAP ".....XXX..XX...."
+	DB $00,$0d,$16,$16,$1b,$0f,$1e,$5d
+	DB $61,$0f,$1f,$1e,$1e,$1f,$0f,$07
+	DB $00,$80,$80,$80,$00,$80,$c0,$c0
+	DB $c0,$84,$0c,$cc,$d8,$f8,$b8,$30
+	; 
+	; 	BITMAP "........XX.XX..."
+	; 	BITMAP "........X.XX.X.."
+	; 	BITMAP "........X.XX.X.."
+	; 	BITMAP ".........XX.XX.."
+	; 	BITMAP "........XXXXX..."
+	; 	BITMAP ".......XX.XXXXX."
+	; 	BITMAP ".......XXX.XX..X"
+	; 	BITMAP ".X.....XXX......"
+	; 	BITMAP ".X......XXXX...."
+	; 	BITMAP ".XX.....XXXXX..."
+	; 	BITMAP ".XX......XXXXX.."
+	; 	BITMAP ".XXX......XXXX.."
+	; 	BITMAP "..XX..XX..XXXX.."
+	; 	BITMAP "..XX.XXXXXXXXX.."
+	; 	BITMAP "..XXXXXXXXXXX..."
+	; 	BITMAP "...XXX..XXXX...."
+	DB $00,$00,$00,$00,$00,$01,$01,$41
+	DB $40,$60,$60,$70,$33,$37,$3f,$1c
+	DB $d8,$b4,$b4,$6c,$f8,$be,$d9,$c0
+	DB $f0,$f8,$7c,$3c,$3c,$fc,$f8,$f0
+	; 
+	; 	BITMAP "................"
+	; 	BITMAP ".......XX.XX...."
+	; 	BITMAP ".......X.XX.X..."
+	; 	BITMAP ".......X.XX.X..."
+	; 	BITMAP "........XX.XX..."
+	; 	BITMAP ".......XXXXX...."
+	; 	BITMAP "......XX.XXXX..."
+	; 	BITMAP "......XXX.XXX.X."
+	; 	BITMAP "......XXX....XX."
+	; 	BITMAP "..X....XXXXX...."
+	; 	BITMAP "..XX....XXXXX..."
+	; 	BITMAP "..XX..XX.XXXX..."
+	; 	BITMAP "...XX.XX.XXXX..."
+	; 	BITMAP "...XXXXXXXXXX..."
+	; 	BITMAP "...XXX.XXXXX...."
+	; 	BITMAP "....XX..XXX....."
+	DB $00,$01,$01,$01,$00,$01,$03,$03
+	DB $03,$21,$30,$33,$1b,$1f,$1d,$0c
+	DB $00,$b0,$68,$68,$d8,$f0,$78,$ba
+	DB $86,$f0,$f8,$78,$78,$f8,$f0,$e0
+	; 
+	; start_song:	PROCEDURE
+cvb_START_SONG:
+	; 	tick_note = 8
+	LD A,8
+	LD (cvb_TICK_NOTE),A
+	; 	song_note = 47
+	LD A,47
+	LD (cvb_SONG_NOTE),A
+	; 	END
+	RET
+	; 
+	; play_song:	PROCEDURE
+cvb_PLAY_SONG:
+	; 	tick_note = tick_note + 1.
+	LD A,(cvb_TICK_NOTE)
+	INC A
+	LD (cvb_TICK_NOTE),A
+	; 	IF tick_note = 16. THEN
+	CP 16
+	JP NZ,cv73
+	; 		tick_note = 0.
+	SUB A
+	LD (cvb_TICK_NOTE),A
+	; 		song_note = song_note + 1.
+	LD A,(cvb_SONG_NOTE)
+	INC A
+	LD (cvb_SONG_NOTE),A
+	; 		IF song_note = 48. THEN song_note = 0.
+	CP 48
+	JP NZ,cv74
+	SUB A
+	LD (cvb_SONG_NOTE),A
+cv74:
+	; 		note = song_notes(song_note)
+	LD HL,(cvb_SONG_NOTE)
+	LD H,0
+	LD DE,cvb_SONG_NOTES
+	ADD HL,DE
+	LD A,(HL)
+	LD (cvb_NOTE),A
+	; 		SOUND 0, #note_freq(note - 1)
+	LD HL,(cvb_NOTE)
+	LD H,0
+	DEC HL
+	ADD HL,HL
+	LD DE,cvb_#NOTE_FREQ
+	ADD HL,DE
+	LD A,(HL)
+	INC HL
+	LD H,(HL)
+	LD L,A
+	LD A,$80
+	CALL sn76489_freq
+	; 	END IF
+cv73:
+	; 	SOUND 0, , volume_effect(tick_note)
+	LD HL,(cvb_TICK_NOTE)
+	LD H,0
+	LD DE,cvb_VOLUME_EFFECT
+	ADD HL,DE
+	LD A,(HL)
+	LD B,$90
+	CALL sn76489_vol
+	; 	END
+	RET
+	; 
+	; sound_off:	PROCEDURE
+cvb_SOUND_OFF:
+	; 	SOUND 0,,0
+	SUB A
+	LD B,$90
+	CALL sn76489_vol
+	; 	SOUND 1,,0
+	SUB A
+	LD B,$b0
+	CALL sn76489_vol
+	; 	SOUND 2,,0
+	SUB A
+	LD B,$d0
+	CALL sn76489_vol
+	; 	SOUND 3,,0
+	SUB A
+	LD B,$f0
+	CALL sn76489_vol
+	; 	END
+	RET
+	; 
+	; volume_effect:
+cvb_VOLUME_EFFECT:
+	; 	DATA BYTE 11,12,13,12,12,11,11,10
+	DB $0b,$0c,$0d,$0c,$0c,$0b,$0b,$0a
+	; 	DATA BYTE 10,9,9,10,10,9,9,8
+	DB $0a,$09,$09,$0a,$0a,$09,$09,$08
+	; 
+	; song_notes:
+cvb_SONG_NOTES:
+	; 	DATA BYTE 1,2,3,4,5,4,3,2
+	DB $01,$02,$03,$04,$05,$04,$03,$02
+	; 	DATA BYTE 1,2,3,4,5,4,3,2
+	DB $01,$02,$03,$04,$05,$04,$03,$02
+	; 	DATA BYTE 6,4,7,8,9,8,7,4
+	DB $06,$04,$07,$08,$09,$08,$07,$04
+	; 	DATA BYTE 6,4,7,8,9,8,7,4
+	DB $06,$04,$07,$08,$09,$08,$07,$04
+	; 	DATA BYTE 3,12,8,10,11,10,8,12
+	DB $03,$0c,$08,$0a,$0b,$0a,$08,$0c
+	; 	DATA BYTE 6,4,7,8,9,8,7,4
+	DB $06,$04,$07,$08,$09,$08,$07,$04
+	; 
+	; #note_freq:
+cvb_#NOTE_FREQ:
+	; 	DATA $01AC
+	DW $01ac
+	; 	DATA $0153
+	DW $0153
+	; 	DATA $011D
+	DW $011d
+	; 	DATA $00FE
+	DW $00fe
+	; 	DATA $00F0
+	DW $00f0
+	; 	DATA $0140
+	DW $0140
+	; 	DATA $00D6
+	DW $00d6
+	; 	DATA $00BE
+	DW $00be
+	; 	DATA $00B4
+	DW $00b4
+	; 	DATA $00AA
+	DW $00aa
+	; 	DATA $00A0
+	DW $00a0
+	; 	DATA $00E2
+	DW $00e2
+	;
+	; CVBasic epilogue (BASIC compiler for Colecovision)
+	;
+	; by Oscar Toledo G.
+	; https://nanochess.org/
+	;
+	; Creation date: Feb/27/2024.
+	; Revision date: Feb/29/2024. Added joystick, keypad, frame, random, and
+	;                             read_pointer variables.
+	; Revision date: Mar/04/2024. Added music player.
+	; Revision date: Mar/05/2024. Added support for Sega SG1000.
+	; Revision date: Mar/12/2024. Added support for MSX.
+	; Revision date: Mar/13/2024. Added Pletter decompressor.
+	; Revision date: Mar/19/2024. Added support for sprite flicker.
+	; Revision date: Apr/11/2024. Added support for Super Game Module.
+	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
+	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
+	;                             can remain accessible in bank 0 (bank switching).
+	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
+	;
+
+rom_end:
+
+    if MEMOTECH
+	; Align following data to a 256-byte page.
+        TIMES $100-($&$ff) DB $4f
+    else
+	org BASE_RAM
+    endif
+ram_start:
+
+sprites:
+	rb 128
+sprite_data:
+	rb 4
+frame:
+	rb 2
+read_pointer:
+	rb 2
+cursor:
+	rb 2
+lfsr:
+	rb 2
+mode:
+	rb 1
+flicker:
+	rb 1
+joy1_data:
+	rb 1
+joy2_data:
+	rb 1
+key1_data:
+	rb 1
+key2_data:
+	rb 1
+ntsc:
+	rb 1
+
+    if CVBASIC_MUSIC_PLAYER
+music_tick:             rb 1
+music_mode:             rb 1
+
+    if CVBASIC_BANK_SWITCHING
+music_bank:             rb 1
+    endif
+music_start:		rb 2
+music_pointer:		rb 2
+music_playing:		rb 1
+music_timing:		rb 1
+music_note_counter:	rb 1
+music_instrument_1:	rb 1
+music_counter_1:	rb 1
+music_note_1:		rb 1
+music_instrument_2:	rb 1
+music_counter_2:	rb 1
+music_note_2:		rb 1
+music_instrument_3:	rb 1
+music_counter_3:	rb 1
+music_note_3:		rb 1
+music_counter_4:	rb 1
+music_drum:		rb 1
+
+audio_freq1:		rb 2
+audio_freq2:		rb 2
+audio_freq3:		rb 2
+audio_noise:		rb 1
+audio_mix:		rb 1
+audio_vol1:		rb 1
+audio_vol2:		rb 1
+audio_vol3:		rb 1
+
+audio_control:		rb 1
+audio_vol4hw:		rb 1
+    endif
+
+    if SGM
+	org $2000	; Start for variables.
+    endif
+cvb_Y_ENEMY1:	rb 1
+cvb_Y_ENEMY2:	rb 1
+cvb_Y_ENEMY3:	rb 1
+cvb_C:	rb 1
+cvb_D:	rb 1
+cvb_E:	rb 1
+cvb_PLAYER_FRAME:	rb 1
+cvb_TICK_NOTE:	rb 1
+cvb_LIVES:	rb 1
+cvb_LEVEL:	rb 1
+cvb_ENEMY1_FRAME:	rb 1
+cvb_COLUMN:	rb 1
+cvb_ENEMY_SPEED:	rb 1
+cvb_SONG_NOTE:	rb 1
+cvb_ENEMY2_FRAME:	rb 1
+cvb_#C:	rb 2
+cvb_#D:	rb 2
+cvb_BASE_CHARACTER:	rb 1
+cvb_X_PLAYER:	rb 1
+cvb_ENEMY3_FRAME:	rb 1
+cvb_X_ENEMY1:	rb 1
+cvb_X_ENEMY2:	rb 1
+cvb_X_ENEMY3:	rb 1
+cvb_NOTE:	rb 1
+cvb_LADDERS:	rb 1
+cvb_ROW:	rb 1
+cvb_Y_PLAYER:	rb 1
+ram_end:

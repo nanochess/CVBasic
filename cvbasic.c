@@ -42,6 +42,7 @@ static enum {
     SORD,
     MEMOTECH,
     CREATIVISION,
+    PENCIL,
     TOTAL_TARGETS
 } machine;
 
@@ -63,7 +64,7 @@ static struct console {
     enum cpu_target target;
 } consoles[TOTAL_TARGETS] = {
     /*  RAM   STACK    Size  VDP R   VDP W  PSG */
-    {"coleco",  "",         "Standard Colecovision (1K RAM)",
+    {"colecovision","",     "Standard Colecovision (1K RAM)",
         0x7000, 0x7400, 0x0400,  0xbe,   0xbe, 0xff, CPU_Z80},
     {"sg1000",  "",         "Sega SG-1000 (1K RAM)",
         0xc000, 0xc400, 0x0400,  0xbe,   0xbe, 0x7f, CPU_Z80},
@@ -79,6 +80,8 @@ static struct console {
         0,      0xa000, 0,       0x01,   0x01, 0x06, CPU_Z80},
     {"creativision","",     "Vtech Creativision (Dick Smith's Wizzard), 6502 with 1K of RAM.",
         0x0050, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
+    {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
+        0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, CPU_Z80},
 };
 
 static int err_code;
@@ -4940,6 +4943,7 @@ int main(int argc, char *argv[])
     struct tm *date;
     int extra_ram;
     int cpm_option;
+    int pencil;
     
     actual = time(0);
     date = localtime(&actual);
@@ -4964,6 +4968,8 @@ int main(int argc, char *argv[])
         }
         fprintf(stderr, "\n");
         fprintf(stderr, "    By default, it will generate assembler files for Colecovision.\n");
+        fprintf(stderr, "    The library_path argument is optional so you can provide a\n");
+        fprintf(stderr, "    path where the prologue and epilogue files are available.\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
@@ -5001,6 +5007,13 @@ int main(int argc, char *argv[])
     } else {
         machine = COLECOVISION;
         target = CPU_Z80;
+    }
+    if (machine == PENCIL) {
+        machine = COLECOVISION;
+        target = CPU_Z80;
+        pencil = 1;
+    } else {
+        pencil = 0;
     }
     
     /*
@@ -5104,6 +5117,7 @@ int main(int argc, char *argv[])
     fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
     fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
     fprintf(output, "CPM:\tequ %d\n", cpm_option);
+    fprintf(output, "PENCIL:\tequ %d\n", pencil);
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
