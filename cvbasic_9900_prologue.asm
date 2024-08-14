@@ -26,6 +26,9 @@
 * CVBasic variables in scratchpad.
 *
 
+* TODO: Concern - changing the endianess of 16-bit values from little to big,
+* does anything break? Ideally not if I'm careful...
+
 * This is a block of 8 bytes that should stay together.
 * TODO: check if we need these
 temp		equ >8300
@@ -50,10 +53,10 @@ joy2_data	equ >8315
 key1_data	equ >8316
 key2_data	equ >8317
 frame		equ >8318       * word
-lfsr		equ >831A       * word
+lfsr		equ >831A       * word MUST BE EVEN ALIGNED
 mode        equ >831C
 flicker	    equ >831D
-sprite_data	equ >831E       * 2 words
+sprite_data	equ >831E       * 2 words MUST BE EVEN ALIGNED
 ntsc		equ >8322
 pletter_bit	equ >8323
 
@@ -134,7 +137,7 @@ gplwsr14            equ >83fc   * GPL WS R14 - flags used to detect cassette - m
 * TODO: we can probably reduce the workspace usage, but we might still want
 * to look at variables in VDP when not using the 32k option.
 
-* TODO: find 128 bytes for the sprite buffer
+* TODO: find 128 bytes for the sprite buffer - MUST BE EVEN ALIGNED
 sprites	equ $0180
 
 * Some hardware equates
@@ -408,7 +411,7 @@ define_sprite
 * Note this loads the pattern three times if in bitmap mode (MODE&0x04)
 * Pattern table at >0000
 define_char
-    mov r11,r4          * save return
+    mov r11,r8          * save return
     sla r0,3            * char number times 8 (VDP base is 0, so already there)
     sla r3,3            * count times 8
     mov @mode,r5        * get mode flags
@@ -418,576 +421,357 @@ define_char
     limi 0              * ints off
     bl @LDIRVM3         * do the triple copy
     limi 2              * ints on
-    b *r4               * back to caller
+    b *r8               * back to caller
 
 .1
     limi 0              * ints off
     bl @LDIRVM          * do the single copy
     limi 2              * ints on
-    b *r4               * back to caller
+    b *r8               * back to caller
 
 * Load bitmap color definitions: Char number in R0, CPU data in R2, count in R3
 * Original: pointer = char number, temp = CPU address, a = number chars
 * Note: always does the triple copy. Color table at >2000
 define_color
-    mov r11,r4          * save return
+    mov r11,r8          * save return
     sla r0,3            * char number times 8
     ai r0,>2000         * add base address
     sla r3,3            * count times 8
     limi 0              * ints off
     bl @LDIRVM3         * do the triple copy
     limi 2              * ints on
-    b *r4               * back to caller
+    b *r8               * back to caller
 
-*************************************************
-
+* Update sprite entry - copy sprite_data (4 bytes) to sprite table mirror at sprites
+* R0 = sprite number
+* Original: A = sprite number
 update_sprite
-    ASL A
-    ASL A
-    ORA #$80
-    STA pointer
-    LDA #$01
-    STA pointer+1
-    LDY #0
-    LDA sprite_data+0
-    STA (pointer),Y
-    INY
-    LDA sprite_data+1
-    STA (pointer),Y
-    INY
-    LDA sprite_data+2
-    STA (pointer),Y
-    INY
-    LDA sprite_data+3
-    STA (pointer),Y
-    RTS
+    sla r0,2            * x4 for address
+    ai r0,sprites       * sprite mirror address
+    li r2,sprite_data   * single sprite data
+    mov *r2+,*r0+       * move two bytes (must be aligned)
+    mov *r2,*r0         * move second two bytes
+    b *r11
 
-_abs16
-    PHA
-    TYA
-    BPL _neg16.1
-    PLA
-_neg16
-    EOR #$FF
-    CLC
-    ADC #1
-    PHA
-    TYA
-    EOR #$FF
-    ADC #0
-    TAY
-.1
-    PLA
-    RTS
+* ABS R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
+*_abs16
 
+* NEG R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
+*_neg16
+
+* SGN R0 - return 1, -1 or 0 as 16 bit
 _sgn16
-    STY temp
-    ORA temp
-    BEQ .1
-    TYA
-    BMI .2
-    LDA #0
-    TAY
-    LDA #1
-    RTS
-
-.2	LDA #$FF
-.1	TAY
-    RTS
-
-_read16
-    JSR _read8
-    PHA
-    JSR _read8
-    TAY
-    PLA
-    RTS
-
-_read8
-    LDY #0
-    LDA (read_pointer),Y
-    INC read_pointer
-    BNE .1
-    INC read_pointer+1
+    mov r0,r0       * check for zero
+    jeq .1          * if yes, we're done
+    andi r0,>8000   * check for negative
+    jeq .2          * was not
+    seto r0         * was negative, make it -1
+    b *r11          * back to caller
+.2
+    inc r0          * we know it was zero, and we want 1
 .1
-    RTS
+    b *r11          * back to caller
 
-_peek8
-    STA pointer
-    STY pointer+1
-    LDY #0
-    LDA (pointer),Y
-    RTS
+* Read 16 bits from read_pointer into r0, see if we can inline it - TODO (YYAA)
+* Used to call read8 twice, but I don't know where that is
+*_read16
 
-_peek16
-    STA pointer
-    STY pointer+1
-    LDY #0
-    LDA (pointer),Y
-    PHA
-    INY
-    LDA (pointer),Y
-    TAY
-    PLA
-    RTS
+* Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA)
+*_peek8
 
-    * temp2 constains left side (dividend)
-    * temp contains right side (divisor)
+* Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA -> YYAA)
+*_peek16
 
-    * 16-bit multiplication.
-_mul16
-    PLA
-    STA result
-    PLA
-    STA result+1
-    PLA
-    STA temp2+1
-    PLA
-    STA temp2
-    LDA result+1
-    PHA
-    LDA result
-    PHA
-    LDA #0
-    STA result
-    STA result+1
-    LDX #15
-.1
-    LSR temp2+1
-    ROR temp2
-    BCC .2
-    LDA result
-    CLC
-    ADC temp
-    STA result
-    LDA result+1
-    ADC temp+1
-    STA result+1
-.2	ASL temp
-    ROL temp+1
-    DEX
-    BPL .1
-    LDA result
-    LDY result+1
-    RTS
+* 16 bit multiply = temp2*temp - see if we can inline it - TODO (stack*stack -> YYAA)  
+*_mul16
 
-    * 16-bit signed modulo.
+* 16-bit signed modulo. R3 % R0 = R0 - 9900 doesn't do signed divide
+* original was stack%stack=YYAA
+* Remainder is negative if the dividend was negative
 _mod16s
-    PLA
-    STA result
-    PLA
-    STA result+1
-    PLA
-    STA temp2+1
-    PLA
-    STA temp2
-    LDA result+1
-    PHA
-    LDA result
-    PHA
-    LDY temp2+1
-    PHP
-    BPL .1
-    LDA temp2
-    JSR _neg16
-    STA temp2
-    STY temp2+1
-.1
-    LDY temp+1
-    BPL .2
-    LDA temp
-    JSR _neg16
-    STA temp
-    STY temp+1
-.2
-    JSR _mod16.1
-    PLP
-    BPL .3
-    JSR _neg16
-.3
-    RTS
+    clr r2          * make dividend 32-bit
+    mov r0,r0       * check divisor for zero
+    jne .1          * continue if not
 
-    * 16-bit signed division.
+    clr r0          * result is zero
+    b *r11          * return
+
+.1
+    abs r0          * make sure divisor is positive
+    mov r3,r3       * check sign of dividend
+    jgt .2          * go do the faster positive version
+
+    abs r3          * was negative, make it positive
+    div r0,r2       * do the division => r2=quotient, r3=remainder
+    neg r3          * make remainder negative
+    mov r3,r0       * into r0
+    b *r11
+
+.2
+    div r0,r2       * do the division => r2=quotient, r3=remainder
+    mov r3,r0       * into r0
+    b *r11
+
+* 16-bit signed modulo. R3 % R0 = R0 - 9900 doesn't do signed divide
+* original was stack/stack=YYAA
+* Remainder is negative if the signs differ
 _div16s
-    PLA
-    STA result
-    PLA
-    STA result+1
-    PLA
-    STA temp2+1
-    PLA
-    STA temp2
-    LDA result+1
-    PHA
-    LDA result
-    PHA
-    LDA temp+1
-    EOR temp2+1
-    PHP
-    LDY temp2+1
-    BPL .1
-    LDA temp2
-    JSR _neg16
-    STA temp2
-    STY temp2+1
-.1
-    LDY temp+1
-    BPL .2
-    LDA temp
-    JSR _neg16
-    STA temp
-    STY temp+1
-.2
-    JSR _div16.1
-    PLP
-    BPL .3
-    JSR _neg16
-.3
-    RTS
+    mov r0,r0       * check divisor for zero
+    jne .1          * continue if not
 
-_div16
-    PLA
-    STA result
-    PLA
-    STA result+1
-    PLA
-    STA temp2+1
-    PLA
-    STA temp2
-    LDA result+1
-    PHA
-    LDA result
-    PHA
-.1
-    LDA #0
-    STA result
-    STA result+1
-    LDX #15
-.2
-    ROL temp2
-    ROL temp2+1
-    ROL result
-    ROL result+1
-    LDA result
-    SEC
-    SBC temp
-    STA result
-    LDA result+1
-    SBC temp+1
-    STA result+1
-    BCS .3
-    LDA result
-    ADC temp
-    STA result
-    LDA result+1
-    ADC temp+1
-    STA result+1
-    CLC
-.3
-    DEX
-    BPL .2
-    ROL temp2
-    ROL temp2+1
-    LDA temp2
-    LDY temp2+1
-    RTS
+    clr r0          * result is zero (maybe should be max_int?)
+    b *r11          * return
 
-_mod16
-    PLA
-    STA result
-    PLA
-    STA result+1
-    PLA
-    STA temp2+1
-    PLA
-    STA temp2
-    LDA result+1
-    PHA
-    LDA result
-    PHA
 .1
-    LDA #0
-    STA result
-    STA result+1
-    LDX #15
-.2
-    ROL temp2
-    ROL temp2+1
-    ROL result
-    ROL result+1
-    LDA result
-    SEC
-    SBC temp
-    STA result
-    LDA result+1
-    SBC temp+1
-    STA result+1
-    BCS .3
-    LDA result
-    ADC temp
-    STA result
-    LDA result+1
-    ADC temp+1
-    STA result+1
-    CLC
-.3
-    DEX
-    BPL .2
-    LDA result
-    LDY result+1
-    RTS
+    mov r0,r4       * make working copies
+    mov r3,r5
+    andi r4,>8000   * mask out sign bit
+    andi r5,>8000
+    abs r0
+    abs r3          * might as well make them positive now that we have copies
+    clr r2          * make dividend 32-bit
+    div r0,r2       * do the divide => r2=quotient, r3=remainder
+    c r4,r5         * compare the original sign bits
+    jeq .2          * skip ahead to positive version
 
-    * Random number generator.
-    * From my game Mecha Eight.
+    neg r2          * negate the result
+.2
+    mov r2,r0       * move to return
+    b *r11
+
+* unsigned 16-bit div - see if we can do this inline (TODO)
+* original was stack/stack=YYAA
+*_div16
+
+* unsigned 16-bit mod - see if we can do this inline (TODO)
+* original was stack%stack=YYAA
+*_mod16
+
+* Random number generator - return in R0
+* Original output into YYAA
+* TODO: Not 100% sure I ported this one right... probably could be simpler with 16-bit manips...
 random
-    LDA lfsr
-    ORA lfsr+1
-    BNE .0
-    LDA #$11
-    STA lfsr
-    LDA #$78
-    STA lfsr+1
-.0	LDA lfsr+1
-    ROR A
-    ROR A
-    ROR A
-    EOR lfsr+1
-    STA temp
-    LDA lfsr+1
-    ROR A
-    ROR A
-    EOR temp
-    STA temp
-    LDA lfsr
-    ASL A
-    ASL A
-    EOR temp
-    AND #$80
-    ROL A
-    ROR lfsr+1
-    ROR lfsr
-    LDA lfsr
-    LDY lfsr+1
-    RTS
+    mov @lfsr,r0        * fetch current state
+    jne .0
+    li r0,>7811         * reset value if zero
+    mov r0,@lfsr
+.0
+    movb @lfsr+1,r0
+    movb @mywp,@mywp+1  * trick, copy msb to lsb (so the 16-bit rotate works)
+    mov r0,r3           * we use this again
+    src r0,2            * circular rotate twice (rotates directly like z80)
+    xor @lfsr+1,r0      * because of 16 bit addressing, only the LSB is correct
+    movb @mywp+1,@mywp  * fix up - copy LSB to MSB
+    mov r0,r2           * save it (temp)
+    src r3,1            * rotate the second read once
+    xor r3,r2           * xor into the temp copy
+    movb @lfsr,r0       * get the lsb
+    sla r0,2            * just a straight shift
+    xor r2,r0           * xor the temp copy in (both bytes of r2 were valid)
+    andi r0,>8000       * mask out just the msb
+    mov @lfsr,r2        * get word for shifting
+    srl r2,1            * shift once
+    socb r0,r2          * merge in the msb we just generated
+    mov r2,@lfsr        * write it back
+    mov r2,r0           * for return
+    b *r11
 
+
+* Set SN Frequency: R0=freqency code, R2=channel command (MSB)
+* Original: A=least significant byte  X=channel command  Y=most significant byte
 sn76489_freq
-    STA temp
-    STY temp+1
-    STX temp2
-    AND #$0f
-    ORA temp2
-    JSR BIOS_WRITE_PSG
-    LDA temp+1
-    ASL temp
-    ROL A
-    ASL temp
-    ROL A
-    ASL temp
-    ROL A
-    ASL temp
-    ROL A
-    AND #$3f	
-    JMP BIOS_WRITE_PSG
-    
+    mov r0,r3
+    andi r3,>000f
+    swpb r3
+    socb r3,r2
+    movb r2,@SOUND  * cmd and least significant nibble
+    srl r0,4
+    andi r0,>003f
+    swpb r0
+    movb r0,@SOUND  * most significant byte
+    b *r11
+
+* Set SN volume: R0=volume (MSB, inverse of attenuation), R2=channel command (MSB)
+* Original: A=volume (inverse of attenuation), X=channel command
 sn76489_vol
-    STX temp2
-    EOR #$ff
-    AND #$0f
-    ORA temp2
-    JMP BIOS_WRITE_PSG
+    inv r0
+    andi r0,>0f00
+    socb r2,r0
+    movb r0,@SOUND
+    b *r11
 
+* Set noise type: R0=Noise type (MSB)
+* original: A=noise command
 sn76489_control
-    AND #$0f
-    ORA #$e0
-    JMP BIOS_WRITE_PSG
+    andi r0,>0f00
+    ori r0,>e000
+    movb r0,@SOUND
+    b *r11
 
+* Set up vdp generic settings - R0 should be preloaded with a register in MSB, data in LSB
+* R2 should contain the color table entry (in MSB), R3 the bitmap table (in MSB). Rest is
+* hard coded. WARNING: Disables interrupts but does not re-enable them.
 vdp_generic_mode
-    SEI
-    JSR WRTVDP
-    LDA #$A2
-    LDX #$01
-    JSR WRTVDP
-    LDA #$06	* $1800 for pattern table.
-    LDX #$02
-    JSR WRTVDP
-    LDA temp
-    LDX #$03	* for color table.
-    JSR WRTVDP
-    LDA temp+1
-    LDX #$04	* for bitmap table.
-    JSR WRTVDP
-    LDA #$36	* $1b00 for sprite attribute table.
-    LDX #$05
-    JSR WRTVDP
-    LDA #$07	* $3800 for sprites bitmaps.
-    LDX #$06
-    JSR WRTVDP
-    LDA #$01
-    LDX #$07
-    JMP WRTVDP
+    mov r11,r4      * save return
+    limi 0          * ints off
 
+    bl @WRTVDP      * caller must set up this one
+    li r0,>01a2     * VDP mode, screen off
+    bl @WRTVDP
+    li r0,>0206     * >1800 pattern table
+    bl @WRTVDP
+    li r0,>0003     * for color table
+    socb r2,r0
+    swpb r0
+    bl @WRTVDP
+    li r0,>0004     * for pattern table
+    socb r3,r0
+    swpb r0
+    bl @WRTVDP
+    li r0,>0536     * >1b00 for sprite attribute table
+    bl @WRTVDP
+    li r0,>0607     * >3800 for sprite pattern table
+    bl @WRTVDP
+    li r0,>0701     * default screen color
+    bl @WRTVDP
+    b *r4
+
+* set up VDP mode 0
 mode_0
-    LDA mode
-    AND #$FB
-    STA mode
-    LDA #$ff	* $2000 for color table.
-    STA temp
-    LDA #$03	* $0000 for bitmaps
-    STA temp+1
-    LDA #$02
-    LDX #$00
-    JSR vdp_generic_mode
-    LDA #font_bitmaps
-    LDY #font_bitmaps>>8
-    STA temp
-    STY temp+1
-    LDA #$00
-    STA pointer
-    STA temp2
-    LDA #$01
-    STA pointer+1
-    LDA #$03
-    STA temp2+1
-    JSR LDIRVM3
-    CLI
-    SEI
-    LDA #$f0
-    STA temp
-    LDA #$00
-    STA pointer
-    STA temp2
-    LDY #$2000>>8
-    STY pointer+1
-    LDY #$1800>>8
-    STY temp2+1
-    JSR FILVRM
-    CLI
-    JSR cls
+    mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
+    li r0,>0400     * bit we want to clear
+    szcb r0,@mode
+
+    li r2,>ff00	    * $2000 for color table.
+    li r3,>0300	    * $0000 for bitmaps
+    li r0,>0002     * r0 setting
+    bl @vdp_generic_mode    * interrupts are now off
+
+    li r0,>0100     * target in VDP memory
+    li r2,font_bitmaps  * CPU memory source
+    li r3,>0300     * number of bytes
+    bl @LDIRVM3
+    
+    limi 2
+    limi 0
+
+    li r0,>2000
+    li r2,>f000
+    li r3,>1800     * fill color table with white on transparent
+    bl @FILVRM
+
+    limi 2
+    bl @cls
+    mov r8,r11      * restore return address, and fall through to vdp_generic_sprites
+
+* Initialize sprite table
 vdp_generic_sprites
-    LDA #$d1
-    STA temp
-    LDA #$00
-    STA pointer
-    STA temp2+1
-    LDY #$1b00>>8
-    STY pointer+1
-    LDA #$80
-    STA temp2
-    SEI
-    JSR FILVRM
-    LDX #$7F
-    LDA #$D1
+    mov r11,r8      * save return address
+    li r0,>1b00     * sprite attribute table in VDP
+    li r2,>d100     * off screen, and otherwise unimportant
+    li r3,128       * number of bytes
+
+    limi 0
+    bl @FILVRM
+
+    li r0,sprites
+    li r2,>d1d1     * write 2 bytes at a time
+    li r3,128
 .1
-    STA sprites,X
-    DEX
-    BPL .1
-    LDA #$E2
-    LDX #$01
-    JSR WRTVDP
-    CLI
-    RTS
+    mov r2,*r0+     * initialize CPU mirror
+    dect r3
+    jne .1
 
+    li r0,>01e2     * screen on
+    bl @WRTVDP
+
+    limi 2
+    b *r8
+
+* set up VDP mode 1
 mode_1
-    LDA mode
-    AND #$FB
-    STA mode
-    LDA #$ff	* $2000 for color table.
-    STA temp
-    LDA #$03	* $0000 for bitmaps
-    STA temp+1
-    LDA #$02
-    LDX #$00
-    JSR vdp_generic_mode
-    LDA #$00
-    STA temp
-    STA pointer
-    STA pointer+1
-    STA temp2
-    LDA #$18
-    STA temp2+1
-    JSR FILVRM
-    CLI
-    LDA #$f0
-    STA temp
-    LDA #$00
-    STA pointer
-    STA temp2
-    LDY #$2000>>8
-    STY pointer+1
-    LDY #$1800>>8
-    STY temp2+1
-    SEI
-    JSR FILVRM
-    CLI
-    LDA #$1800
-    LDY #$1800>>8
-    STA pointer
-    STY pointer+1
-.1	SEI
-    LDA pointer
-    LDY pointer+1
-    JSR SETWRT
-    LDX #32
-    LDY pointer
-.2
-    TYA		* 2
-    STA $3000	* 4
-    NOP		* 2
-    NOP		* 2
-    NOP		* 2
-    INY		* 2
-    DEX		* 2
-    BNE .2		* 2/3/4
-    CLI
-    LDA pointer
-    CLC
-    ADC #32
-    STA pointer
-    BCC .1
-    INC pointer+1
-    LDA pointer+1
-    CMP #$1B
-    BNE .1
-    JMP vdp_generic_sprites
+    mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
+    li r0,>0400     * bit we want to clear
+    szcb r0,@mode
 
+    li r2,>ff00	    * $2000 for color table.
+    li r3,>0300	    * $0000 for bitmaps
+    li r0,>0002     * r0 setting
+    bl @vdp_generic_mode    * interrupts are now off
+
+    li r0,>0000
+    li r2,>0000
+    li r3,>1800
+    bl @FILVRM      * clear pattern table
+
+    limi 2
+
+    li r0,>2000
+    li r2,>f000
+    li r3,>1800
+
+    limi 0
+    bl @FILVRM      * init color table
+    limi r2
+
+    li r0,>5800     * >1800 with the write bit set
+
+.1
+    limi 0          * write the screen image table, but pause every 32 bytes for interrupts
+
+    swpb r0
+    movb r0,@VDPWADR
+    swpb r0
+    movb r0,@VDPWADR
+
+    li r2,32
+    mov r0,r3
+    swpb r3         * address LSB, no need to mask it, we don't do any compares
+
+.2
+    movb r3,@VDPWDATA
+    ai r3,>0100
+    dec r2
+    jne .2
+
+    limi 2
+    ai r0,32
+    ci r0,>1b00
+    jl .1
+
+    mov r8,r11      * restore return address
+    b @vdp_generic_sprites
+
+* Set up VDP mode 2
 mode_2
-    LDA mode
-    AND #$FB
-    STA mode
-    LDA #$80	* $2000 for color table.
-    STA temp
-    LDA #$00	* $0000 for bitmaps
-    STA temp+1
-    LDA #$00
-    LDX #$00
-    JSR vdp_generic_mode
-    LDA #font_bitmaps
-    LDY #font_bitmaps>>8
-    STA temp
-    STY temp+1
-    LDA #$00
-    STA pointer
-    STA temp2
-    LDY #$0100>>8
-    STY pointer+1
-    LDY #$0300>>8
-    STY temp2+1
-    JSR LDIRVM
-    CLI
-    SEI
-    LDA #$f0
-    STA temp
-    LDA #$00
-    STA pointer
-    STA temp2+1
-    LDY #$2000>>8
-    STY pointer+1
-    LDA #$20
-    STA temp2
-    JSR FILVRM
-    CLI
-    JSR cls
-    JMP vdp_generic_sprites
+    mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
+    li r0,>0400     * bit we want to clear
+    szcb r0,@mode
+
+    li r2,>8000	    * $2000 for color table.
+    li r3,>0000	    * $0000 for bitmaps
+    li r0,>0000     * r0 setting
+    bl @vdp_generic_mode    * interrupts are now off
+
+    li r0,>0100
+    li r2,font_bitmaps
+    li r3,>0300
+    bl @LDIRVM      * load character set
+
+    limi 2
+    limi 0
+
+    li r0,>2000
+    li r2,>f000
+    li r3,>0020
+    bl @FILVRM      * init color table
+
+    limi 2
+    bl @cls         * clear screen
+    mov r8,r11      * restore return
+    b @vdp_generic_sprites
+
+***************************************************
 
 int_handler
     PHA
