@@ -1,6 +1,6 @@
 	; CVBasic compiler v0.6.1 Aug/08/2024
-	; Command: ./cvbasic --pencil examples/viboritas.bas viboritas.asm 
-	; Created: Thu Aug  8 14:15:21 2024
+	; Command: ./cvbasic examples/viboritas.bas viboritas.asm 
+	; Created: Thu Aug 15 16:52:17 2024
 
 COLECO:	equ 1
 SG1000:	equ 0
@@ -9,8 +9,9 @@ SGM:	equ 0
 SVI:	equ 0
 SORD:	equ 0
 MEMOTECH:	equ 0
+EINSTEIN:	equ 0
 CPM:	equ 0
-PENCIL:	equ 1
+PENCIL:	equ 0
 
 CVBASIC_MUSIC_PLAYER:	equ 0
 CVBASIC_COMPRESSION:	equ 0
@@ -53,6 +54,8 @@ PSG:	equ $ff	; PSG port (write)
 	; Revision date: Aug/01/2024. Added Sord M5 support.
 	; Revision date: Aug/02/2024. PSG label now defined by CVBasic. Added Memotech
 	;                             support.
+	; Revision date: Aug/08/2024. Added Soundic/Hanimex Pencil II support.
+	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
 	;
 
 JOYSEL:	equ $c0
@@ -158,6 +161,16 @@ null_vector:
 	ei
 	reti
     endif
+    if EINSTEIN
+	org $0100
+rom_start:
+	jp START
+	db 0,0,0,0,0
+	dw $0000
+	dw $0000
+	dw $0000
+	dw $0000
+    endif
 
     if SVI
 WRTPSG:	
@@ -173,6 +186,23 @@ RDPSG:
 	push af
 	pop af
 	in a,($90)
+	ret
+    endif
+
+    if EINSTEIN
+WRTPSG:	
+	out ($02),a
+	push af
+	ld a,e
+	out ($03),a
+	pop af
+	ret
+
+RDPSG:
+	out ($02),a
+	push af
+	pop af
+	in a,($02)
 	ret
     endif
 
@@ -251,7 +281,7 @@ LDIRVM:
     if SG1000+SORD
 	NOP	; SG1000 is faster (reported by SiRioKD)
     endif
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	NOP
 	NOP
     endif
@@ -751,6 +781,14 @@ ay3_reg:
 	out ($8c),a
 	ret
     endif
+    if EINSTEIN
+	push af
+	ld a,b
+	out ($02),a
+	pop af
+	out ($03),a
+	ret
+    endif
 
 ay3_freq:
     if COLECO
@@ -793,12 +831,27 @@ ay3_freq:
 	pop af
 	ret
     endif
+    if EINSTEIN
+	out ($02),a
+	push af
+	ld a,l
+	out ($03),a
+	pop af
+	inc a
+	out ($02),a
+	push af
+	ld a,h
+	and $0f
+	out ($03),a
+	pop af
+	ret
+    endif
 
-    if SG1000+SVI+SORD+MEMOTECH
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN
 	; Required for SG1000 as it doesn't have a BIOS
 	; Required for SVI because we don't have access to BIOS in cartridge.
 	; Required for Sord M5 because it doesn't provide an ASCII charset.
-	;
+	; Required for Memotech/Einstein because CP/M uses the memory.
         ; My personal font for TMS9928.
         ;
         ; Patterned after the TMS9928 programming manual 6x8 letters
@@ -939,7 +992,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1019,7 +1072,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1127,7 +1180,7 @@ nmi_handler:
 	call SETWRT
 	ld hl,sprites
 .7:
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	nop
 	nop
     endif
@@ -1160,7 +1213,7 @@ nmi_handler:
     endif
 	outi
 	jp $+3
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	nop
 	nop
     endif
@@ -1169,7 +1222,7 @@ nmi_handler:
     endif
 	outi
 	jp $+3
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	nop
 	nop
     endif
@@ -1178,7 +1231,7 @@ nmi_handler:
     endif
 	outi
 	jp $+3
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	nop
 	nop
     endif
@@ -1187,7 +1240,7 @@ nmi_handler:
     endif
 	outi
 	jp $+3
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	nop
 	nop
     endif
@@ -1723,6 +1776,87 @@ nmi_handler:
 	cpl
 	ld (joy2_data),a
     endif
+    if EINSTEIN
+	ld bc,$ffff
+        ld a,$0e
+        out ($02),a  
+        ld a,$f7
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+        bit 6,a
+        jr nz,$+4
+        res 0,b		; Up
+        ld a,$0e
+        out ($02),a
+        ld a,$fb
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a 
+        in a,($02)
+        bit 4,a
+        jr nz,$+4
+        res 1,b		; Right
+        ld a,$0e
+        out ($02),a
+        ld a,$fd
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a
+        in a,($02)
+        bit 5,a
+        jr nz,$+4
+        res 2,b		; Down
+        ld a,$0e
+        out ($02),a 
+        ld a,$fd
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a
+        in a,($02)
+        bit 3,a
+        jr nz,$+4
+        res 3,b		; Left
+        ld a,$0e
+        out ($02),a
+        ld a,$fe
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+        bit 6,a
+        jr nz,$+4
+        res 6,b         ; Fire
+        ld a,$0e
+        out ($02),a
+        ld a,$7f
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+        bit 0,a
+        jr nz,$+4
+        res 7,b         ; 2nd fire
+	ld a,b
+	cpl
+	ld (joy1_data),a
+	ld a,c
+	cpl
+	ld (joy2_data),a
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -1799,6 +1933,9 @@ nmi_handler:
 ctc_reti:
 	reti
     endif
+    if EINSTEIN
+	ret
+    endif
 
     if SORD
 wait:
@@ -1809,6 +1946,15 @@ wait:
 	sbc hl,de
 	jr z,.1
 	ret
+    endif
+    if EINSTEIN
+wait:
+	in a,(VDP+1)
+	nop
+	in a,(VDP+1)
+	bit 7,a
+	jr z,$-4
+	jp nmi_handler
     endif
 
 	;
@@ -1848,6 +1994,12 @@ music_init:
       endif
     endif
     if MSX+SVI
+MIX_BASE:	equ $b8
+    endif
+    if EINSTEIN
+MIX_BASE:	equ $78
+    endif
+    if MSX+SVI+EINSTEIN
 	ld a,$08
 	ld e,$00
 	call WRTPSG
@@ -1858,7 +2010,7 @@ music_init:
 	ld e,$00
 	call WRTPSG
 	ld a,$07
-	ld e,$b8
+	ld e,MIX_BASE
 	call WRTPSG
     endif
     if SGM
@@ -2405,7 +2557,7 @@ music_hardware:
       endif
         ret
     endif
-    if MSX+SVI
+    if MSX+SVI+EINSTEIN
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.8		; Yes, jump.	
@@ -2484,7 +2636,7 @@ enable_drum:
 music_notes_table:
         ; Silence - 0
         dw 0
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	; Values for 4.00 mhz.
 	; 2nd octave - Index 1
 	dw 1911,1804,1703,1607,1517,1432,1351,1276,1204,1136,1073,1012
@@ -2717,33 +2869,42 @@ START:
 	im 1
     endif
     if MEMOTECH
+Z80_CTC:	equ $08
+    endif
+    if EINSTEIN
+Z80_CTC:	equ $28
+    endif
+
+    if EINSTEIN+MEMOTECH
 	di
 	im 2
 	ld a,rom_start>>8
 	ld i,a
 	ld a,$03	; Reset Z80 CTC
-	out ($08),a
-	out ($09),a
-	out ($0a),a
-	out ($0b),a
-	out ($08),a
-	out ($09),a
-	out ($0a),a
-	out ($0b),a
+	out (Z80_CTC+0),a
+	out (Z80_CTC+1),a
+	out (Z80_CTC+2),a
+	out (Z80_CTC+3),a
+	out (Z80_CTC+0),a
+	out (Z80_CTC+1),a
+	out (Z80_CTC+2),a
+	out (Z80_CTC+3),a
 	ld a,$08	; Interrupt vector offset
-	out ($08),a
+	out (Z80_CTC+0),a	
+    endif
+    if MEMOTECH
 	ld a,$25	; Disable channel 2 interrupt.
-	out ($0a),a
+	out (Z80_CTC+2),a
 	ld a,$9c
-	out ($0a),a
+	out (Z80_CTC+2),a
 	ld a,$25	; Disable channel 1 interrupt.
-	out ($09),a
+	out (Z80_CTC+1),a
 	ld a,$9c
-	out ($09),a
+	out (Z80_CTC+1),a
 	ld a,$c5	; Enable channel 0 interrupt (VDP).
-	out ($08),a
+	out (Z80_CTC+0),a
 	ld a,$01
-	out ($08),a
+	out (Z80_CTC+0),a
     endif
     if SORD
 	ld hl,$186c	; Disable handling of CTC Channel 1 interruption.

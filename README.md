@@ -70,6 +70,16 @@ For Memotech, use .run extension instead of .rom, and for CP/M option use .com e
 Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard) program:
 
     cvbasic --creativision game.bas game.asm
+
+Using CVBasic to compile a Hanimex/Soundic Pencil II program (almost exactly like a Colecovision, but with 2K of RAM and different cartridge header):
+
+    cvbasic --pencil game.bas game.asm
+    
+Using CVBasic to compile a Tatung Einstein program:
+    
+    cvbasic --einstein game.bas game.asm
+    
+For Einstein, use .com extension instead of .rom because it uses CP/M.
     
 ### Notes
 

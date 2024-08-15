@@ -23,7 +23,7 @@
 #include "cpuz80.h"
 #include "cpu6502.h"
 
-#define VERSION "v0.6.1 Aug/08/2024"
+#define VERSION "v0.6.1 Aug/15/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -43,6 +43,7 @@ static enum {
     MEMOTECH,
     CREATIVISION,
     PENCIL,
+    EINSTEIN,
     TOTAL_TARGETS
 } machine;
 
@@ -82,6 +83,8 @@ static struct console {
         0x0050, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
     {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
         0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, CPU_Z80},
+    {"einstein","",         "Tatung Einstein, generates .com files",
+        0,      0xa000, 0,       0x08,   0x08, 0,    CPU_Z80},
 };
 
 static int err_code;
@@ -4154,7 +4157,7 @@ void compile_statement(int check_for_else)
                 if (lex != C_NUM) {
                     emit_error("syntax error in SOUND");
                 } else {
-                    if (value < 3 && (machine == MSX || machine == SVI))
+                    if (value < 3 && (machine == MSX || machine == SVI || machine == EINSTEIN))
                         emit_warning("using SOUND 0-3 with AY-3-8910 target");
                     else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH)
                         emit_warning("using SOUND 5-9 with SN76489 target");
@@ -4392,6 +4395,13 @@ void compile_statement(int check_for_else)
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
                                 } else {
+                                    cpuz80_1op("AND", "$3f");
+                                    if (machine == EINSTEIN) {
+                                        cpuz80_1op("OR", "$40");
+                                    } else {
+                                        /* Protect these MSX machines! */
+                                        cpuz80_1op("OR", "$80");
+                                    }
                                     cpuz80_2op("LD", "B", "$07");
                                     cpuz80_1op("CALL", "ay3_reg");
                                 }
@@ -4557,7 +4567,7 @@ void compile_statement(int check_for_else)
                         emit_error("BANK ROM used twice");
                         get_lex();
                     } else {
-                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION) {
+                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN) {
                             emit_error("Bank-switching not supported with current platform");
                         } else {
                             bank_switching = 1;
@@ -5032,6 +5042,8 @@ int main(int argc, char *argv[])
         }
     }
     cpm_option = 0;
+    if (machine == EINSTEIN)
+        cpm_option = 1;     /* Forced */
     if (argv[c][0] == '-' && tolower(argv[c][1]) == 'c' && tolower(argv[c][2] == 'p') &&
         tolower(argv[c][3] == 'm') && argv[c][4] == '\0') {
         c++;
@@ -5116,6 +5128,7 @@ int main(int argc, char *argv[])
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
     fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
     fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
+    fprintf(output, "EINSTEIN:\tequ %d\n", (machine == EINSTEIN) ? 1 : 0);
     fprintf(output, "CPM:\tequ %d\n", cpm_option);
     fprintf(output, "PENCIL:\tequ %d\n", pencil);
     fprintf(output, "\n");
@@ -5124,7 +5137,7 @@ int main(int argc, char *argv[])
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
     fprintf(output, "\n");
     fprintf(output, "BASE_RAM:\tequ $%04x\t; Base of RAM\n", consoles[machine].base_ram - extra_ram);
-    if (machine == MEMOTECH && cpm_option != 0)
+    if ((machine == MEMOTECH || machine == EINSTEIN) && cpm_option != 0)
         fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", 0xe000);
     else
         fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", consoles[machine].stack);
@@ -5198,7 +5211,7 @@ int main(int argc, char *argv[])
     if (target == CPU_Z80)
         bytes_used = process_variables();
     fclose(output);
-    if (machine == MEMOTECH) {
+    if (machine == MEMOTECH || machine == EINSTEIN) {
         fprintf(stderr, "%d RAM bytes used for variables.\n", bytes_used);
     } else {
         available_bytes = consoles[machine].memory_size + extra_ram;
