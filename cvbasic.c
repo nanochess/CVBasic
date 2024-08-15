@@ -2619,7 +2619,7 @@ void compile_statement(int check_for_else)
                 generic_call("cls");
             } else if (strcmp(name, "WAIT") == 0) {
                 get_lex();
-                if (machine == SORD || machine == CREATIVISION)
+                if (machine == SORD || machine == CREATIVISION || machine == EINSTEIN)
                     generic_call("wait");
                 else
                     cpuz80_noop("HALT");
