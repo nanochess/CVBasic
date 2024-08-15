@@ -29,139 +29,150 @@
 * TODO: Concern - changing the endianess of 16-bit values from little to big,
 * does anything break? Ideally not if I'm careful...
 
+* data storage in scratchpad
+    aorg >8300
+
 * This is a block of 8 bytes that should stay together.
 * TODO: check if we need these
-temp		equ >8300
-temp2		equ >8302
-result		equ >8304
-pointer	    equ >8306
+*temp		bss 2
+*temp2		bss 2
+*result		bss 2
+*pointer	    bss 2
 
-read_pointer	equ >8308
-cursor		equ >830a
-pletter_off	equ >830c  * Used by Pletter
+read_pointer	bss 2
+cursor		    bss 2
+pletter_off	    bss 2  * Used by Pletter
 
 * Joystick storage
-* TODO: check if we need these
-joy1_dir	equ >830E       * word
-joy2_dir	equ >8310       * word
-joy1_buttons	equ >8312   * byte
-joy2_buttons	equ >8313   * byte
+* TODO: check if we need these - I think they are bios
+*joy1_dir	    bss 2   * word
+*joy2_dir	    bss 2   * word
+*joy1_buttons	bss 1   * byte
+*joy2_buttons	bss 1   * byte
 
 * more joystick bytes
-joy1_data	equ >8314 
-joy2_data	equ >8315
-key1_data	equ >8316
-key2_data	equ >8317
-frame		equ >8318       * word
-lfsr		equ >831A       * word MUST BE EVEN ALIGNED
-mode        equ >831C
-flicker	    equ >831D
-sprite_data	equ >831E       * 2 words MUST BE EVEN ALIGNED
-ntsc		equ >8322
-pletter_bit	equ >8323
+joy1_data	    bss 1 
+joy2_data	    bss 1
+
+key1_data	    bss 1       * byte - keyboard
+key2_data	    bss 1       * byte - keyboard (not used)
+
+frame	        bss 2       * word
+lfsr		    bss 2       * word MUST BE EVEN ALIGNED
+
+mode            bss 1
+flicker         bss 1
+
+sprite_data	    bss 4       * 2 words MUST BE EVEN ALIGNED
+
+ntsc            bss 1
+pletter_bit     bss 1
+
+* register backup          * backup space for registers for interrupt - in scratchpad for speed
+intreg_backup   bss 22     * need room for 11 regs - 22 bytes
 
     IF CVBASIC_MUSIC_PLAYER     * TODO: how do IFs work in xdt99?
-music_playing		EQU >8324
-music_timing		EQU >8325
-music_start		    EQU >8326   * word
-music_pointer		EQU >8328   * word
-music_note_counter	EQU >832a
-music_instrument_1	EQU >832b
-music_note_1		EQU >832c
-music_counter_1	    EQU >832d
-music_instrument_2	EQU >832e
-music_note_2		EQU >832f
-music_counter_2	    EQU >8330
-music_instrument_3	EQU >8331
-music_note_3		EQU >8332
-music_counter_3	    EQU >8333
-music_drum		    EQU >8334
-music_counter_4	    EQU >8335
-audio_freq1		    EQU >8336   * word
-audio_freq2		    EQU >8338   * word
-audio_freq3		    EQU >833a   * word
-audio_vol1  		EQU >833c
-audio_vol2	    	EQU >833d
-audio_vol3		    EQU >833e
-audio_vol4hw		EQU >833f
-audio_noise 		EQU >8340
-audio_control		EQU >8341
-music_mode	    	EQU >8342
+music_playing		bss 1
+music_timing		bss 1       
+
+music_start		    bss 2       * word
+music_pointer		bss 2       * word
+
+music_note_counter	bss 1
+music_instrument_1	bss 1
+
+music_note_1		bss 1
+music_counter_1	    bss 1
+
+music_instrument_2	bss 1
+music_note_2		bss 1
+
+music_counter_2	    bss 1
+music_instrument_3	bss 1
+
+music_note_3		bss 1
+music_counter_3	    bss 1
+
+music_drum		    bss 1
+music_counter_4	    bss 1
+
+audio_freq1		    bss 2       * word
+audio_freq2		    bss 2       * word
+audio_freq3		    bss 2       * word
+
+audio_vol1  		bss 1
+audio_vol2	    	bss 1
+
+audio_vol3		    bss 1
+audio_vol4hw		bss 1
+
+audio_noise 		bss 1
+audio_control		bss 1
+
+music_mode	    	bss 1
+    even
     ENDIF
 
 * While we don't mean to USE the console ROM, for interrupts we
 * are forced to interface with some of it. We need these addresses
 * to minimize what it does so we can maximize our use of scratchpad.
+* While I'd like to use the cassette hook - requires only 10 instructions
+* and only uses 6 words of scratchpad, we can't here because it
+* loses the return address, meaning you can only use it if you
+* know where your LIMI 2 is and interrupts are otherwise disabled. So
+* we have to use the longer but more standard interrupt hook, which also
+* reads VDP status for us (no choice).
 
-* abusing the cassette hook for interrupts (meaning we need to clear VDP ourselves - CRU and Status both)
-
+intcnt              equ >8379   * interrupt counter byte, adds 1 (from GPLWS r14) every frame
+statusmirror        equ >837B   * VDP status byte mirror
+intwsr1             equ >83c2   * INT WS R1  - interrupt control flags - must be >8000
+intwsr2             equ >83c4   * INT WS R2  - address of user interrupt routine (point to int_handler)
+intwsr11            equ >83d6   * screen timeout counter - must be odd (init to 1, is inct every frame)
 intwsr13            equ >83da   * INT WS R13 - used for interrupt call (word)
 intwsr14            equ >83dc   * INT WS R14 - used for interrupt call (word)
 intwsr15            equ >83de   * INT WS R15 - used for interrupt call (word)
-gplwsr1             equ >83e2   * GPL WS R1 - used for flag byte test (word) (must have >8000 set) (word)
-gplwsr6             equ >83ec   * GPL WS R6 - used for custom interrupt address (word)
-gplwsr12            equ >83f8   * GPL WS R12 - used for cassette test and interrupt hook test (word)
-gplwsr14            equ >83fc   * GPL WS R14 - flags used to detect cassette - must be >0128 (or at least >0020 set)
-
-* So setup is simple:
-* - 83E2 = 0x8000
-* - 83EC = int hook
-* - 83FC = 0x0128
-* 
-* Only 10 instructions, no screen blank or counting, and far fewer memory addresses touched.
-*
-* We'll also use GPLWS as our workspace - so we have to avoid R1,R6,R12 and R14
-
-* Free scratchpad RAM, assuming above setup (ints disabled by flag, screen blank disabled):
-* 8344 - 83d9   ->  150 bytes
-* 83e0 - 83e1   ->    2 bytes
-* 83e4 - 83eb   ->    8 bytes
-* 83ee - 83f7   ->   10 bytes
-* 83fa - 83fb   ->    2 bytes
-* 83fe - 83ff   ->    2 bytes
-
-* RAM we need:
-* - 128 bytes for a sprite table double-buffer
-* - 65 bytes defined above for BASIC
-* - 38 bytes for interrupt ROM and workspace
-* ==> 231 bytes
-
-* Variables are defined by equ, and can be bytes or words. Since it's originally an 8-bit
-* target, we can assume mostly bytes. We will probably drop variables in the 70 byte block,
-* but maybe we should use the 14 byte block as well, and for that matter we will see if
-* we can remove any of the above temporaries - since we have 16 registers in RAM we might
-* be able to. TODO.
-* We should also enable a 32k mode that lets variable data live in expansion RAM.
-* Do we want an E/A#5 target or just the ROM target?
-
-* TODO: we can probably reduce the workspace usage, but we might still want
-* to look at variables in VDP when not using the 32k option.
-
-* TODO: find 128 bytes for the sprite buffer - MUST BE EVEN ALIGNED
-sprites	equ $0180
+gplwsr11            equ >83f6   * GPL WS R11 - return address to interrupt ROM (not used, but overwritten each int)
+gplwsr12            equ >83f8   * GPL WS R12 - used for cassette test and interrupt hook test (zeroed each int)
+gplwsr13            equ >83fa   * GPL WS R13 - used in my interrupt handler
+gplwsr14            equ >83fc   * GPL WS R14 - flags used to detect cassette - must be >0108 (or at least >0020 clear)
+gplwsr15            equ >83fe   * GPL WS R15 - base address of VDP for status read - must be >8C00
 
 * Some hardware equates
-MYWP      equ >83E0
+INTWP     equ >83C0     * interrupt calling WP
+GPLWP     equ >83E0     * we use this one
 SOUND     equ >8400
 VDPDATA   equ >8800
 VDPSTATUS equ >8802
 VDPWDATA  equ >8c00
 VDPWADR   equ >8c02
 
-    aorg >6000
+* We'll also use GPLWS as our workspace - so we have to avoid R12-R15 (and use R11 carefully)
 
-* TODO: Figure out banking - since we don't have a fixed section like the other machines
-* Do we duplicate code? Just define a fixed amount (like 2k?) Insist on memory expansion?
+* Safe scratchpad RAM, assuming above setup (ints disabled by flag, screen blank disabled):
+* Need to see how much BSS is using
+* 8300 - 8377   ->  120 bytes
+* 837C - 83C1   ->   70 bytes
 
-* cartridge header goes here
-    data >aa01,>0100        * header, version
-    data >0000,>600c        * powerup list, program list
-    data >0000,>0000        * dsr link, subprogram list
+* RAM we need:
+* - 128 bytes for a sprite table double-buffer - no choice, needs to go in 8-bit RAM
+* - TBD bytes defined above for BASIC
+* - 48 bytes for interrupt ROM and workspace
 
-    data >0000,START        * next link, start address
-    byte 17                 * name length
-    text 'CVBASIC CARTRIDGE'
-    even
+* Variables are defined by equ, and can be bytes or words. Since it's originally an 8-bit
+* target, we can assume mostly bytes. For now we'll just do an EA#5 target. We can consider
+* a cart+32k target later if it's desired. This will limit programs to 24k + 8k of RAM data.
+* if we do cart+32k then we have 8k of variables, 24k of fixed space, and unlimited paged space
+* (though the compiler limits to 1MB). But I'll need to bring in my paging code and startup.
+
+* data in low RAM
+    aorg >2000
+
+* must be even aligned - TODO: hard coded address? where does the compiler define variables?
+* mirror for sprite table
+sprites	    bss 128
+
+* program in high RAM
+    aorg >a000
 
 * Utility functions
 
@@ -771,186 +782,234 @@ mode_2
     mov r8,r11      * restore return
     b @vdp_generic_sprites
 
-***************************************************
-
+* this is where interrupts happen every frame
+* Unlike a normal TI application, this one runs with interrupts ON,
+* so all operations need to be sure to protect VDP address with LIMI 0,
+* as well as any operations that might need to manipulate data managed
+* by this interrupt. We enter via the normal user hook, so WP is already
+* GPLWS, interrupts are off, and the VDP is already reset and status 
+* stashed on statusmirror (>837b). Our return address to the ROM is in
+* r11, but we are NOT going to use it so that we don't need to reserve
+* r8 for whatever nonsense it does. That means we need to load intws
+* and RTWP ourselves at the end. Since the compiler may inject user
+* code, we need to save all our free registers anyway, so we should feel
+* free to use what we will. (The normal TI approach would be a separate
+* workspace, but we'd have to save the regs anyway since there are some
+* functions that assume the WP address.) We can freely use R11,R12,R13
+* for temporary data, though R11 will not carry across the user block.
 int_handler
-    PHA
-    TXA
-    PHA
-    TYA
-    PHA
-    LDA $2001	* VDP interruption clear.
-    LDA #$1B00
-    LDY #$1B00>>8
-    JSR SETWRT
-    LDA mode
-    AND #$04
-    BEQ .4
-    LDX #0
-.7	LDA sprites,X	* 4
-    STA $3000	* 4
-    NOP		* 2
-    NOP		* 2
-    INX		* 2
-    CPX #$80	* 2
-    BNE .7		* 2/3/4
-    JMP .5
+* first copy the sprite table
+    li r11,>005b        * >1b00 with the write bit added, and byte flipped
+    movb r11,@VDPWADR   * SAL address
+    swpb r11
+    movb r11,@VDPWADR   * going to copy the sprite table to VDP
 
-.4	LDA flicker
-    CLC
-    ADC #4
-    AND #$7f
-    STA flicker
-    TAX
-    LDY #31
+    movb @mode,r11
+    andi r11,>0400      * if bit >04 (inhibit flicker) is cleared, jump ahead to rotate
+    jeq .4
+
+    clr r11             * else we're going to just write it straight across
+    li r12,128
+    li r13,sprites
+.7
+    movb *r13+,@VDPWDATA
+    dec r12
+    jne .7
+    jmp .5
+
+.4
+    movb @flicker,r11   * here we write it rotated every frame, and backwards for no reason
+    ai r11,>0400
+    andi r11,>7f00
+    movb r11,@flicker
+    swpb r11            * make count
+    li r12,31           * count
+
 .6
-    LDA sprites,X
-    STA $3000	
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    INX
-    LDA sprites,X
-    STA $3000
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    INX
-    LDA sprites,X
-    STA $3000
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    INX
-    LDA sprites,X
-    STA $3000
-    TXA
-    CLC
-    ADC #25
-    AND #$7f
-    TAX
-    DEY
-    BPL .6
+    ai r11,sprites        * this is still faster than separate incs
+    movb *r11+,@VDPWDATA  * copy one sprite
+    movb *r11+,@VDPWDATA  * no delay needed    
+    movb *r11+,@VDPWDATA    
+    movb *r11,@VDPWDATA   * small optimization, since we have an add coming anyway
+    ai r11,25-sprites     * remove address and add the rest of the increment - the total increment is 28
+    andi r11,>007F        * clamp it in range (basically write the list backwards?)
+    dec r12
+    jne .6
+
+* next read the joysticks - output needs to be 21xxLDRU - 1 and 2 are button and button2 respectively
+* We don't have a button 2. We also need to read the keyboard and fill in key1_data. key2_data we
+* will leave unused. Note key1_data expects Coleco-style 0-9,10-*,11-#,15=not pressed, but we can throw
+* everything else as ASCII. We could do a split keyboard for 2 players, but I guess we'll leave it for now.
 .5
-    JSR BIOS_READ_CONTROLLERS
+ * joy1
+    li r12,>0024    * CRU base of select output
+    li r13,>0600    * joystick 1 column
+    ldcr r13,3      * select it
+    src 12,7        * delay
+    li r12,>0006    * CRU base of return read
+    stcr r13,8      * read 8 bits (we could get away with fewer, but be consistent)
+    bl @convert_joystick
+    movb r12,@joy1_data
 
-    LDX joy1_dir
-    LDA joy1_buttons
-    JSR convert_joystick
-    STA joy1_data
+* joy2
+    li r12,>0024    * CRU base of select output
+    li r13,>0700    * joystick 2 column
+    ldcr r13,3      * select it
+    src 12,7        * delay
+    li r12,>0006    * CRU base of return read
+    stcr r13,8      * read 8 bits (we could get away with fewer, but be consistent)
+    bl @convert_joystick
+    movb r12,@joy2_data
 
-    LDX joy2_dir
-    LDA joy2_buttons
-    LSR A
-    LSR A
-    JSR convert_joystick
-    STA joy2_data
+* key1 - this is a very simple read with no modifiers, it just gives access to the letters and numbers
+    clr r11         * column
+.key1
+    li r12,>0024    * CRU base of select output
+    ldcr r11,3      * select column
+    src r12,7       * delay
+    li r12,>0006    * CRU base of return read
+    stcr r13,8      * get the bits
+    li r12,7        * bit search
+.key2
+    cocb @masktable(r12),r13    * bit set?
+    jeq .key3       * continue
+    srl r11,5
+    a r12,r11       * calculate table offset
+    movb @keyboard_table(r11),@key1_data    * might be a dead key, but that's okay
+    
+    mov r12,r12     * if column 0, check for QUIT before we go
+    jne .key4
+    li r11,>1100    * zero pattern for FCTN-=
+    czcb r11,r13    * were both pressed?
+    jne .key4
+    clr @intwsr2    * clear user interrupt hook
+    blwp @>0000     * soft reset
+
+.key3
+    dec r12
+    jgt .key1
+    jeq .key1       * we don't have a jump if not negative
+.key4
+
+* gone as far as I can with the 3 reserved registers, it's time to save the main regs off
+* not sure if I can do this IF, if I can I can save a lot of code when there's no user int
+* and no music player...
+
+    if CVBASIC_MUSIC_PLAYER || .inttestlabel1 != .inttestlabel2
+* backup R0-R10 (11 regs)
+    li r12,intreg_backup
+    mov r0,*r12+
+    mov r1,*r12+
+    mov r2,*r12+
+    mov r3,*r12+
+    mov r4,*r12+
+    mov r5,*r12+
+    mov r6,*r12+
+    mov r7,*r12+
+    mov r8,*r12+
+    mov r9,*r12+
+    mov r10,*r12
+    * TODO: If we needed temp,temp2,result and pointer, backup the 8 bytes here too
+    endif
 
     if CVBASIC_MUSIC_PLAYER
-    LDA music_mode
-    BEQ .10
-    JSR music_hardware
+    movb @music_mode,r0
+    jeq .10
+    bl @music_hardware
 .10
     endif
-    INC frame
-    BNE .8
-    INC frame+1
-.8
-    INC lfsr	* Make LFSR more random
-    INC lfsr
-    INC lfsr
+
+    inc @frame
+    li r0,3
+    a r0,@lfsr  * Make LFSR more random (TODO: Difference - will increment into MSB, original didn't)
+
     if CVBASIC_MUSIC_PLAYER
-    LDA music_mode
-    BEQ .9
-    JSR music_generate
+    movb @music_mode,r0
+    jeq .9
+    bl @music_generate
 .9
     endif
-    * This is like saving extra registers, because these
-    * are used by the compiled code, and we don't want
-    * any reentrancy.
-    LDA temp+0
-    PHA
-    LDA temp+1
-    PHA
-    LDA temp+2
-    PHA
-    LDA temp+3
-    PHA
-    LDA temp+4
-    PHA
-    LDA temp+5
-    PHA
-    LDA temp+6
-    PHA
-    LDA temp+7
-    PHA
+
+* These labels test if any code was injected. If we aren't using the music player
+* and we don't inject any code, then don't bother with the register save/restore
+.inttestlabel1
     *CVBASIC MARK DON'T CHANGE
-    PLA
-    STA temp+7
-    PLA
-    STA temp+6
-    PLA
-    STA temp+5
-    PLA
-    STA temp+4
-    PLA
-    STA temp+3
-    PLA
-    STA temp+2
-    PLA
-    STA temp+1
-    PLA
-    STA temp+0
+.inttestlabel2
 
-    PLA
-    TAY
-    PLA
-    TAX
-    PLA
-    RTI
+    if CVBASIC_MUSIC_PLAYER || .inttestlabel1 != .inttestlabel2
+* restore R0-R10 (11 regs)
+    li r12,intreg_backup
+    mov *r12+,r0
+    mov *r12+,r1
+    mov *r12+,r2
+    mov *r12+,r3
+    mov *r12+,r4
+    mov *r12+,r5
+    mov *r12+,r6
+    mov *r12+,r7
+    mov *r12+,r8
+    mov *r12+,r9
+    mov *r12+,r10
+    * TODO: If we needed temp,temp2,result and pointer, restore the 8 bytes here too
+    endif
 
+* get back the interrupt workspace and return
+    lwpi INTWS
+    RTWP
+
+* given a joystick read in r13, return bits in r12
+* The final output is 8 bits:
+* 21xxLDRU - 1 and 2 are button and button2 respectively
+* NOTE: if called by the compiler, this won't act as expected
 convert_joystick
-    ROR A
-    ROR A
-    ROR A
-    AND #$C0
-    TAY
-    TXA
-    BEQ .1
-    AND #$0F
-    TAX
-    LDA FRAME
-    AND #1
-    BEQ .2
-    TYA
-    ORA joystick_table,X
-    RTS
-.2
-    TYA
-    ORA joystick_table+16,X
-    RTS
-
-.1	TYA
-    RTS
+    clr r12
+    czcb @joystick_table,r13
+    jne .j1
+    ori r12,>08
+.j1
+    czcb @joystick_table+1,r13
+    jne .j2
+    ori r12,>04
+.j2
+    czcb @joystick_table+2,r13
+    jne .j3
+    ori r12,>02
+.j3
+    czcb @joystick_table+3,r13
+    jne .j4
+    ori r12,>01
+.j4
+    czcb @joystick_table+4,r13
+    jne .j5
+    ori r12,>40
+.j5
+    b *r11
 
 joystick_table
-    DB $04,$04,$06,$06,$02,$02,$03,$03
-    DB $01,$01,$09,$09,$08,$08,$0C,$0C
+    byte >02,>08,>04,>10,>01    * LDRU1
 
-    DB $0C,$04,$04,$06,$06,$02,$02,$03
-    DB $03,$01,$01,$09,$09,$08,$08,$0C
+* By columns, then rows. 8 Rows per column. No shift states - converted to the Coleco returns
+* for numbers, , and . become * and #
+keyboard_table
+    byte 61,32,13,15,15,15,15,15    * '=',' ',enter,n/a,fctn,shift,ctrl,n/a
+    byte 11,76,79,9,2,83,87,88      * '.','L','O','9','2','S','W','X'
+    byte 10,75,73,8,3,68,69,67      * ',','K','I','8','3','D','E','C'
+    byte 77,74,85,7,4,70,82,86      * 'M','J','U','7','4','F','R','V'
+    byte 78,72,89,6,5,71,84,66      * 'N','H','Y','6','5','G','T','B'
+    byte 47,59,80,0,1,65,81,90      * '/',';','P','0','1','A','Q','Z'
 
+masktable
+    byte >01,>02,>04,>08,>10,>20,>40,>80
+
+* wait for frame to increment
 wait
-    LDA frame
-.1	CMP frame
-    BEQ .1
-    RTS
+    mov @frame,r0
+.1
+    c r0,@frame
+    jeq .1
+    b *r11
+
+********************************************************
 
 music_init
     LDA #$9f

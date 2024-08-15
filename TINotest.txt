@@ -1,0 +1,73 @@
+* Load VRAM - address in R0, CPU data at R2, count in R3
+* TODO: Original: address in pointer, CPU address at temp, count in temp2
+* Inline address set to avoid needing to cache r11
+LDIRVM
+
+intwsr13            equ >83da   * INT WS R13 - used for interrupt call (word)
+intwsr14            equ >83dc   * INT WS R14 - used for interrupt call (word)
+intwsr15            equ >83de   * INT WS R15 - used for interrupt call (word)
+gplwsr1             equ >83e2   * GPL WS R1 - used for flag byte test (word) (must have >8000 set) (word)
+gplwsr6             equ >83ec   * GPL WS R6 - used for custom interrupt address (word)
+gplwsr12            equ >83f8   * GPL WS R12 - used for cassette test and interrupt hook test (word)
+gplwsr13            equ >83fa   * GPL WS R13 - reserved for interrupt routine
+gplwsr14            equ >83fc   * GPL WS R14 - flags used to detect cassette - must be >0128 (or at least >0020 set)
+gplwsr15            equ >83fe   * GPL WS R15 - reserved for interrupt routine
+
+
+0900 0300 LIMI >0000        Disable interrupt
+0902 0000
+0904 02E0 LWPI >83E0        Load GPLWS!
+0906 83E0
+0908 04CC CLR 12            Clear CRU
+090A 23A0 COC @>0032,14     Cassette interrupt?
+090C 0032
+090E 1602 JNE >0914         No, jump (taken)
+
+0914 1F02 TB >0002
+0916 1619 JNE >094A         Jump, if VDP interrupt (taken)
+
+094A 1D02 SBO >0002         Clear VDP interrupt
+094C D060 MOVB @>83C2,1     Fetch interrupt flag byte
+094E 83C2
+0950 0A11 SLA 1,1           No interrupt permitted
+0952 1702 JNC >0958         (not taken)
+0954 0460 B @>0A84          Then jump
+0956 0A84
+
+0A84 D82F MOVB @>FC00(15),@>837B VDP status in copy RAM
+0A86 FC00
+0A88 837B
+0A8A 02E0 LWPI >83C0        INTWS
+0A8C 83C0
+0A8E 05CB INCT 11           Screen timeout counter
+0A90 160B JNE >0AA8         Not 0 (taken)
+
+0AA8 02E0 LWPI >83E0        GPLWS
+0AAA 83E0
+0AAC B80E AB 14,@>8379      VDP interrupt timer (system flags!)
+0AAE 8379
+0AB0 C320 MOV @>83C4,12     User defined interrupt
+0AB2 83C4
+0AB4 1301 JEQ >0AB8         None, then jump (not taken)
+0AB6 069C BL *12            Otherwise execute (calls our routine (which never returns)
+
+* these steps not taken - so we can skip clearing R8
+0AB8 04C8 CLR 8             Clear GROM search pointer
+0ABA 02E0 LWPI >83C0        INTWS
+0ABE 0380 RTWP              And end interrupt
+
+intcnt              equ >8379   * interrupt counter byte, adds 1 (from GPLWS r14) every frame
+statusmirror        equ >837B   * VDP status byte mirror
+intwsr1             equ >83c2   * INT WS R1  - interrupt control flags - must be >8000
+intwsr2             equ >83c4   * INT WS R2  - address of user interrupt routine (point to int_handler)
+intwsr11            equ >83d6   * screen timeout counter - must be odd (init to 1, is inct every frame)
+intwsr13            equ >83da   * INT WS R13 - used for interrupt call (word)
+intwsr14            equ >83dc   * INT WS R14 - used for interrupt call (word)
+intwsr15            equ >83de   * INT WS R15 - used for interrupt call (word)
+gplwsr11            equ >83f6   * GPL WS R11 - return address to interrupt ROM (not used, but overwritten each int)
+gplwsr12            equ >83f8   * GPL WS R12 - used for cassette test and interrupt hook test (zeroed each int)
+gplwsr13            equ >83fa   * GPL WS R13 - used in my interrupt handler
+gplwsr14            equ >83fc   * GPL WS R14 - flags used to detect cassette - must be >0108 (or at least >0020 clear)
+gplwsr15            equ >83fe   * GPL WS R15 - base address of VDP for status read - must be >8C00
+
+
