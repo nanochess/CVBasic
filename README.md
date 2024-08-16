@@ -2,12 +2,36 @@
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic for the Colecovision/SG1000/MSX/SVI-318/328/Sord M5/Memotech/Creativision.
+CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic originally written for the Colecovision video game console.
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (16K bank switching support across Colecovision+MSX+SG1000). Currently, Spectravideo SVI-318/328, Sord M5 and Memotech doesn't have bank-switch support because there's no cartridge hardware supporting it.
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching). 
 
-    CVBasic.c                   The CVBasic compiler C language source code
-    LICENSE                     Source code license
+Later it was extended to support the following platforms:
+
+* Sega SG-1000 (supporting bank switching)
+* MSX 1 (supporting bank switching with ASCII16 mapper)
+* Spectravideo SVI-318 / 328.
+* Sord M5.
+* Memotech MTX.
+* Vtech Creativision (Dick Smith's Wizzard / Laser 2001).
+* Tatung Einstein.
+* Casio PV2000.
+* Hanimex/Soundic Pencil II.
+
+One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
+
+The following files compose the compiler:
+
+    CVBasic.c                   The CVBasic compiler C language source code.
+    cpu6502.h                   6502 code headers.
+    cpu6502.c                   6502 code generation.
+    cpuz80.h                    Z80 code headers.
+    cpuz80.c                    Z80 code generation.
+    driver.h                    Driver headers.
+    driver.c                    Driver for both processors.
+    node.h                      Tree node headers.
+    node.c                      Tree node creation and optimization.
+    LICENSE.txt                 Source code license
 
     cvbasic_prologue.asm        Prologue file needed for compiled programs.
     cvbasic_epilogue.asm        Epilogue file needed for compiled programs.
@@ -19,7 +43,9 @@ The CVBasic compiler can create programs up to 1 MB using the BANK statements (1
     examples/bank.bas           Bank-switching example.
     examples/demo.bas           Demo of graphics.
     examples/face_joystick.bas  Moving face with joystick.
+    examples/happy_face.bas     Bouncing face.
     examples/music.bas          Music example.
+    examples/oscar_compressed.bas  High-resolution graphics example compressed with Pletter.
     examples/oscar.bas          High-resolution graphics example.
     examples/portrait.bas       Data used by demo.bas
     examples/space_attack.bas   Game example.
@@ -36,58 +62,69 @@ Using CVBasic to compile a Colecovision program:
     cvbasic game.bas game.asm
     gasm80 game.asm -o game.rom -l game.lst
 
-You need to assemble the output file using Gasm80 available from [http://github.com/nanochess/gasm80](http://github.com/nanochess/gasm80)
+You need to assemble the output file using Gasm80 available from [http://github.com/nanochess/gasm80](http://github.com/nanochess/gasm80) (this assembler serves for all the platforms, including Creativision based on 6502 CPU)
 
 Using CVBasic to compile a Sega SG1000 program:
 
     cvbasic --sg1000 game.bas game.asm
+    gasm80 game.asm -o game.rom
 
 Using CVBasic to compile a MSX program for 8K RAM (wider compatibility) and 16K RAM:
 
     cvbasic --msx game.bas game.asm
+    gasm80 game.asm -o game.rom
 
     cvbasic --msx -ram16 game.bas game.asm
+    gasm80 game.asm -o game.rom
 
 Using CVBasic to compile a Colecovision Super Game Module program:
 
     cvbasic --sgm game.bas game.asm
+    gasm80 game.asm -o game.rom
 
 Using CVBasic to compile a Spectravideo SVI-318/328 program:
 
     cvbasic --svi game.bas game.asm
+    gasm80 game.asm -o game.rom
 
 Using CVBasic to compile a Sord M5 program:
 
     cvbasic --sord game.bas game.asm
+    gasm80 game.asm -o game.rom
 
 Using CVBasic to compile a Memotech MTX program:
 
     cvbasic --memotech game.bas game.asm
+    gasm80 game.asm -o game.run
+    
     cvbasic --memotech -cpm game.bas game.asm
-
-For Memotech, use .run extension instead of .rom, and for CP/M option use .com extension.
+    gasm80 game.asm -o game.com
 
 Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard / Vtech Laser 2001) program:
 
     cvbasic --creativision game.bas game.asm
+    gasm80 game.asm -o game.rom
 
 Using CVBasic to compile a Hanimex/Soundic Pencil II program (almost exactly like a Colecovision, but with 2K of RAM and different cartridge header):
 
     cvbasic --pencil game.bas game.asm
+    gasm80 game.asm -o game.rom
     
 Using CVBasic to compile a Tatung Einstein program:
     
     cvbasic --einstein game.bas game.asm
-    
-For Einstein, use .com extension instead of .rom because it uses CP/M.
+    gasm80 game.asm -o game.com
     
 Using CVBasic to compile a Casio PV-2000 program:
     
     cvbasic --pv2000 game.bas game.asm
+    gasm80 game.asm -o game.rom
     
 ### Notes
 
 The current official version is v0.6.0.
+
+All platforms have been tested in emulation. Colecovision and MSX have been tested in real hardware.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
@@ -106,9 +143,7 @@ Many people is developing games using CVBasic, feel free to check some of these 
 
 ### Experimental things
 
-Vtech Creativision support is experimental.
-
-Notice the 6502 support library hasn't been tested properly. In particular the VDP code could be buggy in real hardware.
+Vtech Creativision support is experimental and the 6502 support library hasn't been tested properly. Although every possible effort was made to put the correct delays for VDP, it still hasn't been tested in real hardware.
 
 
 ### Supporting the developer
