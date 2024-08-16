@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Aug/07/2024.
+Last revision: Aug/15/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -24,6 +24,7 @@ All trademarks are property of their respective owners.
 
 v0.6.1 Aug/15/2024  o Added suppprt for Hanimex/Soundic Pencil II using --pencil
                     o Added support for Tatung Einstein using --einstein
+                    o Added support for Casio PV-2000 using --pv2000
                     o Added automatic protection code for mixer register (AY-3-8910)
 
 v0.6.0 Aug/07/2024  o Added support for Creativision / Dick Smith's Wizzard (6502

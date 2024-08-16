@@ -81,6 +81,10 @@ Using CVBasic to compile a Tatung Einstein program:
     
 For Einstein, use .com extension instead of .rom because it uses CP/M.
     
+Using CVBasic to compile a Casio PV-2000 program:
+    
+    cvbasic --pv2000 game.bas game.asm
+    
 ### Notes
 
 The current official version is v0.6.0.
@@ -93,14 +97,16 @@ The Spectravideo SVI-328 only has one button in the joystick. The keyboard can b
 
 The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for the first controller.
 
-Currently for Memotech and Tatung Einstein doesn't handle CONT1.KEY and CONT2.KEY.
+The Casio PV-2000 can only use binaries up to 16 kb.
+
+Currently Memotech, Tatung Einstein, Casio PV-2000, and Creativision doesn't handle CONT1.KEY and CONT2.KEY.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
 
 ### Experimental things
 
-Vtech Creativision support is experimental, and it doesn't handle currently CONT1.KEY and CONT2.KEY.
+Vtech Creativision support is experimental.
 
 Notice the 6502 support library hasn't been tested properly. In particular the VDP code could be buggy in real hardware.
 
