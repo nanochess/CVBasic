@@ -8,7 +8,7 @@ The CVBasic compiler can create programs up to 1 MB using the BANK statements (u
 
 Later it was extended to support the following platforms:
 
-* Sega SG-1000 (supporting bank switching)
+* Sega SG-1000 (supporting bank switching with Sega mapper)
 * MSX 1 (supporting bank switching with ASCII16 mapper)
 * Spectravideo SVI-318 / 328.
 * Sord M5.
@@ -124,7 +124,12 @@ Using CVBasic to compile a Casio PV-2000 program:
 
 The current official version is v0.6.0.
 
-All platforms have been tested in emulation. Colecovision and MSX have been tested in real hardware.
+All platforms have been tested in emulation.
+
+* Colecovision and MSX have been tested in real hardware by myself.
+* Sega SG1000 tested in real hardware by aotta.
+* Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
+* Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
 
@@ -139,11 +144,6 @@ The Casio PV-2000 can only use binaries up to 16 kb.
 Currently Memotech, Tatung Einstein, Casio PV-2000, and Creativision doesn't handle CONT1.KEY and CONT2.KEY.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
-
-
-### Experimental things
-
-Vtech Creativision support is experimental and the 6502 support library hasn't been tested properly. Although every possible effort was made to put the correct delays for VDP, it still hasn't been tested in real hardware.
 
 
 ### Supporting the developer
