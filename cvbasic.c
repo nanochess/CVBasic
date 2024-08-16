@@ -44,6 +44,7 @@ static enum {
     CREATIVISION,
     PENCIL,
     EINSTEIN,
+    PV2000,
     TOTAL_TARGETS
 } machine;
 
@@ -85,6 +86,8 @@ static struct console {
         0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, CPU_Z80},
     {"einstein","",         "Tatung Einstein, generates .com files",
         0,      0xa000, 0,       0x08,   0x08, 0,    CPU_Z80},
+    {"pv2000",  "",         "Casio PV-2000",
+        0x7600, 0x8000, 0x0a00,0x4000, 0x4000, 0x40, CPU_Z80},
 };
 
 static int err_code;
@@ -4567,7 +4570,7 @@ void compile_statement(int check_for_else)
                         emit_error("BANK ROM used twice");
                         get_lex();
                     } else {
-                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN) {
+                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN || machine == PV2000) {
                             emit_error("Bank-switching not supported with current platform");
                         } else {
                             bank_switching = 1;
@@ -5131,6 +5134,7 @@ int main(int argc, char *argv[])
     fprintf(output, "EINSTEIN:\tequ %d\n", (machine == EINSTEIN) ? 1 : 0);
     fprintf(output, "CPM:\tequ %d\n", cpm_option);
     fprintf(output, "PENCIL:\tequ %d\n", pencil);
+    fprintf(output, "PV2000:\tequ %d\n", (machine == PV2000) ? 1 : 0);
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);

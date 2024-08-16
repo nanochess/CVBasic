@@ -25,7 +25,11 @@ rom_end:
     if MEMOTECH+EINSTEIN
 	; Align following data to a 256-byte page.
         TIMES $100-($&$ff) DB $4f
-    else
+    endif
+    if PV2000
+	TIMES $10000-$ DB $ff
+    endif
+    if COLECO+SG1000+MSX+SVI+SORD+PV2000
 	org BASE_RAM
     endif
 ram_start:

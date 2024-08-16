@@ -30,7 +30,8 @@
 	; Revision date: Aug/02/2024. PSG label now defined by CVBasic. Added Memotech
 	;                             support.
 	; Revision date: Aug/08/2024. Added Soundic/Hanimex Pencil II support.
-	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
+	; Revision date: Aug/15/2024. Added support for Tatung Einstein. Added support
+	;                             for Casio PV-2000.
 	;
 
 JOYSEL:	equ $c0
@@ -115,6 +116,10 @@ RDPSG:	equ $0096
 	dw START	; Start address.
 	dw $002e	; Prestart address (just point to RET in BIOS).
     endif
+    if PV2000
+	ORG $C000
+	jp START
+    endif
 
     if MEMOTECH
       if CPM
@@ -181,6 +186,79 @@ RDPSG:
 	ret
     endif
 
+    if PV2000
+WRTVDP:
+	ld a,b
+	ld (VDP+1),a
+	ld a,c
+	or $80
+	ld (VDP+1),a
+	ret
+
+SETWRT:
+	ld a,l
+	ld (VDP+1),a
+	ld a,h
+	or $40
+	ld (VDP+1),a
+	ret
+
+SETRD:
+	ld a,l
+	ld (VDP+1),a
+	ld a,h
+        and $3f
+	ld (VDP+1),a
+	ret
+
+WRTVRM:
+	push af
+	call SETWRT
+	pop af
+	ld (VDP),a
+	ret
+
+RDVRM:
+        push af
+        call SETRD
+        pop af
+        ex (sp),hl
+        ex (sp),hl
+        ld a,(VDP)
+        ret
+
+FILVRM:
+	push af
+	call SETWRT
+	pop af
+	dec bc		; T-states (normal / M1)
+.1:	ld (VDP),a	; 13 14
+	dec bc		;  6  7
+	bit 7,b		;  8 10
+	jp z,.1		; 10 11
+			; -- --
+			; 37 42
+	ret
+
+LDIRVM:
+        EX DE,HL
+        CALL SETWRT
+        EX DE,HL
+        DEC BC
+        INC C
+        LD A,B
+        LD B,C
+        INC A
+	LD C,A
+.1:
+	LD A,(HL)	;  7  8
+	LD (VDP),A	; 13 14
+	INC HL		;  6  7
+	DJNZ .1		; 13 14
+        DEC C		;  4  5
+        JP NZ,.1	; 10 11
+        RET
+    else
 WRTVDP:
 	ld a,b
 	out (VDP+1),a
@@ -265,6 +343,7 @@ LDIRVM:
         DEC A
         JP NZ,.1
         RET
+    endif
 
 LDIRVM3:
 	call .1
@@ -323,7 +402,7 @@ CPYBLK:
 	jp nmi_on
 	
 nmi_off:
-    if COLECO
+    if COLECO+PV2000
 	push hl
 	ld hl,mode
 	set 0,(hl)
@@ -335,7 +414,7 @@ nmi_off:
 	ret
 
 nmi_on:
-    if COLECO
+    if COLECO+PV2000
 	push af
 	push hl
 	ld hl,mode
@@ -686,7 +765,7 @@ random:
         ret
 
 sn76489_freq:
-    if COLECO+SG1000+SORD+MEMOTECH
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
 	ld b,a
 	ld a,l
 	and $0f
@@ -709,7 +788,7 @@ sn76489_freq:
 	ret
 
 sn76489_vol:
-    if COLECO+SG1000+SORD+MEMOTECH
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
 	cpl
 	and $0f
 	or b
@@ -721,7 +800,7 @@ sn76489_vol:
 	ret
 
 sn76489_control:
-    if COLECO+SG1000+SORD+MEMOTECH
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
 	and $0f
 	or $e0
 	out (PSG),a
@@ -740,7 +819,7 @@ ay3_reg:
 	out ($51),a
 	ret
     endif
-    if SG1000+SORD+MEMOTECH
+    if SG1000+SORD+MEMOTECH+PV2000
         ret
     endif
     if MSX
@@ -781,7 +860,7 @@ ay3_freq:
 	pop af
 	ret
     endif
-    if SG1000+SORD+MEMOTECH
+    if SG1000+SORD+MEMOTECH+PV2000
 	ret
     endif
     if MSX
@@ -822,7 +901,7 @@ ay3_freq:
 	ret
     endif
 
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000
 	; Required for SG1000 as it doesn't have a BIOS
 	; Required for SVI because we don't have access to BIOS in cartridge.
 	; Required for Sord M5 because it doesn't provide an ASCII charset.
@@ -967,7 +1046,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1047,7 +1126,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1155,6 +1234,12 @@ nmi_handler:
 	call SETWRT
 	ld hl,sprites
 .7:
+    if PV2000
+	ld a,(hl)
+	ld (VDP),a
+	inc hl
+	djnz .7
+    else
     if MEMOTECH+EINSTEIN
 	nop
 	nop
@@ -1164,6 +1249,7 @@ nmi_handler:
     endif
 	outi
 	jp nz,.7
+    endif
 	jr .5
 
 .4:
@@ -1186,6 +1272,24 @@ nmi_handler:
     else
 	res 7,l
     endif
+    if PV2000
+	ld a,(hl)	;  7  8
+	ld (VDP),a	; 13 14
+	inc hl		;  6  7
+	dec b		;  4  5
+	ld a,(hl)
+	ld (VDP),a
+	inc hl
+	dec b
+	ld a,(hl)
+	ld (VDP),a
+	inc hl
+	dec b
+	ld a,(hl)
+	ld (VDP),a
+	inc hl
+	dec b
+    else
 	outi
 	jp $+3
     if MEMOTECH+EINSTEIN
@@ -1221,6 +1325,7 @@ nmi_handler:
     endif
     if SG1000
 	nop
+    endif
     endif
 	add hl,de
 	jp nz,.6
@@ -1832,6 +1937,48 @@ nmi_handler:
 	cpl
 	ld (joy2_data),a
     endif
+    if PV2000
+	ld bc,$ffff
+	ld a,7
+	out ($20),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($20)
+	bit 1,a
+	jr z,$+4
+	res 0,b
+	bit 0,a
+	jr z,$+4
+	res 3,b
+	ld a,6
+	out ($20),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($20)
+	bit 1,a
+	jr z,$+4
+	res 1,b
+	bit 0,a
+	jr z,$+4
+	res 2,b
+	ld a,8
+	out ($20),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($20)
+	bit 0,a
+	jr z,$+4
+	res 6,b
+	bit 1,a
+	jr z,$+4
+	res 7,b
+	ld a,b
+	cpl
+	ld (joy1_data),a
+	ld a,c
+	cpl
+	ld (joy2_data),a
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -1913,6 +2060,11 @@ ctc_reti:
 	pop af
 	ret
     endif
+    if PV2000
+	ld a,(VDP+1)
+	pop af
+	retn
+    endif
 
     if SORD
 wait:
@@ -1943,7 +2095,7 @@ wait:
         ; Init music player.
         ;
 music_init:
-    if COLECO+SG1000+SORD+MEMOTECH
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
         ld a,$9f
         out (PSG),a
       if MEMOTECH
@@ -2382,7 +2534,7 @@ music_flute:
         ; Emit sound.
         ;
 music_hardware:
-    if COLECO+SG1000+SORD+MEMOTECH
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.7		; Yes, jump.
@@ -2592,7 +2744,7 @@ music_hardware:
         ; Enable drum.
         ;
 enable_drum:
-    if COLECO+SG1000+SORD
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
         ld a,$f5
         ld (audio_vol4hw),a
     else
@@ -2643,7 +2795,7 @@ music_notes_table:
 	dw 53,50,48
     endif
 
-    if COLECO+SG1000+SORD+MEMOTECH
+    if COLECO+SG1000+SORD+MEMOTECH+PV2000
         ;
         ; Converts AY-3-8910 volume to SN76489
         ;
@@ -2930,12 +3082,23 @@ Z80_CTC:	equ $28
 	di
 	ld sp,STACK
     endif
+    if PV2000
+	ld hl,nmi_handler
+	ld ($7499),hl
+	ld a,(VDPR+1)
+	ld bc,$8201
+	call WRTVDP
+	ld a,(VDPR+1)
+	ld bc,$8201
+	call WRTVDP
+    else
 	in a,(VDPR+1)
 	ld bc,$8201
 	call WRTVDP
 	in a,(VDPR+1)
 	ld bc,$8201
 	call WRTVDP
+    endif
   if CVBASIC_BANK_SWITCHING
     if COLECO
 	ld a,($ffc0)	; Megacart
@@ -2963,7 +3126,11 @@ Z80_CTC:	equ $28
 	xor a
 	ld (de),a
 	inc de
+      if PV2000
+        bit 7,d
+      else
 	bit 2,d
+      endif
 	jp z,$-4
 	ld (lfsr),hl
     endif
@@ -3050,11 +3217,11 @@ WRITE_VRAM:	equ $1fdf
 	jr nz,$+3
 	dec a
     endif
-    if SG1000+SVI+SORD
-	ld a,1
+    if SG1000+SVI+SORD+PV2000
+	ld a,1		; Always NTSC.
     endif
     if MEMOTECH+EINSTEIN
-	ld a,0
+	ld a,0		; Always PAL.
     endif
     if MSX
         call RSLREG
