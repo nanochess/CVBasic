@@ -1910,6 +1910,7 @@ ctc_reti:
 	reti
     endif
     if EINSTEIN
+	pop af
 	ret
     endif
 
@@ -2948,7 +2949,7 @@ Z80_CTC:	equ $28
         ld ($7000),a
     endif
   endif
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	ld ix,(lfsr)
 	ld hl,ram_start
 	ld de,ram_start+1
@@ -3052,7 +3053,7 @@ WRITE_VRAM:	equ $1fdf
     if SG1000+SVI+SORD
 	ld a,1
     endif
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	ld a,0
     endif
     if MSX

@@ -93,7 +93,7 @@ The Spectravideo SVI-328 only has one button in the joystick. The keyboard can b
 
 The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for the first controller.
 
-Currently for Memotech the expressions CONT1.KEY and CONT2.KEY aren't operative..
+Currently for Memotech and Tatung Einstein doesn't handle CONT1.KEY and CONT2.KEY.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
@@ -124,4 +124,4 @@ All the games in the book will compile for **all** the platforms.
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, and youki.
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, wavemotion, and youki.

@@ -4986,7 +4986,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, atari2600land,\n");
         fprintf(stderr, "carlsson, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
         fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, SiRioKD, Tarzilla,\n");
-        fprintf(stderr, "Tony Cruise, and youki.\n");
+        fprintf(stderr, "Tony Cruise, wavemotion, and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }
