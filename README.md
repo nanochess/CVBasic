@@ -67,7 +67,7 @@ Using CVBasic to compile a Memotech MTX program:
 
 For Memotech, use .run extension instead of .rom, and for CP/M option use .com extension.
 
-Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard) program:
+Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard / Vtech Laser 2001) program:
 
     cvbasic --creativision game.bas game.asm
 

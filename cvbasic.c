@@ -79,7 +79,7 @@ static struct console {
         0x7080, 0x7080, 0x0380,  0x10,   0x10, 0x20, CPU_Z80},
     {"memotech","-cpm",     "Memotech MTX (64K RAM), generates .run files, use -cpm for .com files",
         0,      0xa000, 0,       0x01,   0x01, 0x06, CPU_Z80},
-    {"creativision","",     "Vtech Creativision (Dick Smith's Wizzard), 6502 with 1K of RAM.",
+    {"creativision","",     "Vtech Creativision (Dick Smith's Wizzard/Laser 2001), 6502+1K RAM.",
         0x0050, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
     {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
         0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, CPU_Z80},
