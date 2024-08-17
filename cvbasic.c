@@ -1899,6 +1899,7 @@ int replace_macro(void)
 void compile_assignment(int is_read)
 {
     struct node *tree;
+    struct node *var;
     int type;
     int type2;
     struct label *label;
@@ -2011,16 +2012,12 @@ void compile_assignment(int is_read)
         tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
     else if ((type2 & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
         tree = node_create(N_REDUCE16, 0, tree, NULL);
+    var = node_create(N_ADDR, 0, NULL, NULL);
+    var->label = label_search(label->name);
+    tree = node_create((type2 & MAIN_TYPE) == TYPE_8 ? N_ASSIGN8 : N_ASSIGN16, 0, tree, var);
     node_label(tree);
     node_generate(tree, 0);
     node_delete(tree);
-    strcpy(temp, LABEL_PREFIX);
-    strcat(temp, label->name);
-    if ((type2 & MAIN_TYPE) == TYPE_8) {
-        generic_write_8(temp);
-    } else {
-        generic_write_16(temp);
-    }
 }
 
 /*
@@ -2284,6 +2281,9 @@ void compile_statement(int check_for_else)
                         step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_NUM16 : N_NUM8, 1, NULL, NULL);
                         step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                     }
+                    var = node_create(N_ADDR, 0, NULL, NULL);
+                    var->label = label_search(new_loop->var);
+                    step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_ASSIGN16 : N_ASSIGN8, 0, step, var);
                     var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
                     if ((type_var & MAIN_TYPE) == TYPE_16) {
@@ -2330,13 +2330,6 @@ void compile_statement(int check_for_else)
                         }
                         node_label(step);
                         node_generate(step, 0);
-                        strcpy(temp, LABEL_PREFIX);
-                        strcat(temp, loops->var);
-                        if (loops->var[0] == '#') {
-                            generic_write_16(temp);
-                        } else {
-                            generic_write_8(temp);
-                        }
                         if (final != NULL) {
                             optimized = 0;
                             node_label(final);

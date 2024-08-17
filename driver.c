@@ -25,41 +25,6 @@ void generic_dump(void)
 }
 
 /*
- ** Write to address
- */
-void generic_write_8(char *name)
-{
-    if (target == CPU_6502) {
-        cpu6502_1op("STA", name);
-    }
-    if (target == CPU_Z80) {
-        strcpy(driver_temp, "(");
-        strcat(driver_temp, name);
-        strcat(driver_temp, ")");
-        cpuz80_2op("LD", driver_temp, "A");
-    }
-}
-
-/*
- ** Write to address
- */
-void generic_write_16(char *name)
-{
-    if (target == CPU_6502) {
-        strcpy(driver_temp, name);
-        cpu6502_1op("STA", driver_temp);
-        strcat(driver_temp, "+1");
-        cpu6502_1op("STY", driver_temp);
-    }
-    if (target == CPU_Z80) {
-        strcpy(driver_temp, "(");
-        strcat(driver_temp, name);
-        strcat(driver_temp, ")");
-        cpuz80_2op("LD", driver_temp, "HL");
-    }
-}
-
-/*
  ** 8-bit test
  */
 void generic_test_8(void)

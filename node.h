@@ -64,6 +64,8 @@ struct node {
 extern int is_power_of_two(int);
 extern int is_commutative(enum node_type);
 
+extern int node_same_tree(struct node *, struct node *);
+extern int node_same_address(struct node *, struct node *);
 extern void node_visual(struct node *);
 extern struct node *node_create(enum node_type, int, struct node *, struct node *);
 extern void node_get_label(struct node *, int);
