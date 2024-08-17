@@ -13,6 +13,8 @@
 #include "cvbasic.h"
 #include "node.h"
 
+static char temp2[MAX_LINE_SIZE];
+
 static char cpu6502_line[MAX_LINE_SIZE];
 
 static void cpu6502_emit_line(void);
@@ -76,6 +78,7 @@ void cpu6502_node_label(struct node *node)
 void cpu6502_node_generate(struct node *node, int decision)
 {
     struct node *explore;
+    int stack;
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
@@ -307,6 +310,9 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (node->left->type == N_NUM8) {
                     cpu6502_node_generate(node->right, 0);
                     sprintf(temp, "#%d", node->left->value & 0xff);
+                } else if (node->left->type == N_LOAD8) {
+                    cpu6502_node_generate(node->right, 0);
+                    node_get_label(node->left, 0);
                 } else {
                     cpu6502_node_generate(node->right, 0);
                     cpu6502_noop("PHA");
@@ -315,6 +321,9 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_noop("PLA");
                     strcpy(temp, "temp");
                 }
+            } else if (node->right->type == N_LOAD8) {
+                cpu6502_node_generate(node->left, 0);
+                node_get_label(node->right, 0);
             } else if (node->right->type == N_NUM8) {
                 int c;
                 
@@ -585,12 +594,12 @@ void cpu6502_node_generate(struct node *node, int decision)
                     node_get_label(node->left, 2);
                     cpu6502_noop("CLC");
                     cpu6502_1op("ADC", temp);
-                    cpu6502_noop("PHA");
+                    cpu6502_noop("TAX");
                     cpu6502_noop("TYA");
                     strcat(temp, ">>8");
                     cpu6502_1op("ADC", temp);
                     cpu6502_noop("TAY");
-                    cpu6502_noop("PLA");
+                    cpu6502_noop("TXA");
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
@@ -608,12 +617,12 @@ void cpu6502_node_generate(struct node *node, int decision)
                     sprintf(temp, "#%d", c & 0xff);
                     cpu6502_noop("CLC");
                     cpu6502_1op("ADC", temp);
-                    cpu6502_noop("PHA");
+                    cpu6502_noop("TAX");
                     cpu6502_noop("TYA");
                     sprintf(temp, "#%d", c >> 8);
                     cpu6502_1op("ADC", temp);
                     cpu6502_noop("TAY");
-                    cpu6502_noop("PLA");
+                    cpu6502_noop("TXA");
                     break;
                 }
             }
@@ -629,12 +638,12 @@ void cpu6502_node_generate(struct node *node, int decision)
                     sprintf(temp, "#%d", c & 0xff);
                     cpu6502_noop("SEC");
                     cpu6502_1op("SBC", temp);
-                    cpu6502_noop("PHA");
+                    cpu6502_noop("TAX");
                     cpu6502_noop("TYA");
                     sprintf(temp, "#%d", c >> 8);
                     cpu6502_1op("SBC", temp);
                     cpu6502_noop("TAY");
-                    cpu6502_noop("PLA");
+                    cpu6502_noop("TXA");
                     break;
                 }
             }
@@ -682,12 +691,12 @@ void cpu6502_node_generate(struct node *node, int decision)
                     } else if (node->type == N_OR16 && byte == 0xff) {
                         cpu6502_1op("LDY", "#255");
                     } else {
-                        cpu6502_noop("PHA");
+                        cpu6502_noop("TAX");
                         cpu6502_noop("TYA");
                         sprintf(temp, "#%d", byte);
                         cpu6502_1op(mnemonic, temp);
                         cpu6502_noop("TAY");
-                        cpu6502_noop("PLA");
+                        cpu6502_noop("TXA");
                     }
                     break;
                 }
@@ -752,28 +761,75 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
-                cpu6502_node_generate(node->right, 0);
-                cpu6502_noop("PHA");
-                cpu6502_noop("TYA");
-                cpu6502_noop("PHA");
-                cpu6502_node_generate(node->left, 0);
-                cpu6502_1op("STA", "temp");
-                cpu6502_1op("STY", "temp+1");
+                if (node->left->type == N_NUM16) {
+                    cpu6502_node_generate(node->right, 0);
+                    sprintf(temp, "#%d", node->left->value & 0xff);
+                    sprintf(temp2, "#%d", (node->left->value >> 8) & 0xff);
+                    stack = 0;
+                } else if (node->left->type == N_LOAD16) {
+                    cpu6502_node_generate(node->right, 0);
+                    node_get_label(node->left, 0);
+                    strcpy(temp2, temp);
+                    strcat(temp2, "+1");
+                    stack = 0;
+                } else if (node->left->type == N_EXTEND8 && node->left->left->type == N_LOAD8) {
+                    cpu6502_node_generate(node->right, 0);
+                    node_get_label(node->left->left, 0);
+                    strcpy(temp2, "#0");
+                    stack = 0;
+                } else {
+                    cpu6502_node_generate(node->right, 0);
+                    cpu6502_noop("PHA");
+                    cpu6502_noop("TYA");
+                    cpu6502_noop("PHA");
+                    cpu6502_node_generate(node->left, 0);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
+                    stack = 1;
+                }
             } else {
-                cpu6502_node_generate(node->left, 0);
-                cpu6502_noop("PHA");
-                cpu6502_noop("TYA");
-                cpu6502_noop("PHA");
-                cpu6502_node_generate(node->right, 0);
-                cpu6502_1op("STA", "temp");
-                cpu6502_1op("STY", "temp+1");
+                if (node->right->type == N_NUM16) {
+                    cpu6502_node_generate(node->left, 0);
+                    sprintf(temp, "#%d", node->right->value & 0xff);
+                    sprintf(temp2, "#%d", (node->right->value >> 8) & 0xff);
+                    stack = 0;
+                } else if (node->right->type == N_LOAD16) {
+                    cpu6502_node_generate(node->left, 0);
+                    node_get_label(node->right, 0);
+                    strcpy(temp2, temp);
+                    strcat(temp2, "+1");
+                    stack = 0;
+                } else if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {
+                    cpu6502_node_generate(node->left, 0);
+                    node_get_label(node->right->left, 0);
+                    strcpy(temp2, "#0");
+                    stack = 0;
+                } else {
+                    cpu6502_node_generate(node->left, 0);
+                    cpu6502_noop("PHA");
+                    cpu6502_noop("TYA");
+                    cpu6502_noop("PHA");
+                    cpu6502_node_generate(node->right, 0);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
+                    stack = 1;
+                }
             }
             if (node->type == N_OR16) {
-                cpu6502_noop("PLA");
-                cpu6502_1op("ORA", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_1op("ORA", "temp");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("ORA", "temp+1");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("ORA", "temp");
+                } else {
+                    cpu6502_1op("ORA", temp);
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("ORA", temp2);
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                }
                 if (decision) {
                     optimized = 1;
                     cpu6502_1op("STY", "temp");
@@ -785,11 +841,20 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_label(temp + 100);
                 }
             } else if (node->type == N_XOR16) {
-                cpu6502_noop("PLA");
-                cpu6502_1op("EOR", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_1op("EOR", "temp");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("EOR", "temp+1");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("EOR", "temp");
+                } else {
+                    cpu6502_1op("EOR", temp);
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("EOR", temp2);
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                }
                 if (decision) {
                     optimized = 1;
                     cpu6502_1op("STY", "temp");
@@ -801,11 +866,20 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_label(temp + 100);
                 }
             } else if (node->type == N_AND16) {
-                cpu6502_noop("PLA");
-                cpu6502_1op("AND", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_1op("AND", "temp");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("AND", "temp+1");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("AND", "temp");
+                } else {
+                    cpu6502_1op("AND", temp);
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("AND", temp2);
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                }
                 if (decision) {
                     optimized = 1;
                     cpu6502_1op("STY", "temp");
@@ -817,15 +891,24 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_1op("STA", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
-                cpu6502_1op("ORA", "temp");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", "temp");
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", "temp+1");
+                    cpu6502_1op("ORA", "temp");
+                } else {
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", temp);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", temp2);
+                    cpu6502_1op("ORA", "temp");
+                }
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -843,15 +926,24 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_empty();
                 }
             } else if (node->type == N_NOTEQUAL16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_1op("STA", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
-                cpu6502_1op("ORA", "temp");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", "temp");
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", "temp+1");
+                    cpu6502_1op("ORA", "temp");
+                } else {
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", temp);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", temp2);
+                    cpu6502_1op("ORA", "temp");
+                }
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -869,13 +961,20 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_empty();
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", "temp");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", "temp+1");
+                } else {
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", temp);
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", temp2);
+                }
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -893,13 +992,20 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_empty();
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", "temp");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", "temp+1");
+                } else {
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", temp);
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", temp2);
+                }
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
@@ -917,37 +1023,68 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_empty();
                 }
             } else if (node->type == N_PLUS16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("CLC");
-                cpu6502_1op("ADC", "temp");
-                cpu6502_noop("TAX");
-                cpu6502_noop("TYA");
-                cpu6502_1op("ADC", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("TXA");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("CLC");
+                    cpu6502_1op("ADC", "temp");
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("ADC", "temp+1");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                } else {
+                    cpu6502_noop("CLC");
+                    cpu6502_1op("ADC", temp);
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("ADC", temp2);
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                }
             } else if (node->type == N_MINUS16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_noop("TAX");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("TXA");
-            } else if (node->type == N_MUL16) {
-                cpu6502_1op("JSR", "_mul16");
-            } else if (node->type == N_DIV16) {
-                cpu6502_1op("JSR", "_div16");
-            } else if (node->type == N_MOD16) {
-                cpu6502_1op("JSR", "_mod16");
-            } else if (node->type == N_DIV16S) {
-                cpu6502_1op("JSR", "_div16s");
-            } else if (node->type == N_MOD16S) {
-                cpu6502_1op("JSR", "_mod16s");
+                if (stack) {
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", "temp");
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", "temp+1");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                } else {
+                    cpu6502_noop("SEC");
+                    cpu6502_1op("SBC", temp);
+                    cpu6502_noop("TAX");
+                    cpu6502_noop("TYA");
+                    cpu6502_1op("SBC", temp2);
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("TXA");
+                }
+            } else {
+                if (!stack) {
+                    cpu6502_noop("PHA");
+                    cpu6502_noop("TYA");
+                    cpu6502_noop("PHA");
+                    cpu6502_1op("LDA", temp);
+                    cpu6502_1op("LDY", temp2);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
+                }
+                if (node->type == N_MUL16) {
+                    cpu6502_1op("JSR", "_mul16");
+                } else if (node->type == N_DIV16) {
+                    cpu6502_1op("JSR", "_div16");
+                } else if (node->type == N_MOD16) {
+                    cpu6502_1op("JSR", "_mod16");
+                } else if (node->type == N_DIV16S) {
+                    cpu6502_1op("JSR", "_div16s");
+                } else if (node->type == N_MOD16S) {
+                    cpu6502_1op("JSR", "_mod16s");
+                }
             }
             break;
     }
