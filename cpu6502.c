@@ -984,7 +984,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_label(temp + 100);
                 } else {
                     cpu6502_1op("LDA", "#255");
-                    cpu6502_1op("ADC", "#0");
+                    cpu6502_1op("ADC", "#0");   
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
                 if (stack) {
@@ -1009,8 +1009,9 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_1op("JMP", temp);
                     cpu6502_label(temp + 100);
                 } else {
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("SBC", "#0");
+                    cpu6502_1op("LDA", "#255");
+                    cpu6502_1op("ADC", "#0");
+                    cpu6502_1op("EOR", "#255");
                 }
             } else if (node->type == N_PLUS16) {
                 if (stack) {
