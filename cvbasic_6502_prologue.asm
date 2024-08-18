@@ -288,10 +288,27 @@ cls:
 	cli
 	rts
 
+print_string_cursor:
+	STA cursor
+	STY cursor+1
 print_string:
+	PLA
 	STA temp
-	STY temp+1
+	PLA
+	STA temp+1
 	STX temp2
+	TXA
+	CLC
+	ADC temp
+	TAY
+	LDA #0
+	ADC temp+1
+	PHA
+	TYA
+	PHA
+	INC temp
+	BNE $+4
+	INC temp+1
 	TXA
 	PHA
 	LDA #0
@@ -306,12 +323,13 @@ print_string:
 	JSR LDIRVM
 	CLI
 	PLA
+	TAX
 	CLC
 	ADC cursor
 	STA cursor
 	BCC .1
 	INC cursor+1
-.1:
+.1:	
 	RTS
 
 print_number:

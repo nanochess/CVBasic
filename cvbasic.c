@@ -2870,15 +2870,16 @@ void compile_statement(int check_for_else)
                 int label2;
                 int c;
                 int start;
+                int cursor_value;
                 
                 get_lex();
                 start = 1;
+                cursor_value = 0;
                 if (lex == C_NAME && strcmp(name, "AT") == 0) {
                     get_lex();
                     type = evaluate_expression(1, TYPE_16, 0);
                     if (target == CPU_6502) {
-                        cpu6502_1op("STA", "cursor");
-                        cpu6502_1op("STY", "cursor+1");
+                        cursor_value = 1;
                     } else {
                         cpuz80_2op("LD", "(cursor)", "HL");
                     }
@@ -2886,33 +2887,40 @@ void compile_statement(int check_for_else)
                 }
                 while (1) {
                     if (!start) {
-                        if (lex != C_COMMA)
+                        if (lex != C_COMMA) {
+                            if (target == CPU_6502) {
+                                if (cursor_value) {
+                                    cpu6502_1op("STA", "cursor");
+                                    cpu6502_1op("STY", "cursor+1");
+                                }
+                            }
                             break;
+                        }
                         get_lex();
                     }
                     start = 0;
                     if (lex == C_STRING) {
                         if (name_size) {
-                            label = next_local++;
-                            label2 = next_local++;
                             if (target == CPU_6502) {
-                                sprintf(temp, "#" INTERNAL_PREFIX "%d", label);
-                                cpu6502_1op("LDA", temp);
-                                strcat(temp, ">>8");
-                                cpu6502_1op("LDY", temp);
                                 sprintf(temp, "#%d", name_size);
                                 cpu6502_1op("LDX", temp);
+                                if (cursor_value)
+                                    generic_call("print_string_cursor");
+                                else
+                                    generic_call("print_string");
                             } else {
+                                label = next_local++;
+                                label2 = next_local++;
                                 sprintf(temp, INTERNAL_PREFIX "%d", label);
                                 cpuz80_2op("LD", "HL", temp);
                                 sprintf(temp, "%d", name_size);
                                 cpuz80_2op("LD", "A", temp);
+                                generic_call("print_string");
+                                sprintf(temp, INTERNAL_PREFIX "%d", label2);
+                                generic_jump(temp);
+                                sprintf(temp, INTERNAL_PREFIX "%d", label);
+                                generic_label(temp);
                             }
-                            generic_call("print_string");
-                            sprintf(temp, INTERNAL_PREFIX "%d", label2);
-                            generic_jump(temp);
-                            sprintf(temp, INTERNAL_PREFIX "%d", label);
-                            generic_label(temp);
                             generic_dump();
                             for (c = 0; c < name_size; c++) {
                                 if ((c & 7) == 0) {
@@ -2925,14 +2933,29 @@ void compile_statement(int check_for_else)
                                     fprintf(output, ",");
                                 }
                             }
-                            sprintf(temp, INTERNAL_PREFIX "%d", label2);
-                            generic_label(temp);
+                            if (target == CPU_Z80) {
+                                sprintf(temp, INTERNAL_PREFIX "%d", label2);
+                                generic_label(temp);
+                            }
+                        } else {
+                            if (target == CPU_6502) {
+                                if (cursor_value) {
+                                    cpu6502_1op("STA", "cursor");
+                                    cpu6502_1op("STY", "cursor+1");
+                                }
+                            }
                         }
                         get_lex();
                     } else if (lex == C_LESS || lex == C_NOTEQUAL) {
                         int format = 0;
                         int size = 1;
                         
+                        if (target == CPU_6502) {
+                            if (cursor_value) {
+                                cpu6502_1op("STA", "cursor");
+                                cpu6502_1op("STY", "cursor+1");
+                            }
+                        }
                         if (lex == C_NOTEQUAL) {    /* IntyBASIC compatibility */
                             get_lex();
                         } else {
@@ -3001,9 +3024,16 @@ void compile_statement(int check_for_else)
                             }
                         }
                     } else {
+                        if (target == CPU_6502) {
+                            if (cursor_value) {
+                                cpu6502_1op("STA", "cursor");
+                                cpu6502_1op("STY", "cursor+1");
+                            }
+                        }
                         type = evaluate_expression(1, TYPE_16, 0);
                         generic_call("print_number");
                     }
+                    cursor_value = 0;
                 }
             } else if (strcmp(name, "DEFINE") == 0) {
                 int pletter = 0;

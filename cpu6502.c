@@ -553,14 +553,23 @@ void cpu6502_node_generate(struct node *node, int decision)
                 break;
                 
             }
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_noop("PHA");
-            cpu6502_node_generate(node->right, 0);
-            cpu6502_1op("STA", "temp");
-            cpu6502_1op("STY", "temp+1");
-            cpu6502_noop("PLA");
-            cpu6502_1op("LDY", "#0");
-            cpu6502_1op("STA", "(temp),Y");
+            if (node->left->type == N_NUM8 || node->left->type == N_LOAD8) {
+                cpu6502_node_generate(node->right, 0);
+                cpu6502_1op("STA", "temp");
+                cpu6502_1op("STY", "temp+1");
+                cpu6502_node_generate(node->left, 0);
+                cpu6502_1op("LDY", "#0");
+                cpu6502_1op("STA", "(temp),Y");
+            } else {
+                cpu6502_node_generate(node->left, 0);
+                cpu6502_noop("PHA");
+                cpu6502_node_generate(node->right, 0);
+                cpu6502_1op("STA", "temp");
+                cpu6502_1op("STY", "temp+1");
+                cpu6502_noop("PLA");
+                cpu6502_1op("LDY", "#0");
+                cpu6502_1op("STA", "(temp),Y");
+            }
             break;
         case N_ASSIGN16:    /* 16-bit assignment */
             if (node->right->type == N_ADDR) {
@@ -641,19 +650,33 @@ void cpu6502_node_generate(struct node *node, int decision)
                 cpu6502_1op("STY", temp);
                 break;
             }
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_noop("PHA");
-            cpu6502_noop("TYA");
-            cpu6502_noop("PHA");
-            cpu6502_node_generate(node->right, 0);
-            cpu6502_1op("STA", "temp");
-            cpu6502_1op("STY", "temp+1");
-            cpu6502_noop("PLA");
-            cpu6502_1op("LDY", "#1");
-            cpu6502_1op("STA", "(temp),Y");
-            cpu6502_noop("PLA");
-            cpu6502_noop("DEY");
-            cpu6502_1op("STA", "(temp),Y");
+            if (node->left->type == N_NUM16 || node->left->type == N_LOAD16) {
+                cpu6502_node_generate(node->right, 0);
+                cpu6502_1op("STA", "temp");
+                cpu6502_1op("STY", "temp+1");
+                cpu6502_node_generate(node->left, 0);
+                cpu6502_noop("TAX");
+                cpu6502_noop("TYA");
+                cpu6502_1op("LDY", "#1");
+                cpu6502_1op("STA", "(temp),Y");
+                cpu6502_noop("TXA");
+                cpu6502_noop("DEY");
+                cpu6502_1op("STA", "(temp),Y");
+            } else {
+                cpu6502_node_generate(node->left, 0);
+                cpu6502_noop("PHA");
+                cpu6502_noop("TYA");
+                cpu6502_noop("PHA");
+                cpu6502_node_generate(node->right, 0);
+                cpu6502_1op("STA", "temp");
+                cpu6502_1op("STY", "temp+1");
+                cpu6502_noop("PLA");
+                cpu6502_1op("LDY", "#1");
+                cpu6502_1op("STA", "(temp),Y");
+                cpu6502_noop("PLA");
+                cpu6502_noop("DEY");
+                cpu6502_1op("STA", "(temp),Y");
+            }
             break;
         default:    /* Every other node, all remaining are 16-bit operations */
             /* Optimization of address plus/minus constant */
