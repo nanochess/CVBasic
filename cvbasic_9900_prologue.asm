@@ -15,6 +15,8 @@
 * Revision date Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
 *                            Added VDP delays.
 * Revision date Aug/12/2024. Rewrite started for TMS9900 cpu
+* Revision date Aug/16/2024. Corrected bug in define_char_unpack.
+* Revision date Aug/18/2024. Ported bugfixes to TMS9900 version
 *
 
 *
@@ -25,6 +27,9 @@
 *
 * CVBasic variables in scratchpad.
 *
+
+* When looking at this - remember that JUMP and BRANCH have the /opposite/
+* meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
 
 * TODO: Concern - changing the endianess of 16-bit values from little to big,
 * does anything break? Ideally not if I'm careful...
@@ -100,9 +105,8 @@ audio_freq1		    bss 2       * word
 audio_freq2		    bss 2       * word
 audio_freq3		    bss 2       * word
 
-audio_vol1  		bss 1
+audio_vol1  		bss 1       * must be kept together
 audio_vol2	    	bss 1
-
 audio_vol3		    bss 1
 audio_vol4hw		bss 1
 
@@ -579,7 +583,6 @@ random
     movb @lfsr,r0       * get the lsb
     sla r0,2            * just a straight shift
     xor r2,r0           * xor the temp copy in (both bytes of r2 were valid)
-    andi r0,>8000       * mask out just the msb
     mov @lfsr,r2        * get word for shifting
     srl r2,1            * shift once
     socb r0,r2          * merge in the msb we just generated
@@ -756,8 +759,8 @@ mode_1
 * Set up VDP mode 2
 mode_2
     mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     * bit we want to clear
-    szcb r0,@mode
+    li r0,>0400     * bit we want to set
+    socb r0,@mode
 
     li r2,>8000	    * $2000 for color table.
     li r3,>0000	    * $0000 for bitmaps
@@ -1009,530 +1012,492 @@ wait
     jeq .1
     b *r11
 
-********************************************************
-
+* initialize music system
 music_init
-    LDA #$9f
-    JSR BIOS_WRITE_PSG	
-    LDA #$bf
-    JSR BIOS_WRITE_PSG	
-    LDA #$df
-    JSR BIOS_WRITE_PSG	
-    LDA #$ff
-    JSR BIOS_WRITE_PSG
-    if CVBASIC_MUSIC_PLAYER
-    else	
-    RTS
+* mute sound chip
+    li r0,>9fbf
+    movb r0,@SOUND
+    swpb r0
+    movb r0,@SOUND
+    li r0,>dfff
+    movb r0,@SOUND
+    swpb r0
+    movb r0,@SOUND
+
+    if CVBASIC_MUSIC_PLAYER == 0
+* return if we don't have the player compiled in    
+    b *r11
     endif
 
+* all the rest of the player is under this if    
     if CVBASIC_MUSIC_PLAYER
-    LDA #$ff
-    STA audio_vol4hw
-    LDA #$00
-    STA audio_control
-    LDA #music_silence
-    LDY #music_silence>>8
-    *
-    * Play music.
-    * YA = Pointer to music.
-    *
+
+* set some... things?    
+    li r0,>ff00
+    movb r0,@audio_vol4hw
+    swpb r0
+    movb r0,@audio_control
+
+* set up silence, and fall through into music_play
+    li r0,music_silence
+
+*
+* Play music.
+* R0 = Pointer to music (original YYAA)
+*
 music_play
-    SEI
-    STA music_pointer
-    STY music_pointer+1
-    LDY #0
-    STY music_note_counter
-    LDA (music_pointer),Y
-    STA music_timing
-    INY
-    STY music_playing
-    INC music_pointer
-    BNE $+4
-    INC music_pointer+1
-    LDA music_pointer
-    LDY music_pointer+1
-    STA music_start
-    STY music_start+1
-    CLI
-    RTS
+    limi 0                          * ints off
+    clr r2                          * get a zero
+    movb r2,@music_note_counter     * store in the counter
+    movb *r0+,r2                    * fetch the first byte of the music and increment
+    mov r0,@music_pointer           * store the updated address
+    movb r2,@music_timing           * store fetched byte in timing
+    li r2,>0100
+    movb r2,@music_playing          * needs to be a 1 for BASIC
+    mov @music_pointer,@music_start  * remember this point
+    limi 2                          * ints back on
+    b *r11                          * back to caller
 
-    *
-    * Generates music
-    *
+*
+* Generates music - called from interrupt (regs are saved)
+*
 music_generate
-    LDA #0
-    STA audio_vol1
-    STA audio_vol2
-    STA audio_vol3
-    LDA #$FF
-    STA audio_vol4hw
-    LDA music_note_counter
-    BEQ .1
-    JMP .2
+    mov r11,r10
+    clr r4                          * use r4 as a zero
+    movb r4,@audio_vol1
+    movb r4,@audio_vol2
+    movb r4,@audio_vol3
+    li r0,>ff00
+    movb r0,@audiovol4hw
+    movb @music_note_counter,r0     * check countdown
+    jeq .1                          * if zero, time to work
+    b @.2                           * else skip ahead
 .1
-    LDY #0
-    LDA (music_pointer),Y
-    CMP #$fe	* End of music?
-    BNE .3		* No, jump.
-    LDA #0		* Keep at same place.
-    STA music_playing
-    RTS
+    mov @music_pointer,r1           * keep music pointer in r1 - update it if needed
+    clr r0
+    movb *r1,r0
+    ci r0,>fe00                     * end of music?
+    jne .3                          * nope, jump ahead
+    movb r4,@music_playing          * keep at same place
+    b *r10
 
-.3	CMP #$fd	* Repeat music?
-    BNE .4
-    LDA music_start
-    LDY music_start+1
-    STA music_pointer
-    STY music_pointer+1
-    JMP .1
+.3	
+    ci r0,>fd00                     * repeat?
+    jne .4                          * nope, skip
+    mov @music_start,@music_pointer  * yep, copy back the loop point
+    jmp .1                          * and start again (So music that STARTS with FD will spin forever - bug)
 
-.4	LDA music_timing
-    AND #$3f	* Restart note time.
-    STA music_note_counter
+.4
+    movb @music_timing,r0
+    andi r0,>3f00                   * restart note time
+    movb r0,@music_note_counter
+    clr r0
+    movb *r1+,r0                    * fetch byte and increment
+    ci r0,>3f00                     * sustain?
+    jeq .5
+    mov r0,r2
+    andi r2,>c000
+    movb r2,@music_instrument_1     * save instrument type
+    andi r0,>3f00
+    sla r0,1
+    movb r0,@music_note_1           * save note
+    movb r4,@music_counter_1        * and reset count
 
-    LDA (music_pointer),Y
-    CMP #$3F	* Sustain?
-    BEQ .5
-    AND #$C0
-    STA music_instrument_1
-    LDA (music_pointer),Y
-    AND #$3F
-    ASL A
-    STA music_note_1
-    LDA #0
-    STA music_counter_1
 .5
-    INY
-    LDA (music_pointer),Y
-    CMP #$3F	* Sustain?
-    BEQ .6
-    AND #$C0
-    STA music_instrument_2
-    LDA (music_pointer),Y
-    AND #$3F
-    ASL A
-    STA music_note_2
-    LDA #0
-    STA music_counter_2
+    movb *r1+,r0                    * fetch next byte and increment
+    ci r0,>3f00                     * sustain
+    jeq .6
+    mov r0,r2
+    andi r2,>c000
+    movb r2,@music_instrument_2
+    andi r0,>3f00
+    sla r0,1
+    movb r0,@>music_note_2
+    movb r4,@music_counter_2
+    
 .6
-    INY
-    LDA (music_pointer),Y
-    CMP #$3F	* Sustain?
-    BEQ .7
-    AND #$C0
-    STA music_instrument_3
-    LDA (music_pointer),Y
-    AND #$3F
-    ASL A
-    STA music_note_3
-    LDA #0
-    STA music_counter_3
+    movb *r1+,r0                    * fetch next byte and increment
+    ci r0,>3f00                     * sustain
+    jeq .7
+    mov r0,r2
+    andi r2,>c000
+    movb r2,@music_instrument_3
+    andi r0,>3f00
+    sla r0,1
+    movb r0,@>music_note_3
+    movb r4,@music_counter_3
+    
 .7
-    INY
-    LDA (music_pointer),Y
-    STA music_drum
-    LDA #0	
-    STA music_counter_4
-    LDA music_pointer
-    CLC
-    ADC #4
-    STA music_pointer
-    LDA music_pointer+1
-    ADC #0
-    STA music_pointer+1
+    movb *r1,r0                     * fetch drum byte - no need to increment
+    movb r0,@music_drum
+    movb r4,@music_counter_4
+    li r0,4
+    a r0,@music_pointer             * this brings music_pointer up to date - done with r1
+    
 .2
-    LDY music_note_1
-    BEQ .8
-    LDA music_instrument_1
-    LDX music_counter_1
-    JSR music_note2freq
-    STA audio_freq1
-    STY audio_freq1+1
-    STX audio_vol1
+    clr r2
+    movb @music_note_1,r2
+    jeq .8
+    movb @music_instrument_1,r0
+    movb @music_counter_1,r1
+    bl @music_note2freq
+    mov r0,@audio_freq1
+    movb r1,@audio_vol1
+
 .8
-    LDY music_note_2
-    BEQ .9
-    LDA music_instrument_2
-    LDX music_counter_2
-    JSR music_note2freq
-    STA audio_freq2
-    STY audio_freq2+1
-    STX audio_vol2
+    movb @music_note2,r2
+    jeq .9
+    movb @music_instrument_2,r0
+    movb @music_counter_2,r1
+    bl @music_note2freq
+    mov r0,@audio_freq2
+    movb r1,@audio_vol2
+    
 .9
-    LDY music_note_3
-    BEQ .10
-    LDA music_instrument_3
-    LDX music_counter_3
-    JSR music_note2freq
-    STA audio_freq3
-    STY audio_freq3+1
-    STX audio_vol3
+    movb @music_note3,r2
+    jeq .10
+    movb @music_instrument_3,r0
+    movb @music_counter_3,r1
+    bl @music_note2freq
+    mov r0,@audio_freq3
+    movb r1,@audio_vol3
+    
 .10
-    LDA music_drum
-    BEQ .11
-    CMP #1		* 1 - Long drum.
-    BNE .12
-    LDA music_counter_4
-    CMP #3
-    BCS .11
+    clr r2
+    movb @music_drum,r2
+    jeq .11
+    ci r2,>0100                     * 1 - long drum
+    jne .12
+    movb @music_counter_4,r2
+    ci r2,>0300
+    jhe .11
+    
 .15
-    LDA #$ec
-    STA audio_noise
-    LDA #$f5
-    STA audio_vol4hw
-    JMP .11
+    li r0,>ecf5
+    movb r0,@audio_noise
+    swpb r0
+    movb r0,@audio_vol4hw
+    jmp .11
 
-.12	CMP #2		* 2 - Short drum.
-    BNE .14
-    LDA music_counter_4
-    CMP #0
-    BNE .11
-    LDA #$ed
-    STA audio_noise
-    LDA #$F5
-    STA audio_vol4hw
-    JMP .11
+.12	
+    ci r2,>0200                     * 2 - short drum
+    jne .14
+    movb @music_counter_4,r2
+    jne .11                         * was an explicit cmp #0 in original code... needed?
+    li r0,>edf5
+    movb r0,@audio_noise
+    swpb r0
+    movb r0,@audio_vol4hw
+    jmp .11
 
-.14	*CMP #3		* 3 - Roll.
-    *BNE
-    LDA music_counter_4
-    CMP #2
-    BCC .15
-    ASL A
-    SEC
-    SBC music_timing
-    BCC .11
-    CMP #4
-    BCC .15
+.14
+* 3 - Roll was commented out...
+    movb @music_counter_4,r2
+    ci r2,>0200
+    jl .15
+    sla r2,1
+    sb @music_timing,r2
+    jnc .11
+    ci r2,>0400
+    jl .15
+
 .11
-    LDX music_counter_1
-    INX
-    CPX #$18
-    BNE $+4
-    LDX #$10
-    STX music_counter_1
+    clr r1
+    li r2,>1000
 
-    LDX music_counter_2
-    INX
-    CPX #$18
-    BNE $+4
-    LDX #$10
-    STX music_counter_2
+    movb @music_counter_1,r1        * why aren't we incrementing the variables? We do for noise. TODO
+    ai r1,>0100
+    ci r1,>1800
+    jne $+1
+    movb r2,@music_counter_1
+   
+    movb @music_counter_2,r1
+    ai r1,>0100
+    ci r1,>1800
+    jne $+1
+    movb r2,@music_counter_2
 
-    LDX music_counter_3
-    INX
-    CPX #$18
-    BNE $+4
-    LDX #$10
-    STX music_counter_3
+    movb @music_counter_3,r1
+    ai r1,>0100
+    ci r1,>1800
+    jne $+1
+    movb r2,@music_counter_3
 
-    INC music_counter_4
-    DEC music_note_counter
-    RTS
+    li r1,>0100
+    ab r1,@music_counter_4
+    sb r1,@music_note_counter
+    b *r10
 
+*
+* flute instrument
+*
 music_flute
-    LDA music_notes_table,Y
-    CLC
-    ADC .2,X
-    PHA
-    LDA music_notes_table+1,Y
-    ADC #0
-    TAY
-    LDA .1,X
-    TAX
-    PLA
-    RTS
+    mov @music_notes_table(r2),r0
+    movb @flutenote2(r1),r2
+    srl r2,8
+    a r2,r0
+    movb @flutevol1(r1),r1
+    b *r11
+    
+flutevol1
+    byte 10,12,13,13,12,12,12,12
+    byte 11,11,11,11,10,10,10,10
+    byte 11,11,11,11,10,10,10,10
 
-.1
-        db 10,12,13,13,12,12,12,12
-        db 11,11,11,11,10,10,10,10
-        db 11,11,11,11,10,10,10,10
-
-.2
-    db 0,0,0,0,0,1,1,1
-    db 0,1,1,1,0,1,1,1
-    db 0,1,1,1,0,1,1,1
+flutenote2
+    byte 0,0,0,0,0,1,1,1
+    byte 0,1,1,1,0,1,1,1
+    byte 0,1,1,1,0,1,1,1
 
     *
     * Converts note to frequency.
     * Input
-    *   A = Instrument.
-    *   Y = Note (1-62)
-    *   X = Instrument counter.
+    *   A = Instrument         (r0 - msb)
+    *   X = Instrument counter (r1 - msb)
+    *   Y = Note (1-62)        (r2 - msb)
     * Output
-    *   YA = Frequency.
-    *   X = Volume.
+    *   YA = Frequency. (r0 - word)
+    *   X = Volume.     (r1 - msb)
     *
 music_note2freq
-    CMP #$40
-    BCC music_piano
-    BEQ music_clarinet
-    CMP #$80
-    BEQ music_flute
-    *
-    * Bass instrument
-    * 
+    srl r2,8                * make int so they can be indexes
+    sla r2,1                * make word index
+    srl r1,8                * just byte index here
+    
+    ci r0,>4000
+    jl music_piano
+    jeq music_clarinet
+    ci r0,>8000
+    jeq music_flute
+    
+*
+* Bass instrument
+* 
 music_bass
-    LDA music_notes_table,Y
-    ASL A
-    PHA
-    LDA music_notes_table+1,Y
-    ROL A
-    TAY
-    LDA .1,X
-    TAX
-    PLA
-    RTS
+    mov @music_notes_table(r2),r0
+    sla r0,1
+    movb @bassvol1(r1),r1
+    b *r11
 
-.1
-    db 13,13,12,12,11,11,10,10
-    db 9,9,8,8,7,7,6,6
-    db 5,5,4,4,3,3,2,2
+bassvol1
+    byte 13,13,12,12,11,11,10,10
+    byte 9,9,8,8,7,7,6,6
+    byte 5,5,4,4,3,3,2,2
 
+*
+* Piano instrument
+* 
 music_piano
-    LDA music_notes_table,Y
-    PHA
-    LDA music_notes_table+1,Y
-    TAY
-    LDA .1,X
-    TAX
-    PLA
-    RTS
+    mov @music_notes_table(r2),r0
+    sla r0,1
+    movb @pianovol1(r1),r1
+    b *r11
 
-.1	db 12,11,11,10,10,9,9,8
-    db 8,7,7,6,6,5,5,4
-    db 4,4,5,5,4,4,3,3
+pianovol1	
+    byte 12,11,11,10,10,9,9,8
+    byte 8,7,7,6,6,5,5,4
+    byte 4,4,5,5,4,4,3,3
 
+*
+* Clarinet instrument
+*
 music_clarinet
-    LDA music_notes_table,Y
-    CLC
-    ADC .2,X
-    PHA
-    LDA .2,X
-    BMI .3
-    LDA #$00
-    DB $2C
-.3	LDA #$ff
-    ADC music_notes_table+1,Y
-    LSR A
-    TAY
-    LDA .1,X
-    TAX
-    PLA
-    ROR A
-    RTS
+    mov @music_notes_table(r2),r0
+    movb @clarinetnote2(r1),r2
+    srl r2,8
+    a r2,r0
+    srl r0,1
+    movb @clarinetvol1(r1),r1
+    b *r11
 
-.1
-        db 13,14,14,13,13,12,12,12
-        db 11,11,11,11,12,12,12,12
-        db 11,11,11,11,12,12,12,12
+clarinetvol1
+    byte 13,14,14,13,13,12,12,12
+    byte 11,11,11,11,12,12,12,12
+    byte 11,11,11,11,12,12,12,12
 
-.2
-    db 0,0,0,0,-1,-2,-1,0
-    db 1,2,1,0,-1,-2,-1,0
-    db 1,2,1,0,-1,-2,-1,0
+clarinetnote2
+    byte 0,0,0,0,-1,-2,-1,0
+    byte 1,2,1,0,-1,-2,-1,0
+    byte 1,2,1,0,-1,-2,-1,0
 
     *
     * Musical notes table.
     *
 music_notes_table
-    * Silence - 0
-    dw 0
-    * Values for 2.00 mhz.
-    * 2nd octave - Index 1
-    dw 956,902,851,804,758,716,676,638,602,568,536,506
-    * 3rd octave - Index 13
-    dw 478,451,426,402,379,358,338,319,301,284,268,253
-    * 4th octave - Index 25
-    dw 239,225,213,201,190,179,169,159,150,142,134,127
-    * 5th octave - Index 37
-    dw 119,113,106,100,95,89,84,80,75,71,67,63
-    * 6th octave - Index 49
-    dw 60,56,53,50,47,45,42,40,38,36,34,32
-    * 7th octave - Index 61
-    dw 30,28,27
+    * Silence - 1 - Note: the TI sound chip is not mute at 0, it's actually 0x400. 1 is beyond hearing range.
+    data 1
+	; Values for 3.58 mhz.
+	; 2nd octave - Index 1
+	data 1710,1614,1524,1438,1357,1281,1209,1141,1077,1017,960,906
+	; 3rd octave - Index 13
+	data 855,807,762,719,679,641,605,571,539,508,480,453
+	; 4th octave - Index 25
+	data 428,404,381,360,339,320,302,285,269,254,240,226
+	; 5th octave - Index 37
+	data 214,202,190,180,170,160,151,143,135,127,120,113
+	; 6th octave - Index 49
+	data 107,101,95,90,85,80,76,71,67,64,60,57
+	; 7th octave - Index 61
+	data 53,50,48
 
+* handle the hardware side of the music player
 music_hardware
-    LDA music_mode
-    CMP #4		* PLAY SIMPLE?
-    BCC .7		* Yes, jump.
-    LDA audio_vol2
-    BNE .7
-    LDA audio_vol3
-    BEQ .7
-    STA audio_vol2
-    LDA #0
-    STA audio_vol3
-    LDA audio_freq3
-    LDY audio_freq3+1
-    STA audio_freq2
-    STY audio_freq2+1
+    clr r0
+    movb @music_mode,r0
+    ci r0,>0400         * play simple?
+    jl .7               * yes, jump
+    movb @audio_vol2,r0
+    jne .7
+    movb @audio_vol3,r0
+    jeq .7
+    movb r0,@audio_vol2
+    clr r0
+    movb r0,@audio_vol3
+    mov @audio_freq3,@audio_freq2
+    
 .7
-    LDA audio_freq1+1
-    CMP #$04
-    LDA #$9F
-    BCS .1
-    LDA audio_freq1
-    AND #$0F
-    ORA #$80
-    JSR BIOS_WRITE_PSG
-    LDA audio_freq1+1
-    ASL audio_freq1
-    ROL A
-    ASL audio_freq1
-    ROL A
-    ASL audio_freq1
-    ROL A
-    ASL audio_freq1
-    ROL A
-    JSR BIOS_WRITE_PSG
-    LDX audio_vol1
-    LDA ay2sn,X
-    ORA #$90
-.1	JSR BIOS_WRITE_PSG
+    li r1,>9f00         * mute default
+    mov @audio_freq,r0
+    ci r0,>0400
+    jhe .1
+    mov r0,r1           * write least significant plus command nibble
+    swpb r1
+    andi r1,>0fff
+    ori r1,>8000
+    movb r1,@SOUND      * command + least significant nibble
+    sla r0,4
+    movb r1,@SOUND      * most significant byte
+    movb @audio_vol1,r2
+    srl r2,8
+    movb @ay2sn(r2),r1  * translate from AY to SN
+    ori r1,>9000
+    
+.1    
+    movb r1,@SOUND      * volume
 
-    LDA audio_freq2+1
-    CMP #$04
-    LDA #$BF
-    BCS .2
-    LDA audio_freq2
-    AND #$0F
-    ORA #$A0
-    JSR BIOS_WRITE_PSG
-    LDA audio_freq2+1
-    ASL audio_freq2
-    ROL A
-    ASL audio_freq2
-    ROL A
-    ASL audio_freq2
-    ROL A
-    ASL audio_freq2
-    ROL A
-    JSR BIOS_WRITE_PSG
-    LDX audio_vol2
-    LDA ay2sn,X
-    ORA #$b0
-.2	JSR BIOS_WRITE_PSG
+    li r1,>bf00         * mute default
+    mov @audio_freq2,r0
+    ci r0,>0400
+    jhe .2
+    mov r0,r1           * write least significant plus command nibble
+    swpb r1
+    andi r1,>0fff
+    ori r1,>a000
+    movb r1,@SOUND      * command + least significant nibble
+    sla r0,4
+    movb r1,@SOUND      * most significant byte
+    movb @audio_vol2,r2
+    srl r2,8
+    movb @ay2sn(r2),r1  * translate from AY to SN
+    ori r1,>b000
+    
+.2    
+    movb r1,@SOUND      * volume
 
-    LDA music_mode
-    CMP #4		* PLAY SIMPLE?
-    BCC .6		* Yes, jump.
+    clr r0
+    movb @music_mode,r0
+    ci r0,>0400         * play simple?
+    jl .6               * yes jump
+    
+    li r1,>df00         * mute default
+    mov @audio_freq2,r0
+    ci r0,>0400
+    jhe .3
+    mov r0,r1           * write least significant plus command nibble
+    swpb r1
+    andi r1,>0fff
+    ori r1,>c000
+    movb r1,@SOUND      * command + least significant nibble
+    sla r0,4
+    movb r1,@SOUND      * most significant byte
+    movb @audio_vol3,r2
+    srl r2,8
+    movb @ay2sn(r2),r1  * translate from AY to SN
+    ori r1,>d000
+    
+.3
+    movb r1,@SOUND      * volume
 
-    LDA audio_freq3+1
-    CMP #$04
-    LDA #$DF
-    BCS .3
-    LDA audio_freq3
-    AND #$0F
-    ORA #$C0
-    JSR BIOS_WRITE_PSG
-    LDA audio_freq3+1
-    ASL audio_freq3
-    ROL A
-    ASL audio_freq3
-    ROL A
-    ASL audio_freq3
-    ROL A
-    ASL audio_freq3
-    ROL A
-    JSR BIOS_WRITE_PSG
-    LDX audio_vol3
-    LDA ay2sn,X
-    ORA #$D0
-.3	JSR BIOS_WRITE_PSG
+.6
+    clr r0
+    movb @music_mode,r0
+    srl r0,1            * no drums?
+    jnc .8
+    
+    movb @audio_vol4hw,r0
+    ci r0,>ff00
+    jeq .4
+    
+    movb @audio_noise,r1
+    cb r1,@audio_control    * don't retrigger noise if same
+    jeq .4
+    movb r1,@audio_control
+    movb r1,@SOUND      * noise type
+    
+.4
+    movb r0,@SOUND      * noise volume
 
-.6	LDA music_mode
-    LSR A		* NO DRUMS?
-    BCC .8
-    LDA audio_vol4hw
-    CMP #$ff
-    BEQ .4
-    LDA audio_noise
-    CMP audio_control
-    BEQ .4
-    STA audio_control
-    JSR BIOS_WRITE_PSG
-.4	LDA audio_vol4hw
-    JSR BIOS_WRITE_PSG
 .8
-    RTS
+    b *r11
 
-        *
-        * Converts AY-3-8910 volume to SN76489
-        *
+*
+* Converts AY-3-8910 volume to SN76489
+*
 ay2sn
-        db $0f,$0f,$0f,$0e,$0e,$0e,$0d,$0b,$0a,$08,$07,$05,$04,$03,$01,$00
+    byte >0f,>0f,>0f,>0e,>0e,>0e,>0d,>0b,>0a,>08,>07,>05,>04,>03,>01,>00
 
+* default silent tune to play when idle
 music_silence
-    db 8
-    db 0,0,0,0
-    db -2
-    endif
+    byte 8
+    byte 0,0,0,0
+    byte -2
+
+* endif for CVBASIC_MUSIC_PLAYER
+    endif       
+
 
     if CVBASIC_COMPRESSION
 define_char_unpack
-    lda pointer
-    asl a
-    rol pointer+1
-    asl a
-    rol pointer+1
-    asl a
-    rol pointer+1
-    sta pointer
-    lda mode
-    and #$04
-    beq unpack3
-    bne unpack
+    andi r3,>00ff
+    sla r3,4
+    movb @mode,r0
+    andi r0,>0400
+    jeq unpack3
+    jmp unpack
 
 define_color_unpack
-    lda #4
-    sta pointer+1
-    lda pointer
-    asl a
-    rol pointer+1
-    asl a
-    rol pointer+1
-    asl a
-    rol pointer+1
-    sta pointer
-unpack3
-    jsr .1
-    jsr .1
-.1	lda pointer
-    pha
-    lda pointer+1
-    pha
-    lda temp
-    pha
-    lda temp+1
-    pha
-    jsr unpack
-    pla
-    sta temp+1
-    pla
-    sta temp
-    pla
-    clc
-    adc #8
-    sta pointer+1
-    pla
-    sta pointer
-    rts
+    li r0,>0400
+    movb r0,r3
+    sla r3,3
 
-        *
-        * Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
-        * Ported from Z80 original
-    * temp = Pointer to source data
-    * pointer = Pointer to target VRAM
-    * temp2
-    * temp2+1
-    * result
-    * result+1
-    * pletter_off
-    * pletter_off+1
-    *
+unpack3
+    mov r11,r10     * save return address
+    bl @unpack
+    ai r3,8
+    bl @unpack
+    ai r3,8
+    bl @unpack
+    ai r3,8
+    b *r10
+
+*
+* Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
+* Ported from 6502 port
+* (r3) pointer = Pointer to target VRAM
+* (r4) temp = Pointer to source data 
+* (r5) temp2
+* (r6) result
+* pletter_off
+*
 unpack
-    * Initialization
+* Initialization
+    clr r5
+    movb @r4+,r0
+    
+**** not sure how badly I want to tackle this - seems to be
+**** no reference code besides the Z80 and 6502. Wonder which
+**** one would be easier to port? Probably Z80? 
+
     ldy #0
     sty temp2
     lda (temp),y
@@ -1725,111 +1690,113 @@ unpack
     dw .mode6
     endif
 
-    * Required for Creativision because it doesn't provide an ASCII charset.
-    *
-        * My personal font for TMS9928.
-        *
-        * Patterned after the TMS9928 programming manual 6x8 letters
-        * with better lowercase letters, also I made a proper
-        * AT sign.
-        *
+* Required for Creativision because it doesn't provide an ASCII charset.
+* Kept for TI to reduce dependence on the console and because it looks
+* better than the caps.
+*
+* My personal font for TMS9928.
+*
+* Patterned after the TMS9928 programming manual 6x8 letters
+* with better lowercase letters, also I made a proper
+* AT sign.
+*
 font_bitmaps
-        db $00,$00,$00,$00,$00,$00,$00,$00      * $20 space
-        db $20,$20,$20,$20,$20,$00,$20,$00      * $21 !
-        db $50,$50,$50,$00,$00,$00,$00,$00      * $22 "
-        db $50,$50,$f8,$50,$f8,$50,$50,$00      * $23 #
-        db $20,$78,$a0,$70,$28,$f0,$20,$00      * $24 $
-        db $c0,$c8,$10,$20,$40,$98,$18,$00      * $25 %
-        db $40,$a0,$40,$a0,$a8,$90,$68,$00      * $26 &
-        db $60,$20,$40,$00,$00,$00,$00,$00      * $27 '
-        db $10,$20,$40,$40,$40,$20,$10,$00      * $28 (
-        db $40,$20,$10,$10,$10,$20,$40,$00      * $29 )
-        db $00,$a8,$70,$20,$70,$a8,$00,$00      * $2a *
-        db $00,$20,$20,$f8,$20,$20,$00,$00      * $2b +
-        db $00,$00,$00,$00,$00,$60,$20,$40      * $2c ,
-        db $00,$00,$00,$fc,$00,$00,$00,$00      * $2d -
-        db $00,$00,$00,$00,$00,$00,$60,$00      * $2e .
-        db $00,$08,$10,$20,$40,$80,$00,$00      * $2f /
-        db $70,$88,$98,$a8,$c8,$88,$70,$00      * $30 0
-        db $20,$60,$20,$20,$20,$20,$f8,$00      * $31 1
-        db $70,$88,$08,$10,$60,$80,$f8,$00      * $32 2
-        db $70,$88,$08,$30,$08,$88,$70,$00      * $33 3
-        db $30,$50,$90,$90,$f8,$10,$10,$00      * $34 4
-        db $f8,$80,$f0,$08,$08,$08,$f0,$00      * $35 5
-        db $30,$40,$80,$f0,$88,$88,$70,$00      * $36 6
-        db $f8,$08,$10,$20,$20,$20,$20,$00      * $37 7
-        db $70,$88,$88,$70,$88,$88,$70,$00      * $38 8
-        db $70,$88,$88,$78,$08,$10,$60,$00      * $39 9
-        db $00,$00,$00,$60,$00,$60,$00,$00      * $3a 
-        db $00,$00,$00,$60,$00,$60,$20,$40      * $3b *
-        db $10,$20,$40,$80,$40,$20,$10,$00      * $3c <
-        db $00,$00,$f8,$00,$f8,$00,$00,$00      * $3d =
-        db $08,$04,$02,$01,$02,$04,$08,$00      * $3e >
-        db $70,$88,$08,$10,$20,$00,$20,$00      * $3f ?
-        db $70,$88,$98,$a8,$98,$80,$70,$00      * $40 @
-        db $20,$50,$88,$88,$f8,$88,$88,$00      * $41 A
-        db $f0,$88,$88,$f0,$88,$88,$f0,$00      * $42 B
-        db $70,$88,$80,$80,$80,$88,$70,$00      * $43 C
-        db $f0,$88,$88,$88,$88,$88,$f0,$00      * $44 D
-        db $f8,$80,$80,$f0,$80,$80,$f8,$00      * $45 E
-        db $f8,$80,$80,$f0,$80,$80,$80,$00      * $46 F
-        db $70,$88,$80,$b8,$88,$88,$70,$00      * $47 G
-        db $88,$88,$88,$f8,$88,$88,$88,$00      * $48 H
-        db $70,$20,$20,$20,$20,$20,$70,$00      * $49 I
-        db $08,$08,$08,$08,$88,$88,$70,$00      * $4A J
-        db $88,$90,$a0,$c0,$a0,$90,$88,$00      * $4B K
-        db $80,$80,$80,$80,$80,$80,$f8,$00      * $4C L
-        db $88,$d8,$a8,$a8,$88,$88,$88,$00      * $4D M
-        db $88,$c8,$c8,$a8,$98,$98,$88,$00      * $4E N
-        db $70,$88,$88,$88,$88,$88,$70,$00      * $4F O
-        db $f0,$88,$88,$f0,$80,$80,$80,$00      * $50 P
-        db $70,$88,$88,$88,$88,$a8,$90,$68      * $51 Q
-        db $f0,$88,$88,$f0,$a0,$90,$88,$00      * $52 R
-        db $70,$88,$80,$70,$08,$88,$70,$00      * $53 S
-        db $f8,$20,$20,$20,$20,$20,$20,$00      * $54 T
-        db $88,$88,$88,$88,$88,$88,$70,$00      * $55 U
-        db $88,$88,$88,$88,$50,$50,$20,$00      * $56 V
-        db $88,$88,$88,$a8,$a8,$d8,$88,$00      * $57 W
-        db $88,$88,$50,$20,$50,$88,$88,$00      * $58 X
-        db $88,$88,$88,$70,$20,$20,$20,$00      * $59 Y
-        db $f8,$08,$10,$20,$40,$80,$f8,$00      * $5A Z
-        db $78,$60,$60,$60,$60,$60,$78,$00      * $5B [
-        db $00,$80,$40,$20,$10,$08,$00,$00      * $5C \
-        db $F0,$30,$30,$30,$30,$30,$F0,$00      * $5D ]
-        db $20,$50,$88,$00,$00,$00,$00,$00      * $5E 
-        db $00,$00,$00,$00,$00,$00,$f8,$00      * $5F _
-        db $40,$20,$10,$00,$00,$00,$00,$00      * $60 
-        db $00,$00,$68,$98,$88,$98,$68,$00      * $61 a
-        db $80,$80,$f0,$88,$88,$88,$f0,$00      * $62 b
-        db $00,$00,$78,$80,$80,$80,$78,$00      * $63 c
-        db $08,$08,$68,$98,$88,$98,$68,$00      * $64 d
-        db $00,$00,$70,$88,$f8,$80,$70,$00      * $65 e
-        db $30,$48,$40,$e0,$40,$40,$40,$00      * $66 f
-        db $00,$00,$78,$88,$88,$78,$08,$70      * $67 g
-        db $80,$80,$f0,$88,$88,$88,$88,$00      * $68 h
-        db $20,$00,$60,$20,$20,$20,$70,$00      * $69 i
-        db $08,$00,$18,$08,$88,$88,$70,$00      * $6a j
-        db $80,$80,$88,$90,$e0,$90,$88,$00      * $6b k
-        db $60,$20,$20,$20,$20,$20,$70,$00      * $6c l
-        db $00,$00,$d0,$a8,$a8,$a8,$a8,$00      * $6d m
-        db $00,$00,$b0,$c8,$88,$88,$88,$00      * $6e n
-        db $00,$00,$70,$88,$88,$88,$70,$00      * $6f o
-        db $00,$00,$f0,$88,$88,$88,$f0,$80      * $70 p
-        db $00,$00,$78,$88,$88,$88,$78,$08      * $71 q
-        db $00,$00,$b8,$c0,$80,$80,$80,$00      * $72 r
-        db $00,$00,$78,$80,$70,$08,$f0,$00      * $73 s
-        db $20,$20,$f8,$20,$20,$20,$20,$00      * $74 t
-        db $00,$00,$88,$88,$88,$98,$68,$00      * $75 u
-        db $00,$00,$88,$88,$88,$50,$20,$00      * $76 v
-        db $00,$00,$88,$a8,$a8,$a8,$50,$00      * $77 w
-        db $00,$00,$88,$50,$20,$50,$88,$00      * $78 x
-        db $00,$00,$88,$88,$98,$68,$08,$70      * $79 y
-        db $00,$00,$f8,$10,$20,$40,$f8,$00      * $7a z
-        db $18,$20,$20,$40,$20,$20,$18,$00      * $7b {
-        db $20,$20,$20,$20,$20,$20,$20,$00      * $7c |
-        db $c0,$20,$20,$10,$20,$20,$c0,$00      * $7d } 
-        db $00,$00,$40,$a8,$10,$00,$00,$00      * $7e
-        db $70,$70,$20,$f8,$20,$70,$50,$00      * $7f
+    byte >00,>00,>00,>00,>00,>00,>00,>00      * >20 space
+    byte >20,>20,>20,>20,>20,>00,>20,>00      * >21 !
+    byte >50,>50,>50,>00,>00,>00,>00,>00      * >22 "
+    byte >50,>50,>f8,>50,>f8,>50,>50,>00      * >23 #
+    byte >20,>78,>a0,>70,>28,>f0,>20,>00      * >24 >
+    byte >c0,>c8,>10,>20,>40,>98,>18,>00      * >25 %
+    byte >40,>a0,>40,>a0,>a8,>90,>68,>00      * >26 &
+    byte >60,>20,>40,>00,>00,>00,>00,>00      * >27 '
+    byte >10,>20,>40,>40,>40,>20,>10,>00      * >28 (
+    byte >40,>20,>10,>10,>10,>20,>40,>00      * >29 )
+    byte >00,>a8,>70,>20,>70,>a8,>00,>00      * >2a *
+    byte >00,>20,>20,>f8,>20,>20,>00,>00      * >2b +
+    byte >00,>00,>00,>00,>00,>60,>20,>40      * >2c ,
+    byte >00,>00,>00,>fc,>00,>00,>00,>00      * >2d -
+    byte >00,>00,>00,>00,>00,>00,>60,>00      * >2e .
+    byte >00,>08,>10,>20,>40,>80,>00,>00      * >2f /
+    byte >70,>88,>98,>a8,>c8,>88,>70,>00      * >30 0
+    byte >20,>60,>20,>20,>20,>20,>f8,>00      * >31 1
+    byte >70,>88,>08,>10,>60,>80,>f8,>00      * >32 2
+    byte >70,>88,>08,>30,>08,>88,>70,>00      * >33 3
+    byte >30,>50,>90,>90,>f8,>10,>10,>00      * >34 4
+    byte >f8,>80,>f0,>08,>08,>08,>f0,>00      * >35 5
+    byte >30,>40,>80,>f0,>88,>88,>70,>00      * >36 6
+    byte >f8,>08,>10,>20,>20,>20,>20,>00      * >37 7
+    byte >70,>88,>88,>70,>88,>88,>70,>00      * >38 8
+    byte >70,>88,>88,>78,>08,>10,>60,>00      * >39 9
+    byte >00,>00,>00,>60,>00,>60,>00,>00      * >3a 
+    byte >00,>00,>00,>60,>00,>60,>20,>40      * >3b *
+    byte >10,>20,>40,>80,>40,>20,>10,>00      * >3c <
+    byte >00,>00,>f8,>00,>f8,>00,>00,>00      * >3d =
+    byte >08,>04,>02,>01,>02,>04,>08,>00      * >3e >
+    byte >70,>88,>08,>10,>20,>00,>20,>00      * >3f ?
+    byte >70,>88,>98,>a8,>98,>80,>70,>00      * >40 @
+    byte >20,>50,>88,>88,>f8,>88,>88,>00      * >41 A
+    byte >f0,>88,>88,>f0,>88,>88,>f0,>00      * >42 B
+    byte >70,>88,>80,>80,>80,>88,>70,>00      * >43 C
+    byte >f0,>88,>88,>88,>88,>88,>f0,>00      * >44 D
+    byte >f8,>80,>80,>f0,>80,>80,>f8,>00      * >45 E
+    byte >f8,>80,>80,>f0,>80,>80,>80,>00      * >46 F
+    byte >70,>88,>80,>b8,>88,>88,>70,>00      * >47 G
+    byte >88,>88,>88,>f8,>88,>88,>88,>00      * >48 H
+    byte >70,>20,>20,>20,>20,>20,>70,>00      * >49 I
+    byte >08,>08,>08,>08,>88,>88,>70,>00      * >4A J
+    byte >88,>90,>a0,>c0,>a0,>90,>88,>00      * >4B K
+    byte >80,>80,>80,>80,>80,>80,>f8,>00      * >4C L
+    byte >88,>d8,>a8,>a8,>88,>88,>88,>00      * >4D M
+    byte >88,>c8,>c8,>a8,>98,>98,>88,>00      * >4E N
+    byte >70,>88,>88,>88,>88,>88,>70,>00      * >4F O
+    byte >f0,>88,>88,>f0,>80,>80,>80,>00      * >50 P
+    byte >70,>88,>88,>88,>88,>a8,>90,>68      * >51 Q
+    byte >f0,>88,>88,>f0,>a0,>90,>88,>00      * >52 R
+    byte >70,>88,>80,>70,>08,>88,>70,>00      * >53 S
+    byte >f8,>20,>20,>20,>20,>20,>20,>00      * >54 T
+    byte >88,>88,>88,>88,>88,>88,>70,>00      * >55 U
+    byte >88,>88,>88,>88,>50,>50,>20,>00      * >56 V
+    byte >88,>88,>88,>a8,>a8,>d8,>88,>00      * >57 W
+    byte >88,>88,>50,>20,>50,>88,>88,>00      * >58 X
+    byte >88,>88,>88,>70,>20,>20,>20,>00      * >59 Y
+    byte >f8,>08,>10,>20,>40,>80,>f8,>00      * >5A Z
+    byte >78,>60,>60,>60,>60,>60,>78,>00      * >5B [
+    byte >00,>80,>40,>20,>10,>08,>00,>00      * >5C \
+    byte >F0,>30,>30,>30,>30,>30,>F0,>00      * >5D ]
+    byte >20,>50,>88,>00,>00,>00,>00,>00      * >5E 
+    byte >00,>00,>00,>00,>00,>00,>f8,>00      * >5F _
+    byte >40,>20,>10,>00,>00,>00,>00,>00      * >60 
+    byte >00,>00,>68,>98,>88,>98,>68,>00      * >61 a
+    byte >80,>80,>f0,>88,>88,>88,>f0,>00      * >62 b
+    byte >00,>00,>78,>80,>80,>80,>78,>00      * >63 c
+    byte >08,>08,>68,>98,>88,>98,>68,>00      * >64 d
+    byte >00,>00,>70,>88,>f8,>80,>70,>00      * >65 e
+    byte >30,>48,>40,>e0,>40,>40,>40,>00      * >66 f
+    byte >00,>00,>78,>88,>88,>78,>08,>70      * >67 g
+    byte >80,>80,>f0,>88,>88,>88,>88,>00      * >68 h
+    byte >20,>00,>60,>20,>20,>20,>70,>00      * >69 i
+    byte >08,>00,>18,>08,>88,>88,>70,>00      * >6a j
+    byte >80,>80,>88,>90,>e0,>90,>88,>00      * >6b k
+    byte >60,>20,>20,>20,>20,>20,>70,>00      * >6c l
+    byte >00,>00,>d0,>a8,>a8,>a8,>a8,>00      * >6d m
+    byte >00,>00,>b0,>c8,>88,>88,>88,>00      * >6e n
+    byte >00,>00,>70,>88,>88,>88,>70,>00      * >6f o
+    byte >00,>00,>f0,>88,>88,>88,>f0,>80      * >70 p
+    byte >00,>00,>78,>88,>88,>88,>78,>08      * >71 q
+    byte >00,>00,>b8,>c0,>80,>80,>80,>00      * >72 r
+    byte >00,>00,>78,>80,>70,>08,>f0,>00      * >73 s
+    byte >20,>20,>f8,>20,>20,>20,>20,>00      * >74 t
+    byte >00,>00,>88,>88,>88,>98,>68,>00      * >75 u
+    byte >00,>00,>88,>88,>88,>50,>20,>00      * >76 v
+    byte >00,>00,>88,>a8,>a8,>a8,>50,>00      * >77 w
+    byte >00,>00,>88,>50,>20,>50,>88,>00      * >78 x
+    byte >00,>00,>88,>88,>98,>68,>08,>70      * >79 y
+    byte >00,>00,>f8,>10,>20,>40,>f8,>00      * >7a z
+    byte >18,>20,>20,>40,>20,>20,>18,>00      * >7b {
+    byte >20,>20,>20,>20,>20,>20,>20,>00      * >7c |
+    byte >c0,>20,>20,>10,>20,>20,>c0,>00      * >7d } 
+    byte >00,>00,>40,>a8,>10,>00,>00,>00      * >7e
+    byte >70,>70,>20,>f8,>20,>70,>50,>00      * >7f
 
 START
     SEI

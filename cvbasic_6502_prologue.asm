@@ -8,8 +8,9 @@
 	; Revision date: Aug/06/2024. Ported music player from Z80 CVBasic.
 	; Revision date: Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
 	;                             Added VDP delays.
+	; Revision date: Aug/16/2024. Corrected bug in define_char_unpack.
 	;
-
+	
 	CPU 6502
 
 BIOS_NMI_RESET_ADDR:	EQU $F808
@@ -818,7 +819,6 @@ random:
 	ASL A
 	ASL A
 	EOR temp
-	AND #$80
 	ROL A
 	ROR lfsr+1
 	ROR lfsr
@@ -1008,7 +1008,7 @@ mode_1:
 
 mode_2:
 	LDA mode
-	AND #$FB
+	ORA #$04
 	STA mode
 	LDA #$80	; $2000 for color table.
 	STA temp
@@ -1684,6 +1684,8 @@ music_silence:
 
     if CVBASIC_COMPRESSION
 define_char_unpack:
+    lda #0
+    sta pointer+1
 	lda pointer
 	asl a
 	rol pointer+1
