@@ -18,6 +18,7 @@ static char temp2[MAX_LINE_SIZE];
 static char cpu6502_line[MAX_LINE_SIZE];
 
 static void cpu6502_emit_line(void);
+static int cpu6502_8bit_simple(struct node *);
 
 void cpu6502_emit_line(void)
 {
@@ -70,6 +71,30 @@ void cpu6502_1op(char *mnemonic, char *operand)
 void cpu6502_node_label(struct node *node)
 {
     /* Nothing to do, yet */
+}
+
+/*
+ ** Detect operations that only use A.
+ */
+static int cpu6502_8bit_simple(struct node *node)
+{
+    switch (node->type) {
+        case N_LOAD8:
+        case N_NUM8:
+        case N_INP:
+        case N_JOY1:
+        case N_JOY2:
+        case N_KEY1:
+        case N_KEY2:
+        case N_MUSIC:
+        case N_NTSC:
+            return 1;
+        case N_NEG8:
+        case N_NOT8:
+            return cpu6502_8bit_simple(node->left);
+        default:
+            return 0;
+    }
 }
 
 /*
@@ -477,19 +502,12 @@ void cpu6502_node_generate(struct node *node, int decision)
             }
             break;
         case N_ASSIGN8: /* 8-bit assignment */
-            if (node->right->type == N_ADDR) {
-                c = 1;
-            } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
-                c = 1;
-            } else {
-                c = 0;
-            }
-            if ((node->left->type == N_PLUS8 || node->left->type == N_MINUS8)
-                && node->left->right->type == N_NUM8
-                && ((c && (node->left->right->value == 1 || node->left->right->value == 2 || node->left->right->value == 3)) || (!c && node->left->right->value < 256))
+            if ((node->left->type == N_PLUS8 || node->left->type == N_MINUS8 || node->left->type == N_OR8 || node->left->type == N_AND8 || node->left->type == N_XOR8)
+                && (node->left->right->type == N_NUM8 || node->left->right->type == N_LOAD8)
                 && node_same_address(node->left->left, node->right)) {
                 if (node->right->type == N_ADDR) {
                     node_get_label(node->right, 0);
+                    strcpy(temp2, temp);
                     c = 0;
                 } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
                     node_get_label(node->right->left, 0);
@@ -501,34 +519,58 @@ void cpu6502_node_generate(struct node *node, int decision)
                     else
                         *p++ = '-';
                     sprintf(p, "%d", node->right->right->value);
+                    strcpy(temp2, temp);
                     c = 0;
                 } else {
-                    cpu6502_node_generate(node->right, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_1op("STY", "temp+1");
-                    c = 1;
-                    cpu6502_1op("LDY", "#0");
-                    strcpy(temp, "(temp),Y");
-                }
-                if (c == 1) {
-                    cpu6502_1op("LDA", temp);
-                    sprintf(temp2, "#%d", node->left->right->value);
-                    if (node->left->type == N_PLUS8) {
+                    if (node->right->type == N_PLUS16 && node->right->left->type == N_ADDR && node->right->right->type == N_EXTEND8 && node->right->right->left->type == N_LOAD8) {
+                        node_get_label(node->right->right->left, 0);
+                        strcpy(temp2, temp);
+                        node_get_label(node->right->left, 2);
+                        cpu6502_1op("LDA", temp);
                         cpu6502_noop("CLC");
                         cpu6502_1op("ADC", temp2);
+                        cpu6502_1op("STA", "temp");
+                        strcat(temp, ">>8");
+                        cpu6502_1op("LDA", temp);
+                        cpu6502_1op("ADC", "#0");
+                        cpu6502_1op("STA", "temp+1");
                     } else {
-                        cpu6502_noop("SEC");
-                        cpu6502_1op("SBC", temp2);
+                        cpu6502_node_generate(node->right, 0);
+                        cpu6502_1op("STA", "temp");
+                        cpu6502_1op("STY", "temp+1");
                     }
-                    cpu6502_1op("STA", temp);
-                } else {
+                    c = 1;
+                    cpu6502_1op("LDY", "#0");
+                    strcpy(temp2, "(temp),Y");
+                }
+                if (c == 0 && (node->left->type == N_PLUS8 || node->left->type == N_MINUS8) && node->left->right->type == N_NUM8 && node->left->right->value < 4) {
                     c = node->left->right->value;
                     do {
                         if (node->left->type == N_PLUS8)
-                            cpu6502_1op("INC", temp);
+                            cpu6502_1op("INC", temp2);
                         else
-                            cpu6502_1op("DEC", temp);
+                            cpu6502_1op("DEC", temp2);
                     } while (--c) ;
+                } else {
+                    cpu6502_1op("LDA", temp2);
+                    if (node->left->right->type == N_NUM8)
+                        sprintf(temp, "#%d", node->left->right->value);
+                    else if (node->left->right->type == N_LOAD8)
+                        node_get_label(node->left->right, 0);
+                    if (node->left->type == N_PLUS8) {
+                        cpu6502_noop("CLC");
+                        cpu6502_1op("ADC", temp);
+                    } else if (node->left->type == N_MINUS8) {
+                        cpu6502_noop("SEC");
+                        cpu6502_1op("SBC", temp);
+                    } else if (node->left->type == N_OR8) {
+                        cpu6502_1op("ORA", temp);
+                    } else if (node->left->type == N_AND8) {
+                        cpu6502_1op("AND", temp);
+                    } else if (node->left->type == N_XOR8) {
+                        cpu6502_1op("EOR", temp);
+                    }
+                    cpu6502_1op("STA", temp2);
                 }
                 break;
             }
@@ -553,7 +595,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 break;
                 
             }
-            if (node->left->type == N_NUM8 || node->left->type == N_LOAD8) {
+            if (cpu6502_8bit_simple(node->left)) {
                 cpu6502_node_generate(node->right, 0);
                 cpu6502_1op("STA", "temp");
                 cpu6502_1op("STY", "temp+1");
@@ -703,6 +745,20 @@ void cpu6502_node_generate(struct node *node, int decision)
                             p++;
                         sprintf(p, "%d)>>8", node->right->value);
                         cpu6502_1op("LDY", temp);
+                        break;
+                    } else if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {
+                        node_get_label(node->left, 2);
+                        cpu6502_1op("LDA", temp);
+                        cpu6502_noop("CLC");
+                        node_get_label(node->right->left, 0);
+                        cpu6502_1op("ADC", temp);
+                        cpu6502_noop("TAX");
+                        node_get_label(node->left, 2);
+                        strcat(temp, ">>8");
+                        cpu6502_1op("LDA", temp);
+                        cpu6502_1op("ADC", "#0");
+                        cpu6502_noop("TAY");
+                        cpu6502_noop("TXA");
                         break;
                     }
                 }
