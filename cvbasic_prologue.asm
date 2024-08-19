@@ -2122,7 +2122,7 @@ music_init:
 	in a,($03)
       endif
     endif
-    if MSX+SVI
+    if COLECO+SG1000+MSX+SVI+SORD+MEMOTECH+PV2000
 MIX_BASE:	equ $b8
     endif
     if EINSTEIN

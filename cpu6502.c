@@ -896,8 +896,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 else
                     explore = NULL;
                 if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
-                    int c = explore->value;
-                    
+                    c = explore->value;
                     if (c == 0) {
                         cpu6502_1op("LDA", "#0");
                         cpu6502_noop("TAY");
