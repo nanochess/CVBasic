@@ -34,32 +34,23 @@
 * TODO: Concern - changing the endianess of 16-bit values from little to big,
 * does anything break? Ideally not if I'm careful...
 
-* data storage in scratchpad
-    aorg >8300
+* We have to use our own workspace, not GPLWS, because the interrupt routine makes it unsafe to
+* use r11, which we kind of need! So that eats 32 bytes of RAM but means most of the register
+* restrictions I wrote this code on (avoid R1, avoid R6, avoid R13-R15) are lifted.
+mywp      equ >8300
 
-* This is a block of 8 bytes that should stay together.
-* TODO: check if we need these
-*temp		bss 2
-*temp2		bss 2
-*result		bss 2
-*pointer	    bss 2
+* data storage in scratchpad
+    aorg >8320
 
 read_pointer	bss 2
 cursor		    bss 2
 pletter_off	    bss 2  * Used by Pletter
 
-* Joystick storage
-* TODO: check if we need these - I think they are bios
-*joy1_dir	    bss 2   * word
-*joy2_dir	    bss 2   * word
-*joy1_buttons	bss 1   * byte
-*joy2_buttons	bss 1   * byte
-
-* more joystick bytes
-joy1_data	    bss 1 
+* joystick bytes
+joy1_data	    bss 1       * keep these bytes together and even aligned
 joy2_data	    bss 1
 
-key1_data	    bss 1       * byte - keyboard
+key1_data	    bss 1       * byte - keyboard - keep these bytes together and even aligned
 key2_data	    bss 1       * byte - keyboard (not used)
 
 frame	        bss 2       * word
@@ -150,17 +141,16 @@ VDPSTATUS equ >8802
 VDPWDATA  equ >8c00
 VDPWADR   equ >8c02
 
-* We'll also use GPLWS as our workspace - so we have to avoid R12-R15 (and use R11 carefully)
-
 * Safe scratchpad RAM, assuming above setup (ints disabled by flag, screen blank disabled):
 * Need to see how much BSS is using
-* 8300 - 8377   ->  120 bytes
+* 8320 - 8377   ->  100 bytes
 * 837C - 83C1   ->   70 bytes
 
 * RAM we need:
 * - 128 bytes for a sprite table double-buffer - no choice, needs to go in 8-bit RAM
 * - TBD bytes defined above for BASIC
 * - 48 bytes for interrupt ROM and workspace
+* - 32 bytes for main workspace
 
 * Variables are defined by equ, and can be bytes or words. Since it's originally an 8-bit
 * target, we can assume mostly bytes. For now we'll just do an EA#5 target. We can consider
@@ -168,15 +158,16 @@ VDPWADR   equ >8c02
 * if we do cart+32k then we have 8k of variables, 24k of fixed space, and unlimited paged space
 * (though the compiler limits to 1MB). But I'll need to bring in my paging code and startup.
 
-* data in low RAM
-    aorg >2000
-
-* must be even aligned - TODO: hard coded address? where does the compiler define variables?
-* mirror for sprite table
-sprites	    bss 128
-
 * program in high RAM
     aorg >a000
+
+* for EA#3, a DEF helps testing
+* for EA#5, we need a start instruction at the beginning
+    def START,SLOAD,SFIRST,SLAST
+
+SLOAD
+SFIRST
+    b @START
 
 * Utility functions
 
@@ -222,7 +213,7 @@ RDVRM
     b *r11
 
 * Fill VRAM - address in R0, byte in R2, count in R3
-* TODO: Original: address in pointer, byte in temp, count in temp2 (ZP)
+* Original: address in pointer, byte in temp, count in temp2 (ZP)
 * Inline address set to avoid needing to cache r11
 FILVRM
     ori r0,>4000
@@ -238,7 +229,7 @@ FILVRM
     b *r11
 
 * Load VRAM - address in R0, CPU data at R2, count in R3
-* TODO: Original: address in pointer, CPU address at temp, count in temp2
+* Original: address in pointer, CPU address at temp, count in temp2
 * Inline address set to avoid needing to cache r11
 LDIRVM
     ori r0,>4000
@@ -255,7 +246,7 @@ LDIRVM
 
 * Define a pattern three times with 2k offsets - used for bitmap color and pattern tables
 * Load VRAM 3 times with offset - address in R0, CPU data at R2, count in R3
-* TODO: Original: address in pointer, CPU address at temp, count in temp2
+* Original: address in pointer, CPU address at temp, count in temp2
 LDIRVM3
     mov r11,r4      * save return address
     mov r2,r5       * save CPU address
@@ -297,12 +288,12 @@ CPYBLK
     mov r11,r7      * save return
     mov r0,r8       * save vdp address
     mov r2,r9       * save cpu address
-    mov r3,r10      * save count per row
+    mov r3,r6       * save count per row
     jmp .2          * skip over the restore step
 .1
     mov r8,r0       * get vdp address
     mov r9,r2       * get cpu address
-    mov r10,r3      * get count
+    mov r6,r3       * get count
 .2
     bl @LDRIVM      * copy one row
     a r5,r9         * add stride to CPU address
@@ -410,7 +401,7 @@ print_number1
 * Load sprite definitions: Sprite char number in R0, CPU data in R2, count of sprites in R3
 * Original: pointer = sprite char number, temp = CPU address, a = number sprites
 * Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
-* Sprite pattern table at >3800? TODO
+* Sprite pattern table at >3800
 define_sprite
     mov r11,r4          * save return
     sla r0,5            * char number times 32
@@ -487,9 +478,11 @@ _sgn16
 .1
     b *r11          * back to caller
 
-* Read 16 bits from read_pointer into r0, see if we can inline it - TODO (YYAA)
-* Used to call read8 twice, but I don't know where that is
+* Read 16 bits from read_pointer into r0 and increment, see if we can inline it - TODO (YYAA)
 *_read16
+
+* read 8 bits from read_pointer into r0 and increment, see if we can inline it
+*_read8
 
 * Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA)
 *_peek8
@@ -912,7 +905,6 @@ int_handler
     mov r8,*r12+
     mov r9,*r12+
     mov r10,*r12
-    * TODO: If we needed temp,temp2,result and pointer, backup the 8 bytes here too
     endif
 
     if CVBASIC_MUSIC_PLAYER
@@ -924,7 +916,7 @@ int_handler
 
     inc @frame
     li r0,3
-    a r0,@lfsr  * Make LFSR more random (TODO: Difference - will increment into MSB, original didn't)
+    a r0,@lfsr  * Make LFSR more random
 
     if CVBASIC_MUSIC_PLAYER
     movb @music_mode,r0
@@ -953,7 +945,6 @@ int_handler
     mov *r12+,r8
     mov *r12+,r9
     mov *r12+,r10
-    * TODO: If we needed temp,temp2,result and pointer, restore the 8 bytes here too
     endif
 
 * get back the interrupt workspace and return
@@ -1062,7 +1053,7 @@ music_play
 * Generates music - called from interrupt (regs are saved)
 *
 music_generate
-    mov r11,r10
+    mov r11,r6
     clr r4                          * use r4 as a zero
     movb r4,@audio_vol1
     movb r4,@audio_vol2
@@ -1079,7 +1070,7 @@ music_generate
     ci r0,>fe00                     * end of music?
     jne .3                          * nope, jump ahead
     movb r4,@music_playing          * keep at same place
-    b *r10
+    b *r6
 
 .3	
     ci r0,>fd00                     * repeat?
@@ -1226,7 +1217,7 @@ music_generate
     li r1,>0100
     ab r1,@music_counter_4
     sb r1,@music_note_counter
-    b *r10
+    b *r6
 
 *
 * flute instrument
@@ -1457,6 +1448,13 @@ music_silence
 
 
     if CVBASIC_COMPRESSION
+* TODO: Not implemented    
+**** not sure how badly I want to tackle this - seems to be
+**** no reference code besides the Z80 and 6502. Wonder which
+**** one would be easier to port? Probably Z80? 
+
+ERROR COMPRESSION NOT IMPLEMENTED
+
 define_char_unpack
     andi r3,>00ff
     sla r3,4
@@ -1471,14 +1469,14 @@ define_color_unpack
     sla r3,3
 
 unpack3
-    mov r11,r10     * save return address
+    mov r11,r6      * save return address
     bl @unpack
     ai r3,8
     bl @unpack
     ai r3,8
     bl @unpack
     ai r3,8
-    b *r10
+    b *r6
 
 *
 * Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
@@ -1494,10 +1492,7 @@ unpack
     clr r5
     movb @r4+,r0
     
-**** not sure how badly I want to tackle this - seems to be
-**** no reference code besides the Z80 and 6502. Wonder which
-**** one would be easier to port? Probably Z80? 
-
+**** 
     ldy #0
     sty temp2
     lda (temp),y
@@ -1798,28 +1793,51 @@ font_bitmaps
     byte >00,>00,>40,>a8,>10,>00,>00,>00      * >7e
     byte >70,>70,>20,>f8,>20,>70,>50,>00      * >7f
 
+
+* The stack is simulated using R10. It's not used in
+* these functions but the compiled code will need it.
+* To push: dect r10, mov r0,*r10
+* To pop:  mov *r10+,r0
+* However, for JSR a function is helpful - call this like:
+* bl @jsr
+* data <function_address>
+jsr
+    mov *r11+,r14       * get the jump address
+    dect r10            * make room on stack
+    mov r11,*r10        * save return address
+    bl *r14             * new subroutine call, we come back here
+    mov *r10+,r11       * get real return off stack
+    b *r11              * back to caller
+
+* entry code - we should enter with ints off anyway
 START
-    SEI
-    CLD
-    LDX #STACK
-    TXS
-    LDA $2001
-    LDA #$82
-    LDX #$01
-    JSR WRTVDP
-    LDA $2001
-    LDA #$82
-    LDX #$01
-    JSR WRTVDP
+    limi 0
+    lwpi mywp           * get our private workspace
+    li R10,>4000        * pseudo stack pointer
+    movb @>8802,@statusmirror  * clear any pending VDP interrupt and initialize statusmirror if needed
+    
+    li r0,>0182         * select 16k, magnified, blank, no ints
+    bl @wrtvdp          * other ports write this twice... maybe to be 100% sure no NMI happens? We don't have that problem.    
 
-    JSR music_init
+    clr @joy1_data      * gets both
+    li r0,>0f0f
+    mov r0,@key1_data   * gets both
+    clr r0
+    movb r0,@mode
+    
+    bl @music_init
+    bl @mode_0
 
-    JSR mode_0
-
-    LDA #$00
-    STA joy1_data
-    STA joy2_data
-    LDA #$0F
-    STA key1_data
-    STA key2_data
-
+    li r0,int_handler
+    mov r0,@intwsr2     * set interrupt function
+    li r0,>8000
+    mov r0,@intwsr1     * disable most console ROM interrupt handling
+    li r1,1
+    mov r1,@intwsr11    * make sure screen timeout is odd so it never triggers
+    li r1,>0108
+    mov r1,@gplwsr14    * GPL status flags, should already be this, but be sure
+    movb r1,@ntsc       * init ntsc flag to true - we actually do not have a good way to detect
+    li r1,>8c00
+    mov r1,@gplwsr15    * Address of VDP for GPL - should already be this, but be sure
+    
+*** CVBasic code starts here

@@ -1,9 +1,9 @@
 /*
- ** 6502 assembler output routines for CVBasic
+ ** 9900 assembler output routines for CVBasic
  **
- ** by Oscar Toledo G.
+ ** by Tursi, based on cpu6502 by Oscar Toledo G.
  **
- ** Creation date: Aug/04/2024.
+ ** Creation date: Aug/20/2024.
  */
 
 #include <stdio.h>
@@ -13,59 +13,83 @@
 #include "cvbasic.h"
 #include "node.h"
 
-static char cpu6502_line[MAX_LINE_SIZE];
+// constant for node_get_label to give us labels with '@'
+#define ADDRESS 4
 
-static void cpu6502_emit_line(void);
+// Note the Z80 version of this file does a lot of peephole and other optimizations,
+// tracks register settings, and so on. This version doesn't right now. TODO.
 
-void cpu6502_emit_line(void)
+static char cpu9900_line[MAX_LINE_SIZE];
+
+static void cpu9900_emit_line(void);
+
+// Final emit phase. Some peephole optimizations can be placed here
+// The Z80 code maintains three lines in order to be able to do this.
+void cpu9900_emit_line(void)
 {
-    fprintf(output, "%s", cpu6502_line);
+    fprintf(output, "%s", cpu9900_line);
 }
 
-void cpu6502_dump(void)
+// Nothing here. The Z80 code uses this to emit the three line buffers,
+// but we emit the one and only buffer in emit_line.
+void cpu9900_dump(void)
 {
 }
 
 /*
- ** Emit a 6502 label
+ ** Emit a 9900 label
  */
-void cpu6502_label(char *label)
+void cpu9900_label(char *label)
 {
-    sprintf(cpu6502_line, "%s:\n", label);
-    cpu6502_emit_line();
+    // the z80 version also clears its register flags
+    sprintf(cpu9900_line, "%s\n", label);
+    cpu9900_emit_line();
 }
 
 /*
  ** Reset accumulator register (technically a null label)
+ * This is a bit tricky on the 9900 since all registers are
+ * equally valid. However, it wasn't implemented for the
+ * 6502 either since there's no optimizations coded yet.
  */
-void cpu6502_empty(void)
+void cpu9900_empty(void)
 {
 }
 
 /*
- ** Emit a Z80 instruction with no operand
+ ** Emit a 9900 instruction with no operand
  */
-void cpu6502_noop(char *mnemonic)
+void cpu9900_noop(char *mnemonic)
 {
-    sprintf(cpu6502_line, "\t%s\n", mnemonic);
-    cpu6502_emit_line();
+    sprintf(cpu9900_line, "\t%s\n", mnemonic);
+    cpu9900_emit_line();
 }
 
 /*
- ** Emit a Z80 instruction with a single operand
+ ** Emit a 9900 instruction with a single operand
  */
-void cpu6502_1op(char *mnemonic, char *operand)
+void cpu9900_1op(char *mnemonic, char *operand)
 {
-    sprintf(cpu6502_line, "\t%s %s\n", mnemonic, operand);
-    cpu6502_emit_line();
+    sprintf(cpu9900_line, "\t%s %s\n", mnemonic, operand);
+    cpu9900_emit_line();
+}
+
+/*
+ ** Emit a 9900 instruction with a two operands
+ */
+void cpu9900_2op(char *mnemonic, char *operand1, char *operand2)
+{
+    sprintf(cpu9900_line, "\t%s %s,%s\n", mnemonic, operand1, operand2);
+    cpu9900_emit_line();
 }
 
 /*
  ** Label register usage in tree
  **
- ** This should match exactly register usage in cpu6502_node_generate.
+ ** This should match exactly register usage in cpu9900_node_generate.
+ ** See Z80 version, mostly for register tracking
  */
-void cpu6502_node_label(struct node *node)
+void cpu9900_node_label(struct node *node)
 {
     /* Nothing to do, yet */
 }
@@ -73,115 +97,92 @@ void cpu6502_node_label(struct node *node)
 /*
  ** Generate code for tree
  */
-void cpu6502_node_generate(struct node *node, int decision)
+void cpu9900_node_generate(struct node *node, int decision)
 {
+    // Maybe in the future we can pass an arg to tell cpu9900_node_generate which 
+    // reg to generate for instead of always r0? That would make better code...
+
     struct node *explore;
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
             if (node->left != NULL)
-                cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("JSR", node->label->name);
+                cpu9900_node_generate(node->left, 0);
+            cpu9900_1op("bl", "@JSR");
+            cpu9900_1op("data", node->label->name);
             break;
-        case N_ADDR:    /* Get address of variable */
-            node_get_label(node, 2);
-            cpu6502_1op("LDA", temp);
-            strcat(temp, ">>8");
-            cpu6502_1op("LDY", temp);
+        case N_ADDR:    /* Get address of variable into r0 */
+            node_get_label(node, 0);
+            cpu9900_2op("li", "r0", temp);
             break;
-        case N_NEG8:    /* Negate 8-bit value */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("EOR", "#255");
-            cpu6502_noop("CLC");
-            cpu6502_1op("ADC", "#1");
+        case N_NEG8:    /* Negate 8-bit value in r0 */
+        case N_NEG16:   /* Negate 16-bit value */
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_1op("neg","r0");
             break;
         case N_NOT8:    /* Complement 8-bit value */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("EOR", "#255");
-            break;
-        case N_NEG16:   /* Negate 16-bit value */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("EOR", "#255");
-            cpu6502_noop("CLC");
-            cpu6502_1op("ADC", "#1");
-            cpu6502_noop("PHA");
-            cpu6502_noop("TYA");
-            cpu6502_1op("EOR", "#255");
-            cpu6502_1op("ADC", "#0");
-            cpu6502_noop("TAY");
-            cpu6502_noop("PLA");
-            break;
         case N_NOT16:   /* Complement 16-bit value */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("EOR", "#255");
-            cpu6502_noop("PHA");
-            cpu6502_noop("TYA");
-            cpu6502_1op("EOR", "#255");
-            cpu6502_noop("TAY");
-            cpu6502_noop("PLA");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_1op("inv","r0");
             break;
         case N_ABS16:   /* Get absolute 16-bit value */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("JSR", "_abs16");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_1op("abs","r0");
             break;
         case N_SGN16:   /* Get sign of 16-bit value */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("JSR", "_sgn16");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_1op("bl","@JSR");
+            cpu9900_1op("data", "_sgn16");
             break;
-        case N_POS:     /* Get screen cursor position */
-            cpu6502_1op("LDA", "cursor");
-            cpu6502_1op("LDY", "cursor+1");
+        case N_POS:     /* Get screen cursor position in r0 (AAYY) */
+            cpu9900_2op("mov","@cursor","r0");
             break;
         case N_EXTEND8S:    /* Extend 8-bit signed value to 16-bit */
-            cpu6502_node_generate(node->left, 0);
-            sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-            cpu6502_noop("PHA");
-            cpu6502_1op("AND", "#128");
-            cpu6502_1op("BPL", temp);
-            cpu6502_1op("LDA", "#255");
-            cpu6502_label(temp);
-            cpu6502_noop("TAY");
-            cpu6502_noop("PLA");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_2op("sra","r0","8");
             break;
         case N_EXTEND8: /* Extend 8-bit value to 16-bit */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("LDY", "#0");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_2op("srl","r0","8");
             break;
         case N_REDUCE16:    /* Reduce 16-bit value to 8-bit */
-            cpu6502_node_generate(node->left, 0);
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_2op("sla","r0","8");
             break;
-        case N_READ8:   /* Read 8-bit value */
-            cpu6502_1op("JSR", "_read8");
+        case N_READ8:   /* Read 8-bit value from read_pointer */
+            cpu9900_2op("mov","@read_pointer","r1");
+            cpu9900_2op("movb","*r1","r0");
+            cpu9900_1op("inc","@read_pointer");
             break;
-        case N_READ16:  /* Read 16-bit value */
-            cpu6502_1op("JSR", "_read16");
+        case N_READ16:  /* Read 16-bit value - warning, will not work as expected unaligned! */
+            cpu9900_2op("mov","@read_pointer","r1");
+            cpu9900_2op("mov","*r1","r0");
+            cpu9900_1op("inct","@read_pointer");
             break;
         case N_LOAD8:   /* Load 8-bit value from address */
-            strcpy(temp, LABEL_PREFIX);
+            strcpy(temp, "@");
+            strcat(temp, LABEL_PREFIX);
             strcat(temp, node->label->name);
-            cpu6502_1op("LDA", temp);
+            cpu9900_2op("movb", temp, "r0");
             break;
         case N_LOAD16:  /* Load 16-bit value from address */
-            strcpy(temp, LABEL_PREFIX);
+            strcpy(temp, "@");
+            strcat(temp, LABEL_PREFIX);
             strcat(temp, node->label->name);
-            cpu6502_1op("LDA", temp);
-            strcat(temp, "+1");
-            cpu6502_1op("LDY", temp);
+            cpu9900_2op("mov", temp, "r0");
             break;
         case N_NUM8:    /* Load 8-bit constant */
-            sprintf(temp, "#%d", node->value);
-            cpu6502_1op("LDA", temp);
+            sprintf(temp, "%d", (node->value)*256);
+            cpu9900_2op("li", "r0", temp);
             break;
         case N_NUM16:   /* Load 16-bit constant */
-            sprintf(temp, "#%d", node->value & 0xff);
-            cpu6502_1op("LDA", temp);
-            sprintf(temp, "#%d", node->value >> 8);
-            cpu6502_1op("LDY", temp);
+            sprintf(temp, "%d", node->value);
+            cpu9900_2op("li", "r0", temp);
             break;
         case N_PEEK8:   /* Load 8-bit content */
             if (node->left->type == N_ADDR) {   /* Optimize address */
-                node_get_label(node->left, 0);
-                cpu6502_1op("LDA", temp);
+                node_get_label(node->left, ADDRESS);
+                cpu9900_2op("movb", temp, "r0");
                 break;
             }
             if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
@@ -189,7 +190,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
                 char *p;
                 
-                node_get_label(node->left->left, 0);
+                node_get_label(node->left->left, ADDRESS);        // address
                 p = temp;
                 while (*p)
                     p++;
@@ -197,19 +198,18 @@ void cpu6502_node_generate(struct node *node, int decision)
                     *p++ = '+';
                 else
                     *p++ = '-';
-                sprintf(p, "%d", node->left->right->value);
-                cpu6502_1op("LDA", temp);
+                sprintf(p, "%d", node->left->right->value); // constant
+                cpu9900_2op("movb", temp, "r0");
                 break;
             }
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("JSR", "_peek8");
+            // so presumably here we are reading from something loaded into r0
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_2op("movb","*r0","r0");
             break;
-        case N_PEEK16:  /* Load 16-bit content */
+        case N_PEEK16:  /* Load 16-bit content - must be aligned! */
             if (node->left->type == N_ADDR) {   /* Optimize address */
-                node_get_label(node->left, 0);
-                cpu6502_1op("LDA", temp);
-                strcat(temp, "+1");
-                cpu6502_1op("LDY", temp);
+                node_get_label(node->left, ADDRESS);
+                cpu9900_2op("mov", temp, "r0");
                 break;
             }
             if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
@@ -217,7 +217,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
                 char *p;
                 
-                node_get_label(node->left->left, 0);
+                node_get_label(node->left->left, ADDRESS);
                 p = temp;
                 while (*p)
                     p++;
@@ -226,47 +226,46 @@ void cpu6502_node_generate(struct node *node, int decision)
                 else
                     *p++ = '-';
                 sprintf(p, "%d", node->left->right->value);
-                cpu6502_1op("LDA", temp);
-                strcat(temp, "+1");
-                cpu6502_1op("LDY", temp);
+                cpu9900_2op("mov", temp, "r0");
                 break;
             }
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_1op("JSR", "_peek16");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_2op("mov", "*r0", "r0");
             break;
         case N_VPEEK:   /* Read VRAM */
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_noop("SEI");
-            cpu6502_1op("JSR", "RDVRM");
-            cpu6502_noop("CLI");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_1op("limi", "0");
+            cpu9900_1op("bl", "@jsr");
+            cpu9900_1op("data", "RDVRM");
+            cpu9900_1op("limi", "2");
             break;
         case N_INP:     /* Read port */
-            cpu6502_1op("LDA", "#0");   /* Do nothing */
+            cpu9900_1op("clr", "r0");   /* Do nothing */
             break;
         case N_JOY1:    /* Read joystick 1 */
-            cpu6502_1op("LDA", "joy1_data");
+            cpu9900_2op("movb", "@joy1_data", "r0");
             break;
         case N_JOY2:    /* Read joystick 2 */
-            cpu6502_1op("LDA", "joy2_data");
+            cpu9900_2op("movb", "@joy2_data", "r0");
             break;
         case N_KEY1:    /* Read keypad 1 */
-            cpu6502_1op("LDA", "key1_data");
+            cpu9900_2op("movb", "@key1_data", "r0");
             break;
         case N_KEY2:    /* Read keypad 2 */
-            cpu6502_1op("LDA", "key2_data");
+            cpu9900_2op("movb", "@key2_data", "r0");
             break;
         case N_RANDOM:  /* Read pseudorandom generator */
-            cpu6502_1op("JSR", "random");
+            cpu9900_1op("bl", "@jsr");
+            cpu9900_1op("data", "random");
             break;
         case N_FRAME:   /* Read current frame number */
-            cpu6502_1op("LDA", "frame");
-            cpu6502_1op("LDY", "frame+1");
+            cpu9900_2op("mov", "@frame", "r0");
             break;
         case N_MUSIC:   /* Read music playing status */
-            cpu6502_1op("LDA", "music_playing");
+            cpu9900_2op("movb", "@music_playing", "r0");
             break;
         case N_NTSC:    /* Read NTSC flag */
-            cpu6502_1op("LDA", "ntsc");
+            cpu9900_2op("movb", "@ntsc", "r0");
             break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */
@@ -282,210 +281,237 @@ void cpu6502_node_generate(struct node *node, int decision)
         case N_MUL8:    /* 8-bit * */
         case N_DIV8:    /* 8-bit / */
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
-                int c;
+                int c,cnt;
                 
-                cpu6502_node_generate(node->left, 0);
+                // power of 2 multiply
+                cpu9900_node_generate(node->left, 0);
                 c = node->right->value;
+                cnt = 0;
                 while (c > 1) {
-                    cpu6502_1op("ASL", "A");
+                    ++cnt;
                     c /= 2;
+                }
+                // not sure if treating full 16 bit here is okay? we'll see... should be!
+                if (cnt >= 16) {
+                    cpu9900_1op("clr","r0");
+                } else {
+                    sprintf(temp, "%d", cnt);
+                    cpu9900_2op("sla","r0",temp);
                 }
                 break;
             }
             if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
-                int c;
+                int c, cnt;
                 
-                cpu6502_node_generate(node->left, 0);
+                // power of 2 divide
+                cpu9900_node_generate(node->left, 0);
                 c = node->right->value;
+                cnt = 0;
                 while (c > 1) {
-                    cpu6502_1op("LSR", "A");
+                    ++cnt;
                     c /= 2;
+                }
+                if (cnt >= 16) {
+                    cpu9900_1op("clr","r0");
+                } else {
+                    sprintf(temp, "%d", cnt);
+                    cpu9900_2op("srl","r0",temp);
                 }
                 break;
             }
             if (node->type == N_LESSEQUAL8 || node->type == N_GREATER8) {
                 if (node->left->type == N_NUM8) {
-                    cpu6502_node_generate(node->right, 0);
-                    sprintf(temp, "#%d", node->left->value & 0xff);
+                    cpu9900_noop("* Unclear code - N_LESSEQUAL8 || N_GREATER8 left=N_NUM8");
+                    cpu9900_node_generate(node->right, 0);
+                    sprintf(temp,"%d",(node->left->value&0xff)*256);
+                    cpu9900_2op("li","r1",temp);
+                    strcpy(temp, "r1");
                 } else {
-                    cpu6502_node_generate(node->right, 0);
-                    cpu6502_noop("PHA");
-                    cpu6502_node_generate(node->left, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_noop("PLA");
-                    strcpy(temp, "temp");
+                    cpu9900_noop("* Unclear code - N_LESSEQUAL8 || N_GREATER8 left!=N_NUM8");
+                    // Is there a reason right needs to go first? Can't we swap them?
+                    cpu9900_node_generate(node->right, 0);
+                    cpu9900_2op("mov","r0","r2");
+                    cpu9900_node_generate(node->left, 0);
+                    cpu9900_2op("mov","r0","r1");
+                    cpu9900_2op("mov","r2","r0");
+                    strcpy(temp, "r1");
                 }
             } else if (node->right->type == N_NUM8) {
                 int c;
-                
+                cpu9900_noop("* Unclear code - node->right->type == N_NUM8");
                 c = node->right->value & 0xff;
-                cpu6502_node_generate(node->left, 0);
-                sprintf(temp, "#%d", c);
+                cpu9900_node_generate(node->left, 0);
+                sprintf(temp, "%d", c);
             } else {
-                cpu6502_node_generate(node->left, 0);
-                cpu6502_noop("PHA");
-                cpu6502_node_generate(node->right, 0);
-                cpu6502_1op("STA", "temp");
-                cpu6502_noop("PLA");
-                strcpy(temp, "temp");
+                cpu9900_noop("* Unclear code - node->right->type != N_NUM8");
+                // again, why this order?
+                cpu9900_node_generate(node->left, 0);
+                cpu9900_2op("mov","r0","r2");
+                cpu9900_node_generate(node->right, 0);
+                cpu9900_2op("mov","r0","r1");
+                cpu9900_2op("mov","r2","r0");
+                strcpy(temp, "r1");
             }
+            
+*************************************            
+            
             if (node->type == N_OR8) {
-                cpu6502_1op("ORA", temp);
+                cpu9900_1op("ORA", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_XOR8) {
-                cpu6502_1op("EOR", temp);
+                cpu9900_1op("EOR", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_AND8) {
-                cpu6502_1op("AND", temp);
+                cpu9900_1op("AND", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL8) {
-                cpu6502_1op("CMP", temp);
+                cpu9900_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BEQ", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BEQ", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BEQ", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BEQ", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_NOTEQUAL8) {
-                cpu6502_1op("CMP", temp);
+                cpu9900_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BNE", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_LESS8) {
-                cpu6502_1op("CMP", temp);
+                cpu9900_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BCC", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BCC", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL8) {
-                cpu6502_1op("CMP", temp);
+                cpu9900_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BCS", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BCS", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_GREATER8) {
-                cpu6502_1op("CMP", temp);
+                cpu9900_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BCC", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BCC", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_GREATEREQUAL8) {
-                cpu6502_1op("CMP", temp);
+                cpu9900_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BCS", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BCS", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_PLUS8) {
-                cpu6502_noop("CLC");
-                cpu6502_1op("ADC", temp);
+                cpu9900_noop("CLC");
+                cpu9900_1op("ADC", temp);
             } else if (node->type == N_MINUS8) {
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", temp);
+                cpu9900_noop("SEC");
+                cpu9900_1op("SBC", temp);
             }
             break;
         case N_ASSIGN8: /* 8-bit assignment */
             if (node->right->type == N_ADDR) {
-                cpu6502_node_generate(node->left, 0);
+                cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right, 0);
-                cpu6502_1op("STA", temp);
+                cpu9900_1op("STA", temp);
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
                 char *p;
                 
-                cpu6502_node_generate(node->left, 0);
+                cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right->left, 0);
                 p = temp;
                 while (*p)
@@ -495,31 +521,31 @@ void cpu6502_node_generate(struct node *node, int decision)
                 else
                     *p++ = '-';
                 sprintf(p, "%d", node->right->right->value);
-                cpu6502_1op("STA", temp);
+                cpu9900_1op("STA", temp);
                 break;
             }
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_noop("PHA");
-            cpu6502_node_generate(node->right, 0);
-            cpu6502_1op("STA", "temp");
-            cpu6502_1op("STY", "temp+1");
-            cpu6502_noop("PLA");
-            cpu6502_1op("LDY", "#0");
-            cpu6502_1op("STA", "(temp),Y");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_noop("PHA");
+            cpu9900_node_generate(node->right, 0);
+            cpu9900_1op("STA", "temp");
+            cpu9900_1op("STY", "temp+1");
+            cpu9900_noop("PLA");
+            cpu9900_1op("LDY", "#0");
+            cpu9900_1op("STA", "(temp),Y");
             break;
         case N_ASSIGN16:    /* 16-bit assignment */
             if (node->right->type == N_ADDR) {
-                cpu6502_node_generate(node->left, 0);
+                cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right, 0);
-                cpu6502_1op("STA", temp);
+                cpu9900_1op("STA", temp);
                 strcat(temp, "+1");
-                cpu6502_1op("STY", temp);
+                cpu9900_1op("STY", temp);
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
                 char *p;
                 
-                cpu6502_node_generate(node->left, 0);
+                cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right->left, 0);
                 p = temp;
                 while (*p)
@@ -529,24 +555,24 @@ void cpu6502_node_generate(struct node *node, int decision)
                 else
                     *p++ = '-';
                 sprintf(p, "%d", node->right->right->value);
-                cpu6502_1op("STA", temp);
+                cpu9900_1op("STA", temp);
                 strcat(temp, "+1");
-                cpu6502_1op("STY", temp);
+                cpu9900_1op("STY", temp);
                 break;
             }
-            cpu6502_node_generate(node->left, 0);
-            cpu6502_noop("PHA");
-            cpu6502_noop("TYA");
-            cpu6502_noop("PHA");
-            cpu6502_node_generate(node->right, 0);
-            cpu6502_1op("STA", "temp");
-            cpu6502_1op("STY", "temp+1");
-            cpu6502_noop("PLA");
-            cpu6502_1op("LDY", "#1");
-            cpu6502_1op("STA", "(temp),Y");
-            cpu6502_noop("PLA");
-            cpu6502_noop("DEY");
-            cpu6502_1op("STA", "(temp),Y");
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_noop("PHA");
+            cpu9900_noop("TYA");
+            cpu9900_noop("PHA");
+            cpu9900_node_generate(node->right, 0);
+            cpu9900_1op("STA", "temp");
+            cpu9900_1op("STY", "temp+1");
+            cpu9900_noop("PLA");
+            cpu9900_1op("LDY", "#1");
+            cpu9900_1op("STA", "(temp),Y");
+            cpu9900_noop("PLA");
+            cpu9900_noop("DEY");
+            cpu9900_1op("STA", "(temp),Y");
             break;
         default:    /* Every other node, all remaining are 16-bit operations */
             /* Optimization of address plus/minus constant */
@@ -564,7 +590,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                         while (*p)
                             p++;
                         sprintf(p, "%d", node->right->value);
-                        cpu6502_1op("LDA", temp);
+                        cpu9900_1op("LDA", temp);
                         node_get_label(node->left, 3);
                         if (node->type == N_PLUS16)
                             strcat(temp, "+");
@@ -574,23 +600,23 @@ void cpu6502_node_generate(struct node *node, int decision)
                         while (*p)
                             p++;
                         sprintf(p, "%d)>>8", node->right->value);
-                        cpu6502_1op("LDY", temp);
+                        cpu9900_1op("LDY", temp);
                         break;
                     }
                 }
             }
             if (node->type == N_PLUS16) {
                 if (node->left->type == N_ADDR) {
-                    cpu6502_node_generate(node->right, 0);
+                    cpu9900_node_generate(node->right, 0);
                     node_get_label(node->left, 2);
-                    cpu6502_noop("CLC");
-                    cpu6502_1op("ADC", temp);
-                    cpu6502_noop("PHA");
-                    cpu6502_noop("TYA");
+                    cpu9900_noop("CLC");
+                    cpu9900_1op("ADC", temp);
+                    cpu9900_noop("PHA");
+                    cpu9900_noop("TYA");
                     strcat(temp, ">>8");
-                    cpu6502_1op("ADC", temp);
-                    cpu6502_noop("TAY");
-                    cpu6502_noop("PLA");
+                    cpu9900_1op("ADC", temp);
+                    cpu9900_noop("TAY");
+                    cpu9900_noop("PLA");
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
@@ -601,19 +627,19 @@ void cpu6502_node_generate(struct node *node, int decision)
                     else
                         explore = node->right;
                     if (node->left != explore)
-                        cpu6502_node_generate(node->left, 0);
+                        cpu9900_node_generate(node->left, 0);
                     else
-                        cpu6502_node_generate(node->right, 0);
+                        cpu9900_node_generate(node->right, 0);
                     c = explore->value;
                     sprintf(temp, "#%d", c & 0xff);
-                    cpu6502_noop("CLC");
-                    cpu6502_1op("ADC", temp);
-                    cpu6502_noop("PHA");
-                    cpu6502_noop("TYA");
+                    cpu9900_noop("CLC");
+                    cpu9900_1op("ADC", temp);
+                    cpu9900_noop("PHA");
+                    cpu9900_noop("TYA");
                     sprintf(temp, "#%d", c >> 8);
-                    cpu6502_1op("ADC", temp);
-                    cpu6502_noop("TAY");
-                    cpu6502_noop("PLA");
+                    cpu9900_1op("ADC", temp);
+                    cpu9900_noop("TAY");
+                    cpu9900_noop("PLA");
                     break;
                 }
             }
@@ -625,16 +651,16 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (explore != NULL) {
                     int c = explore->value;
                     
-                    cpu6502_node_generate(node->left, 0);
+                    cpu9900_node_generate(node->left, 0);
                     sprintf(temp, "#%d", c & 0xff);
-                    cpu6502_noop("SEC");
-                    cpu6502_1op("SBC", temp);
-                    cpu6502_noop("PHA");
-                    cpu6502_noop("TYA");
+                    cpu9900_noop("SEC");
+                    cpu9900_1op("SBC", temp);
+                    cpu9900_noop("PHA");
+                    cpu9900_noop("TYA");
                     sprintf(temp, "#%d", c >> 8);
-                    cpu6502_1op("SBC", temp);
-                    cpu6502_noop("TAY");
-                    cpu6502_noop("PLA");
+                    cpu9900_1op("SBC", temp);
+                    cpu9900_noop("TAY");
+                    cpu9900_noop("PLA");
                     break;
                 }
             }
@@ -656,21 +682,21 @@ void cpu6502_node_generate(struct node *node, int decision)
                         mnemonic = "EOR";
                     }
                     if (node->left != explore)
-                        cpu6502_node_generate(node->left, 0);
+                        cpu9900_node_generate(node->left, 0);
                     else
-                        cpu6502_node_generate(node->right, 0);
+                        cpu9900_node_generate(node->right, 0);
                     byte = value & 0xff;
                     if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
                         /* Nothing to do :) */
                     } else if (node->type == N_AND16 && byte == 0xff) {
                         /* Nothing to do :) */
                     } else if (node->type == N_AND16 && byte == 0x00) {
-                        cpu6502_1op("LDA", "#0");
+                        cpu9900_1op("LDA", "#0");
                     } else if (node->type == N_OR16 && byte == 0xff) {
-                        cpu6502_1op("LDA", "#255");
+                        cpu9900_1op("LDA", "#255");
                     } else {
                         sprintf(temp, "#%d", byte);
-                        cpu6502_1op(mnemonic, temp);
+                        cpu9900_1op(mnemonic, temp);
                     }
                     byte = (value >> 8) & 0xff;
                     if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
@@ -678,16 +704,16 @@ void cpu6502_node_generate(struct node *node, int decision)
                     } else if (node->type == N_AND16 && byte == 0xff) {
                         /* Nothing to do :) */
                     } else if (node->type == N_AND16 && byte == 0x00) {
-                        cpu6502_1op("LDY", "#0");
+                        cpu9900_1op("LDY", "#0");
                     } else if (node->type == N_OR16 && byte == 0xff) {
-                        cpu6502_1op("LDY", "#255");
+                        cpu9900_1op("LDY", "#255");
                     } else {
-                        cpu6502_noop("PHA");
-                        cpu6502_noop("TYA");
+                        cpu9900_noop("PHA");
+                        cpu9900_noop("TYA");
                         sprintf(temp, "#%d", byte);
-                        cpu6502_1op(mnemonic, temp);
-                        cpu6502_noop("TAY");
-                        cpu6502_noop("PLA");
+                        cpu9900_1op(mnemonic, temp);
+                        cpu9900_noop("TAY");
+                        cpu9900_noop("PLA");
                     }
                     break;
                 }
@@ -703,8 +729,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                     int c = explore->value;
                     
                     if (c == 0) {
-                        cpu6502_1op("LDA", "#0");
-                        cpu6502_noop("TAY");
+                        cpu9900_1op("LDA", "#0");
+                        cpu9900_noop("TAY");
                     } else {
                         if (node->left != explore)
                             node = node->left;
@@ -712,25 +738,25 @@ void cpu6502_node_generate(struct node *node, int decision)
                             node = node->right;
                         if (c >= 256) {
                             if (node->type == N_EXTEND8 || node->type == N_EXTEND8S) {
-                                cpu6502_node_generate(node->left, 0);
-                                cpu6502_noop("TAY");
-                                cpu6502_1op("LDA", "#0");
+                                cpu9900_node_generate(node->left, 0);
+                                cpu9900_noop("TAY");
+                                cpu9900_1op("LDA", "#0");
                             } else {
-                                cpu6502_node_generate(node, 0);
-                                cpu6502_noop("TAY");
-                                cpu6502_1op("LDA", "#0");
+                                cpu9900_node_generate(node, 0);
+                                cpu9900_noop("TAY");
+                                cpu9900_1op("LDA", "#0");
                             }
                             c /= 256;
                         } else {
-                            cpu6502_node_generate(node, 0);
+                            cpu9900_node_generate(node, 0);
                         }
-                        cpu6502_1op("STY", "temp");
+                        cpu9900_1op("STY", "temp");
                         while (c > 1) {
-                            cpu6502_1op("ASL", "A");
-                            cpu6502_1op("ROL", "temp");
+                            cpu9900_1op("ASL", "A");
+                            cpu9900_1op("ROL", "temp");
                             c /= 2;
                         }
-                        cpu6502_1op("LDY", "temp");
+                        cpu9900_1op("LDY", "temp");
                     }
                     break;
                 }
@@ -739,215 +765,215 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
                     int c;
                     
-                    cpu6502_node_generate(node->left, 0);
+                    cpu9900_node_generate(node->left, 0);
                     c = node->right->value;
-                    cpu6502_1op("STY", "temp");
+                    cpu9900_1op("STY", "temp");
                     do {
-                        cpu6502_1op("LSR", "temp");
-                        cpu6502_1op("ROR", "A");
+                        cpu9900_1op("LSR", "temp");
+                        cpu9900_1op("ROR", "A");
                         c /= 2;
                     } while (c > 1) ;
-                    cpu6502_1op("LDY", "temp");
+                    cpu9900_1op("LDY", "temp");
                     break;
                 }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
-                cpu6502_node_generate(node->right, 0);
-                cpu6502_noop("PHA");
-                cpu6502_noop("TYA");
-                cpu6502_noop("PHA");
-                cpu6502_node_generate(node->left, 0);
-                cpu6502_1op("STA", "temp");
-                cpu6502_1op("STY", "temp+1");
+                cpu9900_node_generate(node->right, 0);
+                cpu9900_noop("PHA");
+                cpu9900_noop("TYA");
+                cpu9900_noop("PHA");
+                cpu9900_node_generate(node->left, 0);
+                cpu9900_1op("STA", "temp");
+                cpu9900_1op("STY", "temp+1");
             } else {
-                cpu6502_node_generate(node->left, 0);
-                cpu6502_noop("PHA");
-                cpu6502_noop("TYA");
-                cpu6502_noop("PHA");
-                cpu6502_node_generate(node->right, 0);
-                cpu6502_1op("STA", "temp");
-                cpu6502_1op("STY", "temp+1");
+                cpu9900_node_generate(node->left, 0);
+                cpu9900_noop("PHA");
+                cpu9900_noop("TYA");
+                cpu9900_noop("PHA");
+                cpu9900_node_generate(node->right, 0);
+                cpu9900_1op("STA", "temp");
+                cpu9900_1op("STY", "temp+1");
             }
             if (node->type == N_OR16) {
-                cpu6502_noop("PLA");
-                cpu6502_1op("ORA", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_1op("ORA", "temp");
+                cpu9900_noop("PLA");
+                cpu9900_1op("ORA", "temp+1");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_1op("ORA", "temp");
                 if (decision) {
                     optimized = 1;
-                    cpu6502_1op("STY", "temp");
-                    cpu6502_1op("ORA", "temp");
+                    cpu9900_1op("STY", "temp");
+                    cpu9900_1op("ORA", "temp");
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_XOR16) {
-                cpu6502_noop("PLA");
-                cpu6502_1op("EOR", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_1op("EOR", "temp");
+                cpu9900_noop("PLA");
+                cpu9900_1op("EOR", "temp+1");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_1op("EOR", "temp");
                 if (decision) {
                     optimized = 1;
-                    cpu6502_1op("STY", "temp");
-                    cpu6502_1op("ORA", "temp");
+                    cpu9900_1op("STY", "temp");
+                    cpu9900_1op("ORA", "temp");
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_AND16) {
-                cpu6502_noop("PLA");
-                cpu6502_1op("AND", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_1op("AND", "temp");
+                cpu9900_noop("PLA");
+                cpu9900_1op("AND", "temp+1");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_1op("AND", "temp");
                 if (decision) {
                     optimized = 1;
-                    cpu6502_1op("STY", "temp");
-                    cpu6502_1op("ORA", "temp");
+                    cpu9900_1op("STY", "temp");
+                    cpu9900_1op("ORA", "temp");
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_1op("STA", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
-                cpu6502_1op("ORA", "temp");
+                cpu9900_noop("PLA");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_noop("SEC");
+                cpu9900_1op("SBC", "temp");
+                cpu9900_1op("STA", "temp");
+                cpu9900_noop("TYA");
+                cpu9900_1op("SBC", "temp+1");
+                cpu9900_1op("ORA", "temp");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BEQ", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BEQ", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BEQ", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BEQ", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_NOTEQUAL16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_1op("STA", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
-                cpu6502_1op("ORA", "temp");
+                cpu9900_noop("PLA");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_noop("SEC");
+                cpu9900_1op("SBC", "temp");
+                cpu9900_1op("STA", "temp");
+                cpu9900_noop("TYA");
+                cpu9900_1op("SBC", "temp+1");
+                cpu9900_1op("ORA", "temp");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BNE", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BNE", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
+                cpu9900_noop("PLA");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_noop("SEC");
+                cpu9900_1op("SBC", "temp");
+                cpu9900_noop("TYA");
+                cpu9900_1op("SBC", "temp+1");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BCC", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BCC", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
+                cpu9900_noop("PLA");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_noop("SEC");
+                cpu9900_1op("SBC", "temp");
+                cpu9900_noop("TYA");
+                cpu9900_1op("SBC", "temp+1");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu9900_1op("BCS", temp + 100);
+                    cpu9900_1op("JMP", temp);
+                    cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu9900_1op("BCS", temp);
+                    cpu9900_1op("LDA", "#0");
+                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_label(temp);
+                    cpu9900_1op("LDA", "#255");
+                    cpu9900_empty();
                 }
             } else if (node->type == N_PLUS16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("CLC");
-                cpu6502_1op("ADC", "temp");
-                cpu6502_noop("TAX");
-                cpu6502_noop("TYA");
-                cpu6502_1op("ADC", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("TXA");
+                cpu9900_noop("PLA");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_noop("CLC");
+                cpu9900_1op("ADC", "temp");
+                cpu9900_noop("TAX");
+                cpu9900_noop("TYA");
+                cpu9900_1op("ADC", "temp+1");
+                cpu9900_noop("TAY");
+                cpu9900_noop("TXA");
             } else if (node->type == N_MINUS16) {
-                cpu6502_noop("PLA");
-                cpu6502_noop("TAY");
-                cpu6502_noop("PLA");
-                cpu6502_noop("SEC");
-                cpu6502_1op("SBC", "temp");
-                cpu6502_noop("TAX");
-                cpu6502_noop("TYA");
-                cpu6502_1op("SBC", "temp+1");
-                cpu6502_noop("TAY");
-                cpu6502_noop("TXA");
+                cpu9900_noop("PLA");
+                cpu9900_noop("TAY");
+                cpu9900_noop("PLA");
+                cpu9900_noop("SEC");
+                cpu9900_1op("SBC", "temp");
+                cpu9900_noop("TAX");
+                cpu9900_noop("TYA");
+                cpu9900_1op("SBC", "temp+1");
+                cpu9900_noop("TAY");
+                cpu9900_noop("TXA");
             } else if (node->type == N_MUL16) {
-                cpu6502_1op("JSR", "_mul16");
+                cpu9900_1op("JSR", "_mul16");
             } else if (node->type == N_DIV16) {
-                cpu6502_1op("JSR", "_div16");
+                cpu9900_1op("JSR", "_div16");
             } else if (node->type == N_MOD16) {
-                cpu6502_1op("JSR", "_mod16");
+                cpu9900_1op("JSR", "_mod16");
             } else if (node->type == N_DIV16S) {
-                cpu6502_1op("JSR", "_div16s");
+                cpu9900_1op("JSR", "_div16s");
             } else if (node->type == N_MOD16S) {
-                cpu6502_1op("JSR", "_mod16s");
+                cpu9900_1op("JSR", "_mod16s");
             }
             break;
     }

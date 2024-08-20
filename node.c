@@ -724,6 +724,11 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
 
 /*
  ** Get the assembler label for the CVBasic label.
+ ** parenthesis:
+        1 - open and close ()
+        2 - #
+        3 - open only (
+        4 - @
  */
 void node_get_label(struct node *node, int parenthesis)
 {
@@ -732,6 +737,8 @@ void node_get_label(struct node *node, int parenthesis)
         strcat(temp, "(");
     else if (parenthesis == 2)
         strcat(temp, "#");
+    else if (parenthesis == 4)
+        strcat(temp, "@");
     if (node->label->length) {
         strcat(temp, ARRAY_PREFIX);
     } else {

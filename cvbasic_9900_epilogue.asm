@@ -1,23 +1,12 @@
-rom_end:
-	times $bfe8-$ db $ff        * pad 0xff to bfe8
+*** CV BASIC Epilogue
 
-	dw START
-	dw 0		; IRQ2 handler.
+* data in low RAM
+    aorg >2000
 
-	dw 0
-	dw 0
+* must be even aligned
+* mirror for sprite table
+sprites	    bss 128
 
-	; Initial VDP registers
-	db $02
-	db $82
-	db $06
-	db $ff
-	db $00
-	db $36
-	db $07
-	db $01
+* Vars can start at >2080
+    aorg >2080
 
-	dw 0
-	dw 0
-	dw BIOS_NMI_RESET_ADDR	; Handler for reset.
-	dw int_handler	; IRQ1 handler.
