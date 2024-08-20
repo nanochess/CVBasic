@@ -288,6 +288,29 @@ cls:
 	cli
 	rts
 
+print_string_cursor_constant:
+	PLA
+	STA temp
+	PLA
+	STA temp+1
+	LDY #1
+	LDA (temp),Y
+	STA cursor
+	INY
+	LDA (temp),Y
+	STA cursor+1
+	INY
+	LDA (temp),Y
+	STA temp2
+	TYA
+	CLC
+	ADC temp
+	STA temp
+	BCC $+4
+	INC temp+1
+	LDA temp2
+	BNE print_string.2
+
 print_string_cursor:
 	STA cursor
 	STY cursor+1
@@ -296,9 +319,13 @@ print_string:
 	STA temp
 	PLA
 	STA temp+1
-	STX temp2
-	TXA
-	CLC
+	LDY #1
+	LDA (temp),Y
+	STA temp2
+	INC temp
+	BNE $+4
+	INC temp+1
+.2:	CLC
 	ADC temp
 	TAY
 	LDA #0
@@ -309,7 +336,7 @@ print_string:
 	INC temp
 	BNE $+4
 	INC temp+1
-	TXA
+	LDA temp2
 	PHA
 	LDA #0
 	STA temp2+1
@@ -323,7 +350,6 @@ print_string:
 	JSR LDIRVM
 	CLI
 	PLA
-	TAX
 	CLC
 	ADC cursor
 	STA cursor
@@ -877,40 +903,29 @@ sn76489_control:
 
 vdp_generic_mode:
 	SEI
+	LDX #$00
 	JSR WRTVDP
 	LDA #$A2
-	LDX #$01
+	INX
 	JSR WRTVDP
 	LDA #$06	; $1800 for pattern table.
-	LDX #$02
+	INX
 	JSR WRTVDP
-	LDA temp
-	LDX #$03	; for color table.
+	TYA
+	INX		; for color table.
 	JSR WRTVDP
 	LDA temp+1
-	LDX #$04	; for bitmap table.
+	INX		; for bitmap table.
 	JSR WRTVDP
 	LDA #$36	; $1b00 for sprite attribute table.
-	LDX #$05
+	INX
 	JSR WRTVDP
 	LDA #$07	; $3800 for sprites bitmaps.
-	LDX #$06
+	INX
 	JSR WRTVDP
 	LDA #$01
-	LDX #$07
-	JMP WRTVDP
-
-mode_0:
-	LDA mode
-	AND #$FB
-	STA mode
-	LDA #$ff	; $2000 for color table.
-	STA temp
-	LDA #$03	; $0000 for bitmaps
-	STA temp+1
-	LDA #$02
-	LDX #$00
-	JSR vdp_generic_mode
+	INX
+	JSR WRTVDP
 	LDA #font_bitmaps
 	LDY #font_bitmaps>>8
 	STA temp
@@ -922,6 +937,17 @@ mode_0:
 	STA pointer+1
 	LDA #$03
 	STA temp2+1
+	RTS
+
+mode_0:
+	LDA mode
+	AND #$FB
+	STA mode
+	LDY #$ff	; $2000 for color table.
+	LDA #$03	; $0000 for bitmaps
+	STA temp+1
+	LDA #$02
+	JSR vdp_generic_mode
 	JSR LDIRVM3
 	CLI
 	SEI
@@ -965,12 +991,10 @@ mode_1:
 	LDA mode
 	AND #$FB
 	STA mode
-	LDA #$ff	; $2000 for color table.
-	STA temp
+	LDY #$ff	; $2000 for color table.
 	LDA #$03	; $0000 for bitmaps
 	STA temp+1
 	LDA #$02
-	LDX #$00
 	JSR vdp_generic_mode
 	LDA #$00
 	STA temp
@@ -1028,24 +1052,11 @@ mode_2:
 	LDA mode
 	ORA #$04
 	STA mode
-	LDA #$80	; $2000 for color table.
-	STA temp
+	LDY #$80	; $2000 for color table.
 	LDA #$00	; $0000 for bitmaps
 	STA temp+1
 	LDA #$00
-	LDX #$00
 	JSR vdp_generic_mode
-	LDA #font_bitmaps
-	LDY #font_bitmaps>>8
-	STA temp
-	STY temp+1
-	LDA #$00
-	STA pointer
-	STA temp2
-	LDY #$0100>>8
-	STY pointer+1
-	LDY #$0300>>8
-	STY temp2+1
 	JSR LDIRVM
 	CLI
 	SEI

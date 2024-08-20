@@ -360,40 +360,28 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 }
             } else if (node->type == N_XOR8) {
                 cpu6502_1op("EOR", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 }
             } else if (node->type == N_AND8) {
                 cpu6502_1op("AND", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 }
             } else if (node->type == N_EQUAL8) {
                 cpu6502_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BEQ", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BNE.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BEQ", temp);
@@ -408,10 +396,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BNE", temp);
@@ -426,10 +411,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BCS.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BCC", temp);
@@ -444,10 +426,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BCC.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BCS", temp);
@@ -462,10 +441,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BCS.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BCC", temp);
@@ -480,10 +456,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BCC.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BCS", temp);
@@ -905,6 +878,14 @@ void cpu6502_node_generate(struct node *node, int decision)
                             node = node->left;
                         else
                             node = node->right;
+                        if (c == 2 && node->type == N_EXTEND8) {
+                            cpu6502_node_generate(node->left, 0);
+                            cpu6502_1op("ASL", "A");
+                            cpu6502_1op("LDY", "#0");
+                            cpu6502_1op("BCC", "$+3");
+                            cpu6502_noop("INY");
+                            break;
+                        }
                         if (c >= 256) {
                             if (node->type == N_EXTEND8 || node->type == N_EXTEND8S) {
                                 cpu6502_node_generate(node->left, 0);
@@ -1019,10 +1000,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_1op("STY", "temp");
                     cpu6502_1op("ORA", "temp");
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 }
             } else if (node->type == N_XOR16) {
                 if (stack) {
@@ -1044,10 +1022,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_1op("STY", "temp");
                     cpu6502_1op("ORA", "temp");
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 }
             } else if (node->type == N_AND16) {
                 if (stack) {
@@ -1069,10 +1044,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_1op("STY", "temp");
                     cpu6502_1op("ORA", "temp");
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 }
             } else if (node->type == N_EQUAL16) {
                 if (stack) {
@@ -1100,10 +1072,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BEQ", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BNE.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BEQ", temp);
@@ -1139,10 +1108,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BNE", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BEQ.L", temp);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
                     cpu6502_1op("BNE", temp);
@@ -1170,10 +1136,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BCS.L", temp);
                 } else {
                     cpu6502_1op("LDA", "#255");
                     cpu6502_1op("ADC", "#0");   
@@ -1196,10 +1159,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp + 100);
-                    cpu6502_1op("JMP", temp);
-                    cpu6502_label(temp + 100);
+                    cpu6502_1op("BCC.L", temp);
                 } else {
                     cpu6502_1op("LDA", "#255");
                     cpu6502_1op("ADC", "#0");

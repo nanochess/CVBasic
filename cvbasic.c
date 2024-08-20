@@ -23,7 +23,7 @@
 #include "cpuz80.h"
 #include "cpu6502.h"
 
-#define VERSION "v0.6.1 Aug/15/2024"
+#define VERSION "v0.6.1 Aug/19/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -2871,16 +2871,26 @@ void compile_statement(int check_for_else)
                 int c;
                 int start;
                 int cursor_value;
+                int cursor_pos;
+                struct node *tree;
                 
                 get_lex();
                 start = 1;
                 cursor_value = 0;
+                cursor_pos = 0;
                 if (lex == C_NAME && strcmp(name, "AT") == 0) {
                     get_lex();
-                    type = evaluate_expression(1, TYPE_16, 0);
+                    tree = evaluate_save_expression(1, TYPE_16);
                     if (target == CPU_6502) {
-                        cursor_value = 1;
+                        if (tree->type == N_NUM16) {
+                            cursor_value = 2;
+                            cursor_pos = tree->value;
+                        } else {
+                            node_generate(tree, 0);
+                            cursor_value = 1;
+                        }
                     } else {
+                        node_generate(tree, 0);
                         cpuz80_2op("LD", "(cursor)", "HL");
                     }
                     start = 0;
@@ -2890,6 +2900,12 @@ void compile_statement(int check_for_else)
                         if (lex != C_COMMA) {
                             if (target == CPU_6502) {
                                 if (cursor_value) {
+                                    if (cursor_value == 2) {
+                                        sprintf(temp, "#%d", cursor_pos & 0xff);
+                                        cpu6502_1op("LDA", temp);
+                                        sprintf(temp, "#%d", cursor_pos >> 8);
+                                        cpu6502_1op("LDY", temp);
+                                    }
                                     cpu6502_1op("STA", "cursor");
                                     cpu6502_1op("STY", "cursor+1");
                                 }
@@ -2902,12 +2918,21 @@ void compile_statement(int check_for_else)
                     if (lex == C_STRING) {
                         if (name_size) {
                             if (target == CPU_6502) {
-                                sprintf(temp, "#%d", name_size);
-                                cpu6502_1op("LDX", temp);
-                                if (cursor_value)
-                                    generic_call("print_string_cursor");
-                                else
+                                if (cursor_value) {
+                                    if (cursor_value == 2) {
+                                        generic_call("print_string_cursor_constant");
+                                        generic_dump();
+                                        fprintf(output, "\tDB $%02x,$%02x,$%02x\n", cursor_pos & 0xff, (cursor_pos >> 8) & 0xff, name_size);
+                                    } else {
+                                        generic_call("print_string_cursor");
+                                        generic_dump();
+                                        fprintf(output, "\tDB $%02x\n", name_size);
+                                    }
+                                } else {
                                     generic_call("print_string");
+                                    generic_dump();
+                                    fprintf(output, "\tDB $%02x\n", name_size);
+                                }
                             } else {
                                 label = next_local++;
                                 label2 = next_local++;
@@ -2920,8 +2945,8 @@ void compile_statement(int check_for_else)
                                 generic_jump(temp);
                                 sprintf(temp, INTERNAL_PREFIX "%d", label);
                                 generic_label(temp);
+                                generic_dump();
                             }
-                            generic_dump();
                             for (c = 0; c < name_size; c++) {
                                 if ((c & 7) == 0) {
                                     fprintf(output, "\tDB ");
@@ -2940,6 +2965,12 @@ void compile_statement(int check_for_else)
                         } else {
                             if (target == CPU_6502) {
                                 if (cursor_value) {
+                                    if (cursor_value == 2) {
+                                        sprintf(temp, "#%d", cursor_pos & 0xff);
+                                        cpu6502_1op("LDA", temp);
+                                        sprintf(temp, "#%d", cursor_pos >> 8);
+                                        cpu6502_1op("LDY", temp);
+                                    }
                                     cpu6502_1op("STA", "cursor");
                                     cpu6502_1op("STY", "cursor+1");
                                 }
@@ -2952,6 +2983,12 @@ void compile_statement(int check_for_else)
                         
                         if (target == CPU_6502) {
                             if (cursor_value) {
+                                if (cursor_value == 2) {
+                                    sprintf(temp, "#%d", cursor_pos & 0xff);
+                                    cpu6502_1op("LDA", temp);
+                                    sprintf(temp, "#%d", cursor_pos >> 8);
+                                    cpu6502_1op("LDY", temp);
+                                }
                                 cpu6502_1op("STA", "cursor");
                                 cpu6502_1op("STY", "cursor+1");
                             }
@@ -3026,6 +3063,12 @@ void compile_statement(int check_for_else)
                     } else {
                         if (target == CPU_6502) {
                             if (cursor_value) {
+                                if (cursor_value == 2) {
+                                    sprintf(temp, "#%d", cursor_pos & 0xff);
+                                    cpu6502_1op("LDA", temp);
+                                    sprintf(temp, "#%d", cursor_pos >> 8);
+                                    cpu6502_1op("LDY", temp);
+                                }
                                 cpu6502_1op("STA", "cursor");
                                 cpu6502_1op("STY", "cursor+1");
                             }
@@ -4089,10 +4132,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("SBC", temp);
                             }
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                            sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                            cpu6502_1op("BCC", temp + 100);
-                            cpu6502_1op("JMP", temp);
-                            cpu6502_label(temp + 100);
+                            cpu6502_1op("BCS.L", temp);
                         } else {
                             if ((type & MAIN_TYPE) == TYPE_8) {
                                 sprintf(temp, "%d", max_value);

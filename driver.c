@@ -99,15 +99,8 @@ void generic_jump(char *label)
  */
 void generic_jump_zero(char *label)
 {
-    if (target == CPU_6502) {
-        char internal_label[256];
-        int number = next_local++;
-        
-        sprintf(internal_label, INTERNAL_PREFIX "%d", number);
-        cpu6502_1op("BNE", internal_label);
-        cpu6502_1op("JMP", label);
-        cpu6502_label(internal_label);
-    }
+    if (target == CPU_6502)
+        cpu6502_1op("BEQ.L", label);
     if (target == CPU_Z80)
         cpuz80_2op("JP", "Z", label);
 }
