@@ -92,6 +92,25 @@ static int cpu6502_8bit_simple(struct node *node)
         case N_NEG8:
         case N_NOT8:
             return cpu6502_8bit_simple(node->left);
+        case N_LESSEQUAL8:  /* 8-bit <= */
+        case N_GREATER8:    /* 8-bit > */
+            if (node->left->type != N_NUM8 && node->left->type != N_LOAD8)
+                return 0;
+            return cpu6502_8bit_simple(node->right);
+        case N_OR8:     /* 8-bit OR */
+        case N_XOR8:    /* 8-bit XOR */
+        case N_AND8:    /* 8-bit AND */
+        case N_EQUAL8:  /* 8-bit = */
+        case N_NOTEQUAL8:   /* 8-bit <> */
+        case N_LESS8:   /* 8-bit < */
+        case N_GREATEREQUAL8:   /* 8-bit >= */
+        case N_PLUS8:   /* 8-bit + */
+        case N_MINUS8:  /* 8-bit - */
+        case N_MUL8:    /* 8-bit * */
+        case N_DIV8:    /* 8-bit / */
+            if (node->right->type != N_NUM8 && node->right->type != N_LOAD8)
+                return 0;
+            return cpu6502_8bit_simple(node->left);
         default:
             return 0;
     }

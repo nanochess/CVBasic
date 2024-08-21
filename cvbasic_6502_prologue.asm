@@ -2078,6 +2078,15 @@ font_bitmaps:
 START:
 	SEI
 	CLD
+
+	LDX #$00
+	LDA #$00
+.1:	STA $0100,X
+	STA $0200,X
+	STA $0300,X
+	INX
+	BNE .1
+
 	LDX #STACK
 	TXS
 	LDA $2001

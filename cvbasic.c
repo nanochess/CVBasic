@@ -3032,7 +3032,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_noop("SEI");
                                 cpu6502_1op("LDX", "#2");
                                 cpu6502_1op("STX", "temp");
-                                cpu6502_1op("LDX", "#$20");
+                                cpu6502_1op("LDX", "#32");
                                 cpu6502_1op("STX", "temp+1");
                                 sprintf(temp, "print_number%d", size);
                                 cpu6502_1op("JSR", temp);
@@ -3040,7 +3040,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_noop("SEI");
                                 cpu6502_1op("LDX", "#2");
                                 cpu6502_1op("STX", "temp");
-                                cpu6502_1op("LDX", "#$30");
+                                cpu6502_1op("LDX", "#48");
                                 cpu6502_1op("STX", "temp+1");
                                 sprintf(temp, "print_number%d", size);
                                 cpu6502_1op("JSR", temp);
@@ -3412,7 +3412,7 @@ void compile_statement(int check_for_else)
                     if (lex == C_NAME && strcmp(name, "ON") == 0) {
                         if (target == CPU_6502) {
                             cpu6502_1op("LDA", "mode");
-                            cpu6502_1op("AND", "#$fb");
+                            cpu6502_1op("AND", "#251");
                             cpu6502_1op("STA", "mode");
                         } else {
                             cpuz80_2op("LD", "HL", "mode");
@@ -3422,7 +3422,7 @@ void compile_statement(int check_for_else)
                     } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
                         if (target == CPU_6502) {
                             cpu6502_1op("LDA", "mode");
-                            cpu6502_1op("ORA", "#$04");
+                            cpu6502_1op("ORA", "#4");
                             cpu6502_1op("STA", "mode");
                         } else {
                             cpuz80_2op("LD", "HL", "mode");
@@ -3826,12 +3826,12 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("LDY", temp);
                             cpu6502_1op("STA", "temp");
                             cpu6502_1op("STY", "temp+1");
-                            cpu6502_1op("LDA", "#$0300");
-                            cpu6502_1op("LDY", "#$0300>>8");
+                            cpu6502_1op("LDA", "#0");
+                            cpu6502_1op("LDY", "#3");
                             cpu6502_1op("STA", "temp2");
                             cpu6502_1op("STY", "temp2+1");
-                            cpu6502_1op("LDA", "#$1800");
-                            cpu6502_1op("LDY", "#$1800>>8");
+                            cpu6502_1op("LDA", "#0");
+                            cpu6502_1op("LDY", "#24");
                             cpu6502_1op("STA", "pointer");
                             cpu6502_1op("STY", "pointer+1");
                             cpu6502_noop("SEI");
@@ -4238,7 +4238,7 @@ void compile_statement(int check_for_else)
                             if (lex != C_COMMA) {
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$80");
+                                    cpu6502_1op("LDX", "#128");
                                 } else {
                                     cpuz80_2op("LD", "A", "$80");
                                 }
@@ -4248,7 +4248,7 @@ void compile_statement(int check_for_else)
                                 get_lex();
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$90");
+                                    cpu6502_1op("LDX", "#144");
                                 } else {
                                     cpuz80_2op("LD", "B", "$90");
                                 }
@@ -4265,7 +4265,7 @@ void compile_statement(int check_for_else)
                             if (lex != C_COMMA) {
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$a0");
+                                    cpu6502_1op("LDX", "#160");
                                 } else {
                                     cpuz80_2op("LD", "A", "$a0");
                                 }
@@ -4275,7 +4275,7 @@ void compile_statement(int check_for_else)
                                 get_lex();
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$b0");
+                                    cpu6502_1op("LDX", "#176");
                                 } else {
                                     cpuz80_2op("LD", "B", "$b0");
                                 }
@@ -4292,7 +4292,7 @@ void compile_statement(int check_for_else)
                             if (lex != C_COMMA) {
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$c0");
+                                    cpu6502_1op("LDX", "#192");
                                 } else {
                                     cpuz80_2op("LD", "A", "$c0");
                                 }
@@ -4302,7 +4302,7 @@ void compile_statement(int check_for_else)
                                 get_lex();
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$d0");
+                                    cpu6502_1op("LDX", "#208");
                                 } else {
                                     cpuz80_2op("LD", "B", "$d0");
                                 }
@@ -4324,7 +4324,7 @@ void compile_statement(int check_for_else)
                                 get_lex();
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
-                                    cpu6502_1op("LDX", "#$f0");
+                                    cpu6502_1op("LDX", "#240");
                                 } else {
                                     cpuz80_2op("LD", "B", "$f0");
                                 }
