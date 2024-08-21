@@ -17,6 +17,10 @@ static char temp2[MAX_LINE_SIZE];
 
 static char cpu6502_line[MAX_LINE_SIZE];
 
+static char cpu6502_a[MAX_LINE_SIZE];
+static char cpu6502_x[MAX_LINE_SIZE];
+static char cpu6502_y[MAX_LINE_SIZE];
+
 static void cpu6502_emit_line(void);
 static int cpu6502_8bit_simple(struct node *);
 
@@ -36,6 +40,9 @@ void cpu6502_label(char *label)
 {
     sprintf(cpu6502_line, "%s:\n", label);
     cpu6502_emit_line();
+    cpu6502_a[0] = '\0';
+    cpu6502_x[0] = '\0';
+    cpu6502_y[0] = '\0';
 }
 
 /*
@@ -43,24 +50,162 @@ void cpu6502_label(char *label)
  */
 void cpu6502_empty(void)
 {
+    cpu6502_a[0] = '\0';
+    cpu6502_x[0] = '\0';
+    cpu6502_y[0] = '\0';
 }
 
 /*
- ** Emit a Z80 instruction with no operand
+ ** Emit a 6502 instruction with no operand
  */
 void cpu6502_noop(char *mnemonic)
 {
+    /*
+     ** The following instructions aren't used in the compiler
+     ** o BRK
+     ** o RTI
+     ** o PHP
+     ** o PLP
+     ** o CLV
+     ** o CLD
+     ** o SED
+     ** o TXS
+     ** o TSX
+     ** o NOP
+     */
     sprintf(cpu6502_line, "\t%s\n", mnemonic);
     cpu6502_emit_line();
+    if (strcmp(mnemonic, "PHA") == 0 || strcmp(mnemonic, "SEI") == 0 || strcmp(mnemonic, "CLI") == 0 || strcmp(mnemonic, "SEC") == 0 || strcmp(mnemonic, "CLC") == 0) {
+        /* Nothing to do */
+    } else if (strcmp(mnemonic, "PLA") == 0) {
+        cpu6502_a[0] = '\0';
+    } else if (strcmp(mnemonic, "TAX") == 0) {
+        strcpy(cpu6502_x, cpu6502_a);
+    } else if (strcmp(mnemonic, "TAY") == 0) {
+        strcpy(cpu6502_y, cpu6502_a);
+    } else if (strcmp(mnemonic, "TXA") == 0) {
+        strcpy(cpu6502_a, cpu6502_x);
+    } else if (strcmp(mnemonic, "TYA") == 0) {
+        strcpy(cpu6502_a, cpu6502_y);
+    } else if (strcmp(mnemonic, "INX") == 0 || strcmp(mnemonic, "DEX") == 0) {
+        cpu6502_x[0] = '\0';
+    } else if (strcmp(mnemonic, "INY") == 0 || strcmp(mnemonic, "DEY") == 0) {
+        cpu6502_y[0] = '\0';
+    } else if (strcmp(mnemonic, "RTS") == 0) {
+        cpu6502_a[0] = '\0';
+        cpu6502_x[0] = '\0';
+        cpu6502_y[0] = '\0';
+    } else {
+        fprintf(stderr, "cpu6502_noop: not found mnemonic %s\n", mnemonic);
+    }
 }
 
 /*
- ** Emit a Z80 instruction with a single operand
+ ** Emit a 6502 instruction with a single operand
  */
 void cpu6502_1op(char *mnemonic, char *operand)
 {
+    /*
+     ** The following instructions aren't used in the compiler
+     ** o BVC
+     ** o BVS
+     ** o BIT
+     */
+    
+    /*
+     ** Optimize code finding constants in registers, and
+     ** copy into registers using a single byte instruction.
+     */
+    if (strcmp(mnemonic, "LDA") == 0) {
+        if (strcmp(operand, cpu6502_x) == 0) {
+            cpu6502_noop("TXA");
+            return;
+        }
+        if (strcmp(operand, cpu6502_y) == 0) {
+            cpu6502_noop("TYA");
+            return;
+        }
+    }
+    if (strcmp(mnemonic, "LDX") == 0) {
+        if (strcmp(operand, cpu6502_a) == 0) {
+            cpu6502_noop("TAX");
+            return;
+        }
+    }
+    if (strcmp(mnemonic, "LDY") == 0) {
+        if (strcmp(operand, cpu6502_a) == 0) {
+            cpu6502_noop("TAY");
+            return;
+        }
+    }
     sprintf(cpu6502_line, "\t%s %s\n", mnemonic, operand);
     cpu6502_emit_line();
+    if (strcmp(mnemonic, "LDA") == 0) {
+        if (strchr(operand, ',') != NULL)
+            cpu6502_a[0] = '\0';
+        else
+            strcpy(cpu6502_a, operand);
+    } else if (strcmp(mnemonic, "LDX") == 0) {
+        if (strchr(operand, ',') != NULL)
+            cpu6502_x[0] = '\0';
+        else
+            strcpy(cpu6502_x, operand);
+    } else if (strcmp(mnemonic, "LDY") == 0) {
+        if (strchr(operand, ',') != NULL)
+            cpu6502_y[0] = '\0';
+        else
+            strcpy(cpu6502_y, operand);
+    } else if (strcmp(mnemonic, "CMP") == 0 || strcmp(mnemonic, "CPX") == 0 || strcmp(mnemonic, "CPY") == 0) {
+        /* Only flags affected */
+    } else if (strcmp(mnemonic, "ADC") == 0 || strcmp(mnemonic, "SBC") == 0 || strcmp(mnemonic, "ORA") == 0 || strcmp(mnemonic, "EOR") == 0 || strcmp(mnemonic, "AND") == 0) {
+        cpu6502_a[0] = '\0';
+    } else if (strcmp(mnemonic, "ROR") == 0 || strcmp(mnemonic, "ROL") == 0 || strcmp(mnemonic, "ASL") == 0 || strcmp(mnemonic, "LSR") == 0) {
+        if (strcmp(operand, "A") == 0) {
+            cpu6502_a[0] = '\0';
+        } else {
+            if (cpu6502_a[0] != '#')
+                cpu6502_a[0] = '\0';
+            if (cpu6502_x[0] != '#')
+                cpu6502_x[0] = '\0';
+            if (cpu6502_y[0] != '#')
+                cpu6502_y[0] = '\0';
+        }
+    } else if (strcmp(mnemonic, "INC") == 0 || strcmp(mnemonic, "DEC") == 0) {
+        if (cpu6502_a[0] != '#')
+            cpu6502_a[0] = '\0';
+        if (cpu6502_x[0] != '#')
+            cpu6502_x[0] = '\0';
+        if (cpu6502_y[0] != '#')
+            cpu6502_y[0] = '\0';
+    } else if (strcmp(mnemonic, "JSR") == 0 || strcmp(mnemonic, "JMP") == 0) {
+        cpu6502_a[0] = '\0';
+        cpu6502_x[0] = '\0';
+        cpu6502_y[0] = '\0';
+    } else if (strcmp(mnemonic, "STA") == 0) {
+        if (strchr(operand, ',') != NULL)
+            cpu6502_a[0] = '\0';
+        else
+            strcpy(cpu6502_a, operand);
+    } else if (strcmp(mnemonic, "STX") == 0) {
+        if (strchr(operand, ',') != NULL)
+            cpu6502_x[0] = '\0';
+        else
+            strcpy(cpu6502_x, operand);
+    } else if (strcmp(mnemonic, "STY") == 0) {
+        if (strchr(operand, ',') != NULL)
+            cpu6502_y[0] = '\0';
+        else
+            strcpy(cpu6502_y, operand);
+    } else if (strcmp(mnemonic, "BEQ") == 0 || strcmp(mnemonic, "BEQ.L") == 0
+               || strcmp(mnemonic, "BNE") == 0 || strcmp(mnemonic, "BNE.L") == 0
+               || strcmp(mnemonic, "BCC") == 0 || strcmp(mnemonic, "BCC.L") == 0
+               || strcmp(mnemonic, "BCS") == 0 || strcmp(mnemonic, "BCS.L") == 0
+               || strcmp(mnemonic, "BMI") == 0 || strcmp(mnemonic, "BPL") == 0
+               || strcmp(mnemonic, "DB") == 0 || strcmp(mnemonic, "DW") == 0) {
+        /* Do nothing */
+    } else {
+        fprintf(stderr, "cpu6502_1op: not found mnemonic %s\n", mnemonic);
+    }
 }
 
 /*
@@ -153,21 +298,21 @@ void cpu6502_node_generate(struct node *node, int decision)
             cpu6502_1op("EOR", "#255");
             cpu6502_noop("CLC");
             cpu6502_1op("ADC", "#1");
-            cpu6502_noop("PHA");
+            cpu6502_noop("TAX");
             cpu6502_noop("TYA");
             cpu6502_1op("EOR", "#255");
             cpu6502_1op("ADC", "#0");
             cpu6502_noop("TAY");
-            cpu6502_noop("PLA");
+            cpu6502_noop("TXA");
             break;
         case N_NOT16:   /* Complement 16-bit value */
             cpu6502_node_generate(node->left, 0);
             cpu6502_1op("EOR", "#255");
-            cpu6502_noop("PHA");
+            cpu6502_noop("TAX");
             cpu6502_noop("TYA");
             cpu6502_1op("EOR", "#255");
             cpu6502_noop("TAY");
-            cpu6502_noop("PLA");
+            cpu6502_noop("TXA");
             break;
         case N_ABS16:   /* Get absolute 16-bit value */
             cpu6502_node_generate(node->left, 0);
@@ -184,13 +329,13 @@ void cpu6502_node_generate(struct node *node, int decision)
         case N_EXTEND8S:    /* Extend 8-bit signed value to 16-bit */
             cpu6502_node_generate(node->left, 0);
             sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-            cpu6502_noop("PHA");
+            cpu6502_noop("TAX");
             cpu6502_1op("AND", "#128");
             cpu6502_1op("BPL", temp);
             cpu6502_1op("LDA", "#255");
             cpu6502_label(temp);
             cpu6502_noop("TAY");
-            cpu6502_noop("PLA");
+            cpu6502_noop("TXA");
             break;
         case N_EXTEND8: /* Extend 8-bit value to 16-bit */
             cpu6502_node_generate(node->left, 0);
@@ -425,65 +570,26 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_1op("LDA", "#255");
                     cpu6502_empty();
                 }
-            } else if (node->type == N_LESS8) {
+            } else if (node->type == N_LESS8 || node->type == N_GREATER8) {
                 cpu6502_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     cpu6502_1op("BCS.L", temp);
                 } else {
-                    sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
                     cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu6502_1op("ADC", "#0");
                 }
-            } else if (node->type == N_LESSEQUAL8) {
+            } else if (node->type == N_LESSEQUAL8 || node->type == N_GREATEREQUAL8) {
                 cpu6502_1op("CMP", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     cpu6502_1op("BCC.L", temp);
                 } else {
-                    sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
                     cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
-                }
-            } else if (node->type == N_GREATER8) {
-                cpu6502_1op("CMP", temp);
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpu6502_1op("BCS.L", temp);
-                } else {
-                    sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCC", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
-                }
-            } else if (node->type == N_GREATEREQUAL8) {
-                cpu6502_1op("CMP", temp);
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpu6502_1op("BCC.L", temp);
-                } else {
-                    sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu6502_1op("BCS", temp);
-                    cpu6502_1op("LDA", "#0");
-                    cpu6502_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
-                    cpu6502_label(temp);
-                    cpu6502_1op("LDA", "#255");
-                    cpu6502_empty();
+                    cpu6502_1op("ADC", "#0");
+                    cpu6502_1op("EOR", "#255");
                 }
             } else if (node->type == N_PLUS8) {
                 cpu6502_noop("CLC");
