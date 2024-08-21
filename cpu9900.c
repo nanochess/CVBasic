@@ -352,160 +352,240 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("mov","r2","r0");
                 strcpy(temp, "r1");
             }
-            
-*************************************            
-            
             if (node->type == N_OR8) {
-                cpu9900_1op("ORA", temp);
+                // if temp is a number, use ORI, else use SOCB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ori","r0",temp);
+                } else {
+                    cpu9900_2op("socb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_XOR8) {
-                cpu9900_1op("EOR", temp);
+                cpu9900_2op("xor", temp, "r0");
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_AND8) {
-                cpu9900_1op("AND", temp);
+                // if temp is a number, use ANDI, else use INV,SZCB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("andi","r0",temp);
+                } else {
+                    cpu9900_1op("inv","r0");
+                    cpu9900_2op("szcb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL8) {
-                cpu9900_1op("CMP", temp);
+                cpu9900_2op("andi","r0",">ff00");
+                // if temp is a number, use CI, else use CB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ci","r0",temp);
+                } else {
+                    cpu9900_2op("cb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BEQ", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jeq", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BEQ", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("beq", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_NOTEQUAL8) {
-                cpu9900_1op("CMP", temp);
+                cpu9900_2op("andi","r0",">ff00");
+                // if temp is a number, use CI, else use CB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ci","r0",temp);
+                } else {
+                    cpu9900_2op("cb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jne", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESS8) {
-                cpu9900_1op("CMP", temp);
+                cpu9900_2op("andi","r0",">ff00");
+                // if temp is a number, use CI, else use CB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ci","r0",temp);
+                } else {
+                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_2op("cb",temp,"r0");
+                }
                 if (decision) {
+                    // TODO: unsigned??
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCC", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jl", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCC", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jl", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL8) {
-                cpu9900_1op("CMP", temp);
+                cpu9900_2op("andi","r0",">ff00");
+                // if temp is a number, use CI, else use CB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ci","r0",temp);
+                } else {
+                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_2op("cb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCS", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jhe", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCS", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jhe", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_GREATER8) {
-                cpu9900_1op("CMP", temp);
+                cpu9900_2op("andi","r0",">ff00");
+                // if temp is a number, use CI, else use CB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ci","r0",temp);
+                } else {
+                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_2op("cb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCC", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jl", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCC", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jl", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_GREATEREQUAL8) {
-                cpu9900_1op("CMP", temp);
+                cpu9900_2op("andi","r0",">ff00");
+                // if temp is a number, use CI, else use CB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ci","r0",temp);
+                } else {
+                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_2op("cb",temp,"r0");
+                }
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCS", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jhe", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCS", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jhe", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_PLUS8) {
-                cpu9900_noop("CLC");
-                cpu9900_1op("ADC", temp);
+                // if temp is a number, use AI, else use AB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_2op("ai","r0",temp);
+                } else {
+                    cpu9900_2op("ab",temp,"r0");
+                }
             } else if (node->type == N_MINUS8) {
-                cpu9900_noop("SEC");
-                cpu9900_1op("SBC", temp);
+                // if temp is a number, use AI -x, else use SB
+                if ((temp[0]>='0')&&(temp[0]<='9')) {
+                    // todo: but is it already a byte value?
+                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    memmove(&temp[1],&temp[0],strlen(temp)+1);
+                    temp[0]='-';
+                    cpu9900_2op("ai","r0",temp);
+                    memmove(&temp[0],&temp[1],strlen(temp));
+                } else {
+                    cpu9900_2op("sb",temp,"r0");
+                }
             }
             break;
         case N_ASSIGN8: /* 8-bit assignment */
             if (node->right->type == N_ADDR) {
                 cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right, 0);
-                cpu9900_1op("STA", temp);
+                cpu9900_2op("movb", "r0", temp);
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
@@ -521,25 +601,19 @@ void cpu9900_node_generate(struct node *node, int decision)
                 else
                     *p++ = '-';
                 sprintf(p, "%d", node->right->right->value);
-                cpu9900_1op("STA", temp);
+                cpu9900_2op("movb", "r0", temp);
                 break;
             }
             cpu9900_node_generate(node->left, 0);
-            cpu9900_noop("PHA");
+            cpu9900_2op("movb","r0","r1");
             cpu9900_node_generate(node->right, 0);
-            cpu9900_1op("STA", "temp");
-            cpu9900_1op("STY", "temp+1");
-            cpu9900_noop("PLA");
-            cpu9900_1op("LDY", "#0");
-            cpu9900_1op("STA", "(temp),Y");
+            cpu9900_2op("movb", "r1", "*r0");
             break;
         case N_ASSIGN16:    /* 16-bit assignment */
             if (node->right->type == N_ADDR) {
                 cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right, 0);
-                cpu9900_1op("STA", temp);
-                strcat(temp, "+1");
-                cpu9900_1op("STY", temp);
+                cpu9900_2op("mov","r0",temp);
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
@@ -555,24 +629,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                 else
                     *p++ = '-';
                 sprintf(p, "%d", node->right->right->value);
-                cpu9900_1op("STA", temp);
-                strcat(temp, "+1");
-                cpu9900_1op("STY", temp);
+                cpu9900_2op("mov","r0",temp);
                 break;
             }
             cpu9900_node_generate(node->left, 0);
-            cpu9900_noop("PHA");
-            cpu9900_noop("TYA");
-            cpu9900_noop("PHA");
+            cpu9900_2op("mov","r0","r1");
             cpu9900_node_generate(node->right, 0);
-            cpu9900_1op("STA", "temp");
-            cpu9900_1op("STY", "temp+1");
-            cpu9900_noop("PLA");
-            cpu9900_1op("LDY", "#1");
-            cpu9900_1op("STA", "(temp),Y");
-            cpu9900_noop("PLA");
-            cpu9900_noop("DEY");
-            cpu9900_1op("STA", "(temp),Y");
+            cpu9900_2op("mov","r1","*r0");
             break;
         default:    /* Every other node, all remaining are 16-bit operations */
             /* Optimization of address plus/minus constant */
@@ -590,17 +653,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                         while (*p)
                             p++;
                         sprintf(p, "%d", node->right->value);
-                        cpu9900_1op("LDA", temp);
-                        node_get_label(node->left, 3);
-                        if (node->type == N_PLUS16)
-                            strcat(temp, "+");
-                        else
-                            strcat(temp, "-");
-                        p = temp;
-                        while (*p)
-                            p++;
-                        sprintf(p, "%d)>>8", node->right->value);
-                        cpu9900_1op("LDY", temp);
+                        cpu9900_2op("mov", "r0", temp);
                         break;
                     }
                 }
@@ -609,14 +662,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 if (node->left->type == N_ADDR) {
                     cpu9900_node_generate(node->right, 0);
                     node_get_label(node->left, 2);
-                    cpu9900_noop("CLC");
-                    cpu9900_1op("ADC", temp);
-                    cpu9900_noop("PHA");
-                    cpu9900_noop("TYA");
-                    strcat(temp, ">>8");
-                    cpu9900_1op("ADC", temp);
-                    cpu9900_noop("TAY");
-                    cpu9900_noop("PLA");
+                    cpu9900_2op("a",temp,"r0");
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
@@ -631,15 +677,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     else
                         cpu9900_node_generate(node->right, 0);
                     c = explore->value;
-                    sprintf(temp, "#%d", c & 0xff);
-                    cpu9900_noop("CLC");
-                    cpu9900_1op("ADC", temp);
-                    cpu9900_noop("PHA");
-                    cpu9900_noop("TYA");
-                    sprintf(temp, "#%d", c >> 8);
-                    cpu9900_1op("ADC", temp);
-                    cpu9900_noop("TAY");
-                    cpu9900_noop("PLA");
+                    sprintf(temp, "%d", c);
+                    cpu9900_2op("ai","r0",temp);
                     break;
                 }
             }
@@ -652,15 +691,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     int c = explore->value;
                     
                     cpu9900_node_generate(node->left, 0);
-                    sprintf(temp, "#%d", c & 0xff);
-                    cpu9900_noop("SEC");
-                    cpu9900_1op("SBC", temp);
-                    cpu9900_noop("PHA");
-                    cpu9900_noop("TYA");
-                    sprintf(temp, "#%d", c >> 8);
-                    cpu9900_1op("SBC", temp);
-                    cpu9900_noop("TAY");
-                    cpu9900_noop("PLA");
+                    sprintf(temp, "-%d", c);
+                    cpu9900_2op("ai","r0",temp);
                     break;
                 }
             }
@@ -671,49 +703,37 @@ void cpu9900_node_generate(struct node *node, int decision)
                     explore = NULL;
                 if (explore != NULL) {
                     int value = explore->value;
-                    int byte;
                     char *mnemonic;
                     
+                    // TODO: we probably need to differentiate immediates...?
                     if (node->type == N_OR16) {
-                        mnemonic = "ORA";
+                        mnemonic = "ori";
                     } else if (node->type == N_AND16) {
-                        mnemonic = "AND";
+                        mnemonic = "andi";
                     } else /*if (node->type == N_XOR16)*/ {
-                        mnemonic = "EOR";
+                        mnemonic = "xor";
                     }
                     if (node->left != explore)
                         cpu9900_node_generate(node->left, 0);
                     else
                         cpu9900_node_generate(node->right, 0);
-                    byte = value & 0xff;
-                    if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
+                    if ((node->type == N_OR16 || node->type == N_XOR16) && value == 0x00) {
                         /* Nothing to do :) */
-                    } else if (node->type == N_AND16 && byte == 0xff) {
+                    } else if (node->type == N_AND16 && value == 0xffff) {
                         /* Nothing to do :) */
-                    } else if (node->type == N_AND16 && byte == 0x00) {
-                        cpu9900_1op("LDA", "#0");
-                    } else if (node->type == N_OR16 && byte == 0xff) {
-                        cpu9900_1op("LDA", "#255");
+                    } else if (node->type == N_AND16 && value == 0x0000) {
+                        cpu9900_1op("clr", "r0");
+                    } else if (node->type == N_OR16 && value == 0xffff) {
+                        cpu9900_1op("seto", "r0");
                     } else {
-                        sprintf(temp, "#%d", byte);
-                        cpu9900_1op(mnemonic, temp);
-                    }
-                    byte = (value >> 8) & 0xff;
-                    if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
-                        /* Nothing to do :) */
-                    } else if (node->type == N_AND16 && byte == 0xff) {
-                        /* Nothing to do :) */
-                    } else if (node->type == N_AND16 && byte == 0x00) {
-                        cpu9900_1op("LDY", "#0");
-                    } else if (node->type == N_OR16 && byte == 0xff) {
-                        cpu9900_1op("LDY", "#255");
-                    } else {
-                        cpu9900_noop("PHA");
-                        cpu9900_noop("TYA");
-                        sprintf(temp, "#%d", byte);
-                        cpu9900_1op(mnemonic, temp);
-                        cpu9900_noop("TAY");
-                        cpu9900_noop("PLA");
+                        sprintf(temp, "%d", value);
+                        if (node->type == N_XOR16) {
+                            // there's no immediate xor
+                            cpu9900_2op("li","r1",temp);
+                            cpu9900_2op("xor","r1","r0");
+                        } else {
+                            cpu9900_2op(mnemonic, "r0", temp);
+                        }
                     }
                     break;
                 }
@@ -727,36 +747,24 @@ void cpu9900_node_generate(struct node *node, int decision)
                     explore = NULL;
                 if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
                     int c = explore->value;
+                    if (node->left != explore)
+                        node = node->left;
+                    else
+                        node = node->right;
                     
                     if (c == 0) {
-                        cpu9900_1op("LDA", "#0");
-                        cpu9900_noop("TAY");
+                        cpu9900_1op("clr", "r0");
+                    } else if (c == 1) {
+                        // nothing to do
                     } else {
-                        if (node->left != explore)
-                            node = node->left;
-                        else
-                            node = node->right;
-                        if (c >= 256) {
-                            if (node->type == N_EXTEND8 || node->type == N_EXTEND8S) {
-                                cpu9900_node_generate(node->left, 0);
-                                cpu9900_noop("TAY");
-                                cpu9900_1op("LDA", "#0");
-                            } else {
-                                cpu9900_node_generate(node, 0);
-                                cpu9900_noop("TAY");
-                                cpu9900_1op("LDA", "#0");
-                            }
-                            c /= 256;
-                        } else {
-                            cpu9900_node_generate(node, 0);
+                        cpu9900_node_generate(node, 0);
+                        int cnt = 0;
+                        while (c>1) {
+                            ++cnt;
+                            c/=2;
                         }
-                        cpu9900_1op("STY", "temp");
-                        while (c > 1) {
-                            cpu9900_1op("ASL", "A");
-                            cpu9900_1op("ROL", "temp");
-                            c /= 2;
-                        }
-                        cpu9900_1op("LDY", "temp");
+                        sprintf(temp,"%d",cnt);
+                        cpu9900_2op("sla","r0",temp);
                     }
                     break;
                 }
@@ -767,213 +775,162 @@ void cpu9900_node_generate(struct node *node, int decision)
                     
                     cpu9900_node_generate(node->left, 0);
                     c = node->right->value;
-                    cpu9900_1op("STY", "temp");
-                    do {
-                        cpu9900_1op("LSR", "temp");
-                        cpu9900_1op("ROR", "A");
-                        c /= 2;
-                    } while (c > 1) ;
-                    cpu9900_1op("LDY", "temp");
+                    int cnt = 0;
+                    while (c>1) {
+                        ++cnt;
+                        c/=2;
+                    }
+                    sprintf(temp,"%d",cnt);
+                    cpu9900_2op("srl","r0",temp);
                     break;
                 }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
                 cpu9900_node_generate(node->right, 0);
-                cpu9900_noop("PHA");
-                cpu9900_noop("TYA");
-                cpu9900_noop("PHA");
-                cpu9900_node_generate(node->left, 0);
-                cpu9900_1op("STA", "temp");
-                cpu9900_1op("STY", "temp+1");
+                cpu9900_2op("mov","r0","r1");           // stack
+                cpu9900_node_generate(node->left, 0);   
+                cpu9900_2op("mov","r0","r2");           // temp
             } else {
                 cpu9900_node_generate(node->left, 0);
-                cpu9900_noop("PHA");
-                cpu9900_noop("TYA");
-                cpu9900_noop("PHA");
+                cpu9900_2op("mov","r0","r1");           // stack
                 cpu9900_node_generate(node->right, 0);
-                cpu9900_1op("STA", "temp");
-                cpu9900_1op("STY", "temp+1");
+                cpu9900_2op("mov","r0","r2");           // temp
             }
             if (node->type == N_OR16) {
-                cpu9900_noop("PLA");
-                cpu9900_1op("ORA", "temp+1");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_1op("ORA", "temp");
+                cpu9900_2op("soc","r2","r1");
+                cpu9900_2op("mov","r1","r0");   // normalize and test for zero
                 if (decision) {
                     optimized = 1;
-                    cpu9900_1op("STY", "temp");
-                    cpu9900_1op("ORA", "temp");
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_XOR16) {
-                cpu9900_noop("PLA");
-                cpu9900_1op("EOR", "temp+1");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_1op("EOR", "temp");
+                cpu9900_2op("xor","r2","r1");
+                cpu9900_2op("mov","r1","r0");   // normalize and test for zero
                 if (decision) {
                     optimized = 1;
-                    cpu9900_1op("STY", "temp");
-                    cpu9900_1op("ORA", "temp");
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_AND16) {
-                cpu9900_noop("PLA");
-                cpu9900_1op("AND", "temp+1");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_1op("AND", "temp");
+                cpu9900_1op("inv","r2");
+                cpu9900_2op("szc","r2","r1");
+                cpu9900_2op("mov","r1","r0");   // normalize and test for zero
                 if (decision) {
                     optimized = 1;
-                    cpu9900_1op("STY", "temp");
-                    cpu9900_1op("ORA", "temp");
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL16) {
-                cpu9900_noop("PLA");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_noop("SEC");
-                cpu9900_1op("SBC", "temp");
-                cpu9900_1op("STA", "temp");
-                cpu9900_noop("TYA");
-                cpu9900_1op("SBC", "temp+1");
-                cpu9900_1op("ORA", "temp");
+                cpu9900_2op("c","r2","r1");
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BEQ", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jeq", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BEQ", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jeq", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_NOTEQUAL16) {
-                cpu9900_noop("PLA");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_noop("SEC");
-                cpu9900_1op("SBC", "temp");
-                cpu9900_1op("STA", "temp");
-                cpu9900_noop("TYA");
-                cpu9900_1op("SBC", "temp+1");
-                cpu9900_1op("ORA", "temp");
+                cpu9900_2op("c","r2","r1");
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jne", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BNE", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jne", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
-                cpu9900_noop("PLA");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_noop("SEC");
-                cpu9900_1op("SBC", "temp");
-                cpu9900_noop("TYA");
-                cpu9900_1op("SBC", "temp+1");
+                cpu9900_noop("* TODO check order of compare");
+                cpu9900_2op("c","r2","r1");
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCC", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jl", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCC", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jl", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
-                cpu9900_noop("PLA");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_noop("SEC");
-                cpu9900_1op("SBC", "temp");
-                cpu9900_noop("TYA");
-                cpu9900_1op("SBC", "temp+1");
+                cpu9900_noop("* TODO check order of compare");
+                cpu9900_2op("c","r2","r1");
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@ "INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCS", temp + 100);
-                    cpu9900_1op("JMP", temp);
+                    cpu9900_1op("jhe", temp + 100);
+                    cpu9900_1op("b", temp);
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("BCS", temp);
-                    cpu9900_1op("LDA", "#0");
-                    cpu9900_1op("DB", "$2c");   /* BIT instruction to jump two bytes */
+                    cpu9900_1op("jhe", temp);
+                    cpu9900_1op("clr", "r0");
+                    cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);
-                    cpu9900_1op("LDA", "#255");
+                    cpu9900_1op("seto", "r0");
                     cpu9900_empty();
                 }
             } else if (node->type == N_PLUS16) {
-                cpu9900_noop("PLA");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_noop("CLC");
-                cpu9900_1op("ADC", "temp");
-                cpu9900_noop("TAX");
-                cpu9900_noop("TYA");
-                cpu9900_1op("ADC", "temp+1");
-                cpu9900_noop("TAY");
-                cpu9900_noop("TXA");
+                cpu9900_2op("a","r2","r1");
+                cpu9900_2op("mov","r1","r0");
             } else if (node->type == N_MINUS16) {
-                cpu9900_noop("PLA");
-                cpu9900_noop("TAY");
-                cpu9900_noop("PLA");
-                cpu9900_noop("SEC");
-                cpu9900_1op("SBC", "temp");
-                cpu9900_noop("TAX");
-                cpu9900_noop("TYA");
-                cpu9900_1op("SBC", "temp+1");
-                cpu9900_noop("TAY");
-                cpu9900_noop("TXA");
+                cpu9900_noop("* TODO: check order of subtraction");
+                cpu9900_2op("s","r2","r1");
+                cpu9900_2op("mov","r1","r0");
             } else if (node->type == N_MUL16) {
-                cpu9900_1op("JSR", "_mul16");
+                cpu9900_2op("mpy","r1","r2");   // r1 * r2 => r2_r3 (32 bit)
+                cpu9900_2op("mov","r3","r0");
             } else if (node->type == N_DIV16) {
-                cpu9900_1op("JSR", "_div16");
+                cpu9900_noop("* TODO: check order of division - assume r1/r2");
+                cpu9900_1op("clr","r0");
+                cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
             } else if (node->type == N_MOD16) {
-                cpu9900_1op("JSR", "_mod16");
+                cpu9900_noop("* TODO: check order of mod - assume r1%r2");
+                cpu9900_1op("clr","r0");
+                cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
+                cpu9900_2op("mov","r1","r0");   // get remainder
             } else if (node->type == N_DIV16S) {
-                cpu9900_1op("JSR", "_div16s");
+                cpu9900_noop("* TODO: check order of division - assume r1/r2");
+                cpu9900_1op("bl","@JSR");
+                cpu9900_1op("data", "_div16s");
             } else if (node->type == N_MOD16S) {
-                cpu9900_1op("JSR", "_mod16s");
+                cpu9900_noop("* TODO: check order of mod - assume r1%r2");
+                cpu9900_1op("bl","@JSR");
+                cpu9900_1op("data", "_mod16s");
             }
             break;
     }

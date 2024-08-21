@@ -42,6 +42,9 @@ mywp      equ >8300
 * data storage in scratchpad
     aorg >8320
 
+* used to track scratchpad variables
+firstsp
+
 read_pointer	bss 2
 cursor		    bss 2
 pletter_off	    bss 2  * Used by Pletter
@@ -107,6 +110,9 @@ audio_control		bss 1
 music_mode	    	bss 1
     even
     ENDIF
+
+* used to track scratchpad variables
+lastsp
 
 * While we don't mean to USE the console ROM, for interrupts we
 * are forced to interface with some of it. We need these addresses
@@ -201,7 +207,7 @@ WRTVRM
     movb r2,@VDPWDATA
     b *r11
 
-* Read byte from VDP - address in R0, data returned in MSB R2
+* Read byte from VDP - address in R0, data returned in MSB R0
 * Inline address set to avoid needing to cache r11
 RDVRM
     swpb r0
@@ -209,7 +215,7 @@ RDVRM
     swpb r0
     movb r0,@VDPWADR
     nop
-    movb @VDPDATA,r2
+    movb @VDPDATA,r0
     b *r11
 
 * Fill VRAM - address in R0, byte in R2, count in R3
@@ -398,12 +404,13 @@ print_number1
     limi 2              * ints on
     b *r4               * back to caller
 
-* Load sprite definitions: Sprite char number in R0, CPU data in R2, count of sprites in R3
+* Load sprite definitions: Sprite char number in R1, CPU data in R2, count of sprites in R3
 * Original: pointer = sprite char number, temp = CPU address, a = number sprites
 * Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
 * Sprite pattern table at >3800
 define_sprite
     mov r11,r4          * save return
+    mov r1,r0           * copy it into r0 for LDIRVM
     sla r0,5            * char number times 32
     ai r0,>3800         * add VDP base
     sla r3,5            * count times 32
@@ -493,58 +500,57 @@ _sgn16
 * 16 bit multiply = temp2*temp - see if we can inline it - TODO (stack*stack -> YYAA)  
 *_mul16
 
-* 16-bit signed modulo. R3 % R0 = R0 - 9900 doesn't do signed divide
+* 16-bit signed modulo. R1 % R2 = R0 - 9900 doesn't do signed divide
 * original was stack%stack=YYAA
 * Remainder is negative if the dividend was negative
 _mod16s
-    clr r2          * make dividend 32-bit
-    mov r0,r0       * check divisor for zero
+    clr r0          * make dividend 32-bit
+    mov r2,r2       * check divisor for zero
     jne .1          * continue if not
 
-    clr r0          * result is zero
+    clr r2          * result is zero
     b *r11          * return
 
 .1
-    abs r0          * make sure divisor is positive
-    mov r3,r3       * check sign of dividend
+    abs r2          * make sure divisor is positive
+    mov r1,r1       * check sign of dividend
     jgt .2          * go do the faster positive version
 
-    abs r3          * was negative, make it positive
-    div r0,r2       * do the division => r2=quotient, r3=remainder
-    neg r3          * make remainder negative
-    mov r3,r0       * into r0
+    abs r1          * was negative, make it positive
+    div r2,r0       * do the division => r2=quotient, r3=remainder
+    neg r1          * make remainder negative
+    mov r1,r0       * into r0
     b *r11
 
 .2
-    div r0,r2       * do the division => r2=quotient, r3=remainder
-    mov r3,r0       * into r0
+    div r2,r0       * do the division => r2=quotient, r3=remainder
+    mov r1,r0       * into r0
     b *r11
 
-* 16-bit signed modulo. R3 % R0 = R0 - 9900 doesn't do signed divide
+* 16-bit signed divide. R1 / R2 = R0 - 9900 doesn't do signed divide
 * original was stack/stack=YYAA
 * Remainder is negative if the signs differ
 _div16s
-    mov r0,r0       * check divisor for zero
+    mov r2,r2       * check divisor for zero
     jne .1          * continue if not
 
-    clr r0          * result is zero (maybe should be max_int?)
+    clr r2          * result is zero (maybe should be max_int?)
     b *r11          * return
 
 .1
-    mov r0,r4       * make working copies
-    mov r3,r5
+    mov r2,r4       * make working copies
+    mov r1,r5
     andi r4,>8000   * mask out sign bit
     andi r5,>8000
-    abs r0
-    abs r3          * might as well make them positive now that we have copies
-    clr r2          * make dividend 32-bit
-    div r0,r2       * do the divide => r2=quotient, r3=remainder
+    abs r2
+    abs r1          * might as well make them positive now that we have copies
+    clr r0          * make dividend 32-bit
+    div r2,r0       * do the divide => r0=quotient, r1=remainder
     c r4,r5         * compare the original sign bits
     jeq .2          * skip ahead to positive version
 
-    neg r2          * negate the result
+    neg r0          * negate the result
 .2
-    mov r2,r0       * move to return
     b *r11
 
 * unsigned 16-bit div - see if we can do this inline (TODO)
@@ -1199,19 +1205,19 @@ music_generate
     movb @music_counter_1,r1        * why aren't we incrementing the variables? We do for noise. TODO
     ai r1,>0100
     ci r1,>1800
-    jne $+1
+    jne $+6
     movb r2,@music_counter_1
    
     movb @music_counter_2,r1
     ai r1,>0100
     ci r1,>1800
-    jne $+1
+    jne $+6
     movb r2,@music_counter_2
 
     movb @music_counter_3,r1
     ai r1,>0100
     ci r1,>1800
-    jne $+1
+    jne $+6
     movb r2,@music_counter_3
 
     li r1,>0100
@@ -1819,11 +1825,20 @@ START
     li r0,>0182         * select 16k, magnified, blank, no ints
     bl @wrtvdp          * other ports write this twice... maybe to be 100% sure no NMI happens? We don't have that problem.    
 
-    clr @joy1_data      * gets both
+    li r0,firstsp       * clear variables in scratchpad
+stlp1
+    clr *r0+
+    ci r0,lastsp
+    jne stlp1
+    
+    lp r0,>2000         * clear lower 8k RAM
+stlp2
+    clr *r0+
+    ci r0,>4000
+    jne stlp2
+
     li r0,>0f0f
-    mov r0,@key1_data   * gets both
-    clr r0
-    movb r0,@mode
+    mov r0,@key1_data   * gets both - no key is >0f return
     
     bl @music_init
     bl @mode_0
