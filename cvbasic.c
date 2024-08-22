@@ -3199,9 +3199,6 @@ void compile_statement(int check_for_else)
                         node_delete(length);
                         node_delete(source);
                     }
-
-*********************************                    
-                    
                 } else if (strcmp(name, "CHAR") == 0 || strcmp(name, "COLOR") == 0) {
                     int color;
                     struct node *length;
@@ -3219,6 +3216,9 @@ void compile_statement(int check_for_else)
                     type = evaluate_expression(1, TYPE_16, 0);
                     if (target == CPU_6502) {
                         cpu6502_1op("STA", "pointer");
+                    } else if (target == CPU_9900) {
+                        // char in r1, data in r2, count in r3
+                        cpu9900_2op("mov","r0","r1");
                     } else {
                         cpuz80_1op("PUSH", "HL");
                     }
@@ -3242,6 +3242,11 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA", "temp");
                             cpu6502_1op("STY", "temp+1");
                             cpu6502_noop("PLA");
+                        } else if (target == CPU_9900) {
+                            // char in r1, data in r2, count in r3
+                            cpu9900_2op("mov","r0","r3");
+                            node_generate(source, 0);
+                            cpu9900_2op("mov","r0","r2");
                         } else {
                             if ((source->regs & REG_A) != 0)
                                 cpuz80_1op("PUSH", "AF");
@@ -3261,6 +3266,12 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("LDA", temp);
                             cpu6502_1op("STA", "temp+1");
                             cpu6502_noop("PLA");
+                        } else if (target == CPU_9900) {
+                            // char in r1, data in r2, count in r3
+                            cpu9900_2op("mov","r0","r3");
+                            strcpy(temp, LABEL_PREFIX);
+                            strcat(temp, name);
+                            cpu9900_2op("li","r2",temp);
                         } else {
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
@@ -3316,6 +3327,14 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA", "temp2+1");
                             cpu6502_noop("PLA");
                             cpu6502_1op("STA", "temp2");
+                        } else if (target == CPU_9900) {
+                            node_generate(target2, 0);
+                            cpu9900_2op("mov","r0","r1");   // save it off, cause we need it at the end in r0
+                            node_generate(length, 0);
+                            cpu9900_2op("mov","r0","r3");
+                            node_generate(source, 0);
+                            cpu9900_2op("mov","r0","r2");
+                            cpu9900_2op("mov","r1","r0");
                         } else {
                             node_generate(length, 0);
                             if (((target2->regs | source->regs) & REG_BC) == 0) {
@@ -3345,6 +3364,11 @@ void compile_statement(int check_for_else)
                                 cpu6502_noop("TYA");
                                 cpu6502_noop("PHA");
                             }
+                        } else if (target == CPU_9900) {
+                            if (!pletter) {
+                                node_generate(length, 0);
+                                cpu9900_2op("mov","r0","r3");
+                            }
                         } else {
                             if (!pletter) {
                                 node_generate(length, 0);
@@ -3373,6 +3397,11 @@ void compile_statement(int check_for_else)
                                 cpu6502_noop("PLA");
                                 cpu6502_1op("STA", "temp2");
                             }
+                        } else if (target == CPU_9900) {
+                            // r0 is already loaded by node_generate
+                            strcpy(temp, LABEL_PREFIX);
+                            strcat(temp, name);
+                            cpu9900_2op("li","r2",name);
                         } else {
                             cpuz80_2op("EX", "DE", "HL");
                             strcpy(temp, LABEL_PREFIX);
@@ -3391,11 +3420,15 @@ void compile_statement(int check_for_else)
                     } else {
                         if (target == CPU_6502)
                             cpu6502_noop("SEI");
+                        else if (target == CPU_6502)
+                            cpu9900_1op("limi","0");
                         else
                             cpuz80_1op("CALL", "nmi_off");
                         generic_call("LDIRVM");
                         if (target == CPU_6502)
                             cpu6502_noop("CLI");
+                        else if (target == CPU_6502)
+                            cpu9900_1op("limi","2");
                         else
                             cpuz80_1op("CALL", "nmi_on");
                     }
@@ -3414,6 +3447,9 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("LDA", "mode");
                             cpu6502_1op("AND", "#$fb");
                             cpu6502_1op("STA", "mode");
+                        } else if (target == CPU_9900) {
+                            cpu9900_2op("li","r0",">0400");
+                            cpu9900_2op("szcb","r0","@mode");
                         } else {
                             cpuz80_2op("LD", "HL", "mode");
                             cpuz80_2op("RES", "2", "(HL)");
@@ -3424,6 +3460,9 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("LDA", "mode");
                             cpu6502_1op("ORA", "#$04");
                             cpu6502_1op("STA", "mode");
+                        } else if (target == CPU_9900) {
+                            cpu9900_2op("li","r0",">0400");
+                            cpu9900_2op("socb","r0","@mode");
                         } else {
                             cpuz80_2op("LD", "HL", "mode");
                             cpuz80_2op("SET", "2", "(HL)");
@@ -3436,6 +3475,8 @@ void compile_statement(int check_for_else)
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (target == CPU_6502)
                         cpu6502_noop("PHA");
+                    else if (target == CPU_9900)
+                        cpu6502_2op("mov","r0","r1");
                     else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
@@ -3445,7 +3486,10 @@ void compile_statement(int check_for_else)
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (target == CPU_6502)
                         cpu6502_1op("STA", "sprite_data");
-                    else
+                    else if (target == CPU_9900) {
+                        cpu9900_2op("movb","r0","r2");
+                        cpu9900_1op("swpb","r2");
+                    } else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
                         get_lex();
@@ -3454,7 +3498,10 @@ void compile_statement(int check_for_else)
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (target == CPU_6502)
                         cpu6502_1op("STA", "sprite_data+1");
-                    else
+                    else if (target == CPU_9900) {
+                        cpu9900_2op("movb","r0","r2");
+                        cpu9900_1op("swpb","r2");
+                    } else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
                         get_lex();
@@ -3463,7 +3510,10 @@ void compile_statement(int check_for_else)
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (target == CPU_6502)
                         cpu6502_1op("STA", "sprite_data+2");
-                    else
+                    else if (target == CPU_9900) {
+                        cpu9900_2op("movb","r0","r3");
+                        cpu9900_1op("swpb","r3");
+                    } else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
                         get_lex();
@@ -3473,6 +3523,9 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502) {
                         cpu6502_1op("STA", "sprite_data+3");
                         cpu6502_noop("PLA");
+                    } else if (target == CPU_9900) {
+                        cpu9900_2op("movb","r0","r3");
+                        cpu9900_1op("swpb","r3");
                     }
                     generic_call("update_sprite");
                 }
@@ -3535,6 +3588,16 @@ void compile_statement(int check_for_else)
                     cpu6502_noop("SEI");
                     cpu6502_1op("JSR", "WRTVDP");
                     cpu6502_noop("CLI");
+                } else if (target == CPU_9900) {
+                    // this is just a lot faster inline than jumping through hoops...
+                    cpu9900_2op("srl","r0","8");
+                    cpu9900_2op("ori","r0",">8700");
+                    cpu9900_1op("swpb","r0");
+                    cpu9900_1op("limi","0");
+                    cpu9900_2op("movb","r0","@VDPWADR");
+                    cpu9900_1op("swpb","r0");
+                    cpu9900_2op("movb","r0","@VDPWADR");
+                    cpu9900_1op("limi","2");
                 } else {
                     cpuz80_2op("LD", "B", "A");
                     cpuz80_2op("LD", "C", "7");
@@ -3724,6 +3787,8 @@ void compile_statement(int check_for_else)
                             cpu6502_noop("PHA");
                             cpu6502_noop("TYA");
                             cpu6502_noop("PHA");
+                        } else if (target == CPU_9900) {
+                            cpu9900_2op("mov","r0","r2");
                         } else {
                             cpuz80_1op("PUSH", "HL");
                         }
@@ -3742,6 +3807,8 @@ void compile_statement(int check_for_else)
                         if (target == CPU_6502) {
                             cpu6502_1op("STA", "pointer");
                             cpu6502_1op("STY", "pointer+1");
+                        } else if (target == CPU_9900) {
+                            cpu9900_2op("mov","r0","r1");
                         } else {
                             cpuz80_1op("PUSH", "HL");
                         }
@@ -3758,6 +3825,8 @@ void compile_statement(int check_for_else)
                         node_delete(final);
                         if (target == CPU_6502) {
                             cpu6502_noop("PHA");
+                        } else if (target == CPU_9900) {
+                            cpu9900_2op("mov","r0","r3");
                         } else {
                             cpuz80_1op("PUSH", "AF");
                         }
@@ -3775,6 +3844,8 @@ void compile_statement(int check_for_else)
                         if (lex == C_COMMA) {   /* Sixth argument for SCREEN (stride width) */
                             if (target == CPU_6502) {
                                 cpu6502_noop("PHA");
+                            } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r4");
                             } else {
                                 cpuz80_1op("PUSH", "AF");
                             }
@@ -3796,6 +3867,8 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("STA", "temp2+1");
                                 cpu6502_noop("PLA");
                                 cpu6502_1op("STA", "temp2");
+                            } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r5");
                             }
                         } else {
                             if (target == CPU_6502) {
@@ -3804,6 +3877,9 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("STA", "temp2");
                                 cpu6502_noop("TAX");    /* Copy previous width... */
                                 cpu6502_1op("LDY", "#0");   /* ...as stride width */
+                            } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r4");
+                                cpu9900_2op("mov","r3","r5");   // copy width as stride width
                             } else {
                                 cpuz80_2op("LD", "B", "A");
                                 cpuz80_1op("POP", "AF");   /* Extract previous width */
@@ -3816,7 +3892,7 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA","temp+1");
                             cpu6502_noop("PLA");
                             cpu6502_1op("STA","temp");
-                        }
+                        }   // 9900 already covered
                         generic_call("CPYBLK");
                     } else {
                         if (target == CPU_6502) {
@@ -3837,6 +3913,14 @@ void compile_statement(int check_for_else)
                             cpu6502_noop("SEI");
                             cpu6502_1op("JSR", "LDIRVM");
                             cpu6502_noop("CLI");
+                        } else if (target == CPU_9900) {
+                            cpu9900_2op("li","r0",">1800");
+                            cpu9900_2op("li","r2",assigned);
+                            cpu9900_2op("li","r3",">0300");
+                            cpu9900_1op("limi","0");
+                            cpu9900_1op("bl","@jsr");
+                            cpu9900_1op("data","LDIRVM");
+                            cpu9900_1op("limi","2");
                         } else {
                             cpuz80_2op("LD", "HL", assigned);
                             cpuz80_2op("LD", "DE", "$1800");
@@ -3861,6 +3945,8 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502) {
                         cpu6502_1op("LDA", "#music_silence");
                         cpu6502_1op("LDY", "#music_silence>>8");
+                    } else if (target == CPU_9900) {
+                        cpu9900_2op("li","r0","music_silence");
                     } else {
                         cpuz80_2op("LD", "HL", "music_silence");
                     }
@@ -3870,6 +3956,9 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502) {
                         cpu6502_1op("LDA", "#0");
                         cpu6502_1op("STA", "music_mode");
+                    } else if (target == CPU_9900) {
+                        cpu9900_1op("clr","r0");
+                        cpu9900_2op("movb","r0","@music_mode");
                     } else {
                         cpuz80_1op("XOR", "A");
                         cpuz80_2op("LD", "(music_mode)", "A");
@@ -3890,6 +3979,10 @@ void compile_statement(int check_for_else)
                         sprintf(temp, "#%d", c);
                         cpu6502_1op("LDA", temp);
                         cpu6502_1op("STA", "music_mode");
+                    } else if (target == CPU_9900) {
+                        sprintf(temp, "%d", c*256);
+                        cpu9900_2op("li","r0",temp);
+                        cpu9900_2op("movb","r0","@music_mode");
                     } else {
                         sprintf(temp, "%d", c);
                         cpuz80_2op("LD", "A", temp);
@@ -3911,6 +4004,10 @@ void compile_statement(int check_for_else)
                         sprintf(temp, "#%d", c);
                         cpu6502_1op("LDA", temp);
                         cpu6502_1op("STA", "music_mode");
+                    } else if (target == CPU_9900) {
+                        sprintf(temp, "%d", c*256);
+                        cpu9900_2op("li","r0",temp);
+                        cpu9900_2op("movb","r0","@music_mode");
                     } else {
                         sprintf(temp, "%d", c);
                         cpuz80_2op("LD", "A", temp);
@@ -3930,6 +4027,10 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("LDA", temp);
                         strcat(temp, ">>8");
                         cpu6502_1op("LDY", temp);
+                    } else if (target == CPU_9900) {
+                        strcpy(temp, LABEL_PREFIX);
+                        strcat(temp, name);
+                        cpu9900_2op("li","r0",temp);
                     } else {
                         strcpy(temp, LABEL_PREFIX);
                         strcat(temp, name);
@@ -4112,6 +4213,9 @@ void compile_statement(int check_for_else)
                     }
                     table = next_local++;
                     new_label = next_local++;
+                    
+**********************************************                    
+                    
                     if (fast == 0) {
                         if (target == CPU_6502) {
                             if ((type & MAIN_TYPE) == TYPE_8) {

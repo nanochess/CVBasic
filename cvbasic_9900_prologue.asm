@@ -287,11 +287,12 @@ ENASCR
     jmp DISSCR2
 
 * copy a set of blocks of data to VDP, offset by 32 bytes each
-* address in R0, CPU data at R2, count per row in R3, number rows in R4, CPU stride in R5 (VDP stride fixed at 32)
-* original: address in pointer, CPU address at temp, count in temp2, stride in YYXX
+* address in R1, CPU data at R2, count per row in R3, number rows in R4, CPU stride in R5 (VDP stride fixed at 32)
+* original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
 CPYBLK
     limi 0
     mov r11,r7      * save return
+    mov r1,r0
     mov r0,r8       * save vdp address
     mov r2,r9       * save cpu address
     mov r3,r6       * save count per row
@@ -419,12 +420,13 @@ define_sprite
     limi 2              * ints on
     b *r4               * back to caller
 
-* Load character definitions: Char number in R0, CPU data in R2, count in R3
+* Load character definitions: Char number in R1, CPU data in R2, count in R3
 * Original: pointer = char number, temp = CPU address, a = number chars
 * Note this loads the pattern three times if in bitmap mode (MODE&0x04)
 * Pattern table at >0000
 define_char
     mov r11,r8          * save return
+    mov r1,r0           * move input to scratch
     sla r0,3            * char number times 8 (VDP base is 0, so already there)
     sla r3,3            * count times 8
     mov @mode,r5        * get mode flags
@@ -442,11 +444,12 @@ define_char
     limi 2              * ints on
     b *r8               * back to caller
 
-* Load bitmap color definitions: Char number in R0, CPU data in R2, count in R3
+* Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3
 * Original: pointer = char number, temp = CPU address, a = number chars
 * Note: always does the triple copy. Color table at >2000
 define_color
     mov r11,r8          * save return
+    mov r1,r0           * move input to scratch
     sla r0,3            * char number times 8
     ai r0,>2000         * add base address
     sla r3,3            * count times 8
@@ -456,14 +459,14 @@ define_color
     b *r8               * back to caller
 
 * Update sprite entry - copy sprite_data (4 bytes) to sprite table mirror at sprites
-* R0 = sprite number
+* R1 = sprite number, R2=bytes 1 and 2, r3=bytes 3 and 4
 * Original: A = sprite number
 update_sprite
-    sla r0,2            * x4 for address
-    ai r0,sprites       * sprite mirror address
-    li r2,sprite_data   * single sprite data
-    mov *r2+,*r0+       * move two bytes (must be aligned)
-    mov *r2,*r0         * move second two bytes
+    srl r1,8            * make word
+    sla r1,2            * x4 for address
+    ai r1,sprites       * sprite mirror address
+    mov r2,*r1+         * move two bytes (must be aligned)
+    mov r3,*r1          * move second two bytes
     b *r11
 
 * ABS R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
@@ -1461,6 +1464,7 @@ music_silence
 
 ERROR COMPRESSION NOT IMPLEMENTED
 
+* TODO: must use same calling syntax as define_char
 define_char_unpack
     andi r3,>00ff
     sla r3,4
@@ -1469,6 +1473,7 @@ define_char_unpack
     jeq unpack3
     jmp unpack
 
+* TODO: must use same calling syntax as define_color
 define_color_unpack
     li r0,>0400
     movb r0,r3
