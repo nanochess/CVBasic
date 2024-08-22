@@ -80,7 +80,7 @@ static struct console {
         0x7080, 0x7080, 0x0380,  0x10,   0x10, 0x20, CPU_Z80},
     {"memotech","-cpm",     "Memotech MTX (64K RAM), generates .run files, use -cpm for .com files",
         0,      0xa000, 0,       0x01,   0x01, 0x06, CPU_Z80},
-    {"creativision","",     "Vtech Creativision (Dick Smith's Wizzard/Laser 2001), 6502+1K RAM.",
+    {"creativision","-rom16","Vtech Creativision (Dick Smith's Wizzard/Laser 2001), 6502+1K RAM.",
         0x0050, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
     {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
         0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, CPU_Z80},
@@ -5018,6 +5018,7 @@ int main(int argc, char *argv[])
     time_t actual;
     struct tm *date;
     int extra_ram;
+    int small_rom;
     int cpm_option;
     int pencil;
     
@@ -5120,6 +5121,18 @@ int main(int argc, char *argv[])
             exit(2);
         }
     }
+    small_rom = 0;
+    if (argv[c][0] == '-' && tolower(argv[c][1]) == 'r' && tolower(argv[c][2] == 'o') &&
+        tolower(argv[c][3] == 'm') && argv[c][4] == '1' && argv[c][5] == '6' &&
+        argv[c][6] == '\0') {
+        c++;
+        if (machine == CREATIVISION) {
+            small_rom = 1;
+        } else {
+            fprintf(stderr, "-rom16 option only applies to Creativision.\n");
+            exit(2);
+        }
+    }
     strcpy(current_file, argv[c]);
     err_code = 0;
     input = fopen(current_file, "r");
@@ -5211,6 +5224,9 @@ int main(int argc, char *argv[])
     fprintf(output, "VDP:\tequ $%02x\t; VDP port (write)\n", consoles[machine].vdp_port_write);
     fprintf(output, "VDPR:\tequ $%02x\t; VDP port (read)\n", consoles[machine].vdp_port_read);
     fprintf(output, "PSG:\tequ $%02x\t; PSG port (write)\n", consoles[machine].psg_port);
+    if (machine == CREATIVISION) {
+        fprintf(output, "SMALL_ROM:\tequ %d\n", small_rom);
+    }
     fprintf(output, "\n");
     if (bank_switching) {
         if (machine == COLECOVISION || machine == COLECOVISION_SGM) {

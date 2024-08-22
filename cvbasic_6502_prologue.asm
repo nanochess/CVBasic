@@ -9,6 +9,7 @@
 	; Revision date: Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
 	;                             Added VDP delays.
 	; Revision date: Aug/16/2024. Corrected bug in define_char_unpack.
+	; Revision date: Aug/21/2024. Added support for keypad.
 	;
 
 	CPU 6502
@@ -87,7 +88,7 @@ music_mode:		EQU $4e
 
 sprites:	equ $0180
 
-	ORG $4000
+	ORG $4000+$4000*SMALL_ROM
 	
 WRTVDP:
 	STA $3001
@@ -1152,6 +1153,48 @@ int_handler:
 	LSR A
 	JSR convert_joystick
 	STA joy2_data
+
+	LDX #1
+	LDA $18
+	CMP #$0C
+	BEQ .11
+	INX
+	LDA $19
+	CMP #$30
+	BEQ .11
+	INX
+	CMP #$60
+	BEQ .11
+	INX
+	CMP #$28
+	BEQ .11
+	INX
+	CMP #$48
+	BEQ .11
+	INX
+	CMP #$50
+	BEQ .11
+	INX
+	LDA $1B
+	CMP #$06
+	BEQ .11
+	INX
+	CMP #$42
+	BEQ .11
+	INX
+	CMP #$22
+	BEQ .11
+	LDX #0
+	CMP #$12
+	BEQ .11
+	LDX #10
+	CMP #$0A
+	BEQ .11
+	INX
+	CMP #$80
+	BEQ .11
+	LDX #$0f
+.11:	STX key1_data
 
     if CVBASIC_MUSIC_PLAYER
 	LDA music_mode

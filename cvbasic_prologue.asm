@@ -32,6 +32,8 @@
 	; Revision date: Aug/08/2024. Added Soundic/Hanimex Pencil II support.
 	; Revision date: Aug/15/2024. Added support for Tatung Einstein. Added support
 	;                             for Casio PV-2000.
+	; Revision date: Aug/21/2024. Added keypad support for Memotech, Tatung Einstein,
+	;                             and Casio PV-2000.
 	;
 
 JOYSEL:	equ $c0
@@ -1855,6 +1857,59 @@ nmi_handler:
 	ld a,c
 	cpl
 	ld (joy2_data),a
+
+	ld a,$fe
+	out ($05),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($05)
+	rra
+	ld b,1
+	jr nc,.mt1
+	rra
+	ld b,3
+	jr nc,.mt1
+	rra
+	ld b,5
+	jr nc,.mt1
+	rra
+	ld b,7
+	jr nc,.mt1
+	rra
+	ld b,9
+	jr nc,.mt1
+	rra
+	ld b,10
+	jr nc,.mt1
+	ld b,15
+	ld a,$fd
+	out ($05),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($05)
+	rra
+	rra
+	ld b,2
+	jr nc,.mt1
+	rra
+	ld b,4
+	jr nc,.mt1
+	rra
+	ld b,6
+	jr nc,.mt1
+	rra
+	ld b,8
+	jr nc,.mt1
+	rra
+	ld b,0
+	jr nc,.mt1
+	rra
+	ld b,11
+	jr nc,.mt1
+	ld b,15
+.mt1:
+	ld a,b
+	ld (key1_data),a
     endif
     if EINSTEIN
 	ld bc,$ffff
@@ -1936,6 +1991,83 @@ nmi_handler:
 	ld a,c
 	cpl
 	ld (joy2_data),a
+
+        ld a,$0e
+        out ($02),a
+        ld a,$ef
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+	rra
+	ld b,7
+	jr nc,.te1
+	rra
+	ld b,6
+	jr nc,.te1
+	rra
+	ld b,5
+	jr nc,.te1
+	rra
+	ld b,4
+	jr nc,.te1
+	rra
+	ld b,3
+	jr nc,.te1
+	rra
+	ld b,2
+	jr nc,.te1
+	rra
+	ld b,1
+	jr nc,.te1
+        ld a,$0e
+        out ($02),a
+        ld a,$f7
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+	bit 3,a
+	ld b,8
+	jr z,.te1
+        ld a,$0e
+        out ($02),a
+        ld a,$fb
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+	bit 6,a
+	ld b,9
+	jr z,.te1
+	bit 3,a
+	ld b,10
+	jr z,.te1
+	bit 2,a
+	ld b,11
+	jr z,.te1
+        ld a,$0e
+        out ($02),a
+        ld a,$fd
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+	bit 7,a
+	ld b,0
+	jr z,.te1
+	ld b,15
+.te1:
+	ld a,b
+	ld (key1_data),a
     endif
     if PV2000
 	ld bc,$ffff
@@ -1978,6 +2110,49 @@ nmi_handler:
 	ld a,c
 	cpl
 	ld (joy2_data),a
+	ld a,0
+	out ($20),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($20)
+	and $0f
+	ld b,$04
+	jr nz,.pv1
+	in a,($10)
+	and $0f
+	ld b,$08
+	jr nz,.pv1
+	ld a,4
+	out ($20),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($10)
+	ld b,9
+	bit 0,a
+	jr nz,.pv2
+	inc b
+	bit 1,a
+	jr nz,.pv2
+	inc b
+	bit 2,a
+	jr nz,.pv2
+	ld b,0
+	bit 3,a
+	jr nz,.pv2
+	ld b,15
+	jr .pv2
+
+.pv1:	rra
+	jr c,.pv2
+	dec b
+	rra
+	jr c,.pv2
+	dec b
+	rra
+	jr c,.pv2
+	dec b
+.pv2:	ld a,b
+	ld (key1_data),a
     endif
 
     if CVBASIC_MUSIC_PLAYER

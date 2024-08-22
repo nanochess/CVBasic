@@ -131,17 +131,21 @@ All platforms have been tested in emulation.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
 
-MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons).
+MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, - and = emulate the Colecovision keypad (CONT1.KEY only).
 
 The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD)
 
-The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad.
+The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad (CONT1.KEY only) using the keys 0-9, : and '.
 
-The Sord M5 can only use binaries up to 16 kb, and the keyboard can be used for the first controller.
+The Sord M5 can only use binaries up to 16 kb, both joysticks are handled as controllers, and the keyboard emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, - and ^.
 
-The Casio PV-2000 can only use binaries up to 16 kb.
+The Memotech can only use binaries up to 32 kb, keyboard is handled as controller 1, and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, = and ~.
 
-Currently Memotech, Tatung Einstein, Casio PV-2000, and Creativision doesn't handle CONT1.KEY and CONT2.KEY.
+The Tatung Einstein can only use binaries up to 32 kb, keyboard is handled as controller 1 (joystick not used), and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, : and ;.
+
+The Casio PV-2000 can only use binaries up to 16 kb, the keyboard and joystick are controller 1, and it can emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, - and ^.
+
+The Creativision can only use binaries up to 32 kb, the joysticks are controller 1 and controller 2, and it can emulate the Coleocovision keypad (CONT1.KEY only) using the keys 0-9, : and =.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
