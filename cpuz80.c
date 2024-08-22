@@ -276,7 +276,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
     } else if (strcmp(mnemonic, "IN") == 0) {
         z80_a_content[0] = '\0';
         z80_flag_z_valid = 0;
-    } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "SBC") == 0) {
+    } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "ADC") == 0 || strcmp(mnemonic, "SBC") == 0) {
         if (strcmp(operand1, "A") == 0) {
             z80_a_content[0] = '\0';
             z80_flag_z_valid = 1;
@@ -1062,7 +1062,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_1op("DEC", "A");
                     cpuz80_empty();
                 }
-            } else if (node->type == N_LESS8) {
+            } else if (node->type == N_LESS8 || node->type == N_GREATER8) {
                 if (strcmp(temp, "0") == 0)
                     cpuz80_1op("AND", "A");
                 else
@@ -1073,11 +1073,9 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_2op("JP", "NC", temp);
                 } else {
                     cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("SBC", "A", "A");
                 }
-            } else if (node->type == N_LESSEQUAL8) {
+            } else if (node->type == N_LESSEQUAL8 || node->type == N_GREATEREQUAL8) {
                 if (strcmp(temp, "0") == 0)
                     cpuz80_1op("AND", "A");
                 else
@@ -1087,40 +1085,8 @@ void cpuz80_node_generate(struct node *node, int decision)
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     cpuz80_2op("JP", "C", temp);
                 } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATER8) {
-                if (strcmp(temp, "0") == 0)
-                    cpuz80_1op("AND", "A");
-                else
-                    cpuz80_1op("CP", temp);
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "NC", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATEREQUAL8) {
-                if (strcmp(temp, "0") == 0)
-                    cpuz80_1op("AND", "A");
-                else
-                    cpuz80_1op("CP", temp);
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "C", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("LD", "A", "255");
+                    cpuz80_2op("ADC", "A", "0");
                 }
             } else if (node->type == N_PLUS8) {
                 cpuz80_2op("ADD", "A", temp);
@@ -1669,7 +1635,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_1op("DEC", "A");
                     cpuz80_empty();
                 }
-            } else if (node->type == N_LESS16) {
+            } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
                 cpuz80_1op("OR", "A");
                 cpuz80_2op("SBC", "HL", "DE");
                 if (decision) {
@@ -1678,11 +1644,9 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_2op("JP", "NC", temp);
                 } else {
                     cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("SBC", "A", "A");
                 }
-            } else if (node->type == N_LESSEQUAL16) {
+            } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
                 cpuz80_1op("OR", "A");
                 cpuz80_2op("SBC", "HL", "DE");
                 if (decision) {
@@ -1690,36 +1654,8 @@ void cpuz80_node_generate(struct node *node, int decision)
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     cpuz80_2op("JP", "C", temp);
                 } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATER16) {
-                cpuz80_1op("OR", "A");
-                cpuz80_2op("SBC", "HL", "DE");
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "NC", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATEREQUAL16) {
-                cpuz80_1op("OR", "A");
-                cpuz80_2op("SBC", "HL", "DE");
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "C", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("LD", "A", "255");
+                    cpuz80_2op("ADC", "A", "0");
                 }
             } else if (node->type == N_PLUS16) {
                 cpuz80_2op("ADD", "HL", "DE");
