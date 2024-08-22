@@ -9,7 +9,7 @@
 
 	DIM x(32),y(32),col(32)
 
-	MODE 2
+	MODE 0
 
 	DEFINE SPRITE 0,1,sprite_bitmap
 
