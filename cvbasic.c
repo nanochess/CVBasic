@@ -4213,9 +4213,6 @@ void compile_statement(int check_for_else)
                     }
                     table = next_local++;
                     new_label = next_local++;
-                    
-**********************************************                    
-                    
                     if (fast == 0) {
                         if (target == CPU_6502) {
                             if ((type & MAIN_TYPE) == TYPE_8) {
@@ -4240,6 +4237,19 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("BCC", temp + 100);
                             cpu6502_1op("JMP", temp);
                             cpu6502_label(temp + 100);
+                        } else if (target == CPU_9900) {
+                            if ((type & MAIN_TYPE) == TYPE_8) {
+                                sprintf(temp, "%d", max_value*256);
+                                cpu9900_2op("ci","r0",temp);
+                            } else {
+                                sprintf(temp, "%d", max_value);
+                                cpu9900_2op("ci","r0",temp);
+                            }
+                            sprintf(temp, "@" INTERNAL_PREFIX "%d", new_label);
+                            sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
+                            cpu9900_1op("jl", temp + 100);
+                            cpu9900_1op("b", temp);
+                            cpu9900_label(temp + 100);
                         } else {
                             if ((type & MAIN_TYPE) == TYPE_8) {
                                 sprintf(temp, "%d", max_value);
@@ -4263,6 +4273,11 @@ void compile_statement(int check_for_else)
                             sprintf(temp, "#" INTERNAL_PREFIX "%d-1", new_label);
                             cpu6502_1op("LDA", temp);
                             cpu6502_noop("PHA");
+                        } else if (target == CPU_9900) {
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                            cpu9900_2op("li","r1",temp);
+                            cpu9900_1op("dec","r10");   // stack manip
+                            cpu9900_2op("mov","r1","*r10");
                         } else {
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
                             cpuz80_2op("LD", "DE", temp);
@@ -4288,6 +4303,14 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("LDA", "(temp),Y");
                         cpu6502_1op("STA", "temp2+1");
                         cpu6502_1op("JMP", "(temp2)");
+                    } else if (target == CPU_9900) {
+                        if ((type & MAIN_TYPE) == TYPE_8) {
+                            cpu9900_2op("srl","r0","8");
+                        }
+                        cpu9900_2op("sla","r0","1");
+                        sprintf(temp, "@" INTERNAL_PREFIX "%d(r0)", table);
+                        cpu9900_2op("mov",temp,"r0");
+                        cpu9900_1op("b","*r0");
                     } else {
                         if ((type & MAIN_TYPE) == TYPE_8) {
                             cpuz80_2op("LD", "L", "A");
@@ -4319,6 +4342,8 @@ void compile_statement(int check_for_else)
                         }
                         if (target == CPU_6502)
                             cpu6502_1op("DW", temp);
+                        else if (target == CPU_9900)
+                            cpu9900_1op("data", temp);
                         else
                             cpuz80_1op("DW", temp);
                     }
@@ -4346,6 +4371,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$80");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">8000");
                                 } else {
                                     cpuz80_2op("LD", "A", "$80");
                                 }
@@ -4356,6 +4383,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$90");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">9000");
                                 } else {
                                     cpuz80_2op("LD", "B", "$90");
                                 }
@@ -4373,6 +4402,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$a0");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">a000");
                                 } else {
                                     cpuz80_2op("LD", "A", "$a0");
                                 }
@@ -4383,6 +4414,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$b0");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">b000");
                                 } else {
                                     cpuz80_2op("LD", "B", "$b0");
                                 }
@@ -4400,6 +4433,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$c0");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">c000");
                                 } else {
                                     cpuz80_2op("LD", "A", "$c0");
                                 }
@@ -4410,6 +4445,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$d0");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">d000");
                                 } else {
                                     cpuz80_2op("LD", "B", "$d0");
                                 }
@@ -4432,6 +4469,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     cpu6502_1op("LDX", "#$f0");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("li","r2",">f000");
                                 } else {
                                     cpuz80_2op("LD", "B", "$f0");
                                 }
@@ -4449,6 +4488,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do - could consider SID Blaster... */
                                 } else {
                                     cpuz80_2op("LD", "A", "$00");
                                     cpuz80_1op("CALL", "ay3_freq");
@@ -4459,6 +4500,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do - could consider SID Blaster... */
                                 } else {
                                     cpuz80_2op("LD", "B", "$08");
                                     cpuz80_1op("CALL", "ay3_reg");
@@ -4476,6 +4519,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do - could consider SID Blaster... */
                                 } else {
                                     cpuz80_2op("LD", "A", "$02");
                                     cpuz80_1op("CALL", "ay3_freq");
@@ -4486,6 +4531,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do - could consider SID Blaster... */
                                 } else {
                                     cpuz80_2op("LD", "B", "$09");
                                     cpuz80_1op("CALL", "ay3_reg");
@@ -4503,6 +4550,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do - could consider SID Blaster... */
                                 } else {
                                     cpuz80_2op("LD", "A", "$04");
                                     cpuz80_1op("CALL", "ay3_freq");
@@ -4513,6 +4562,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do - could consider SID Blaster... */
                                 } else {
                                     cpuz80_2op("LD", "B", "$0a");
                                     cpuz80_1op("CALL", "ay3_reg");
@@ -4530,6 +4581,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_16, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do */
                                 } else {
                                     cpuz80_2op("LD", "A", "$0b");
                                     cpuz80_1op("CALL", "ay3_freq");
@@ -4539,6 +4592,8 @@ void compile_statement(int check_for_else)
                                 get_lex();
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
+                                    /* Nothing to do */
+                                } else if (target == CPU_9900) {
                                     /* Nothing to do */
                                 } else {
                                     cpuz80_2op("LD", "B", "$0d");
@@ -4557,6 +4612,8 @@ void compile_statement(int check_for_else)
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
                                     /* Nothing to do */
+                                } else if (target == CPU_9900) {
+                                    /* Nothing to do */
                                 } else {
                                     cpuz80_2op("LD", "B", "$06");
                                     cpuz80_1op("CALL", "ay3_reg");
@@ -4566,6 +4623,8 @@ void compile_statement(int check_for_else)
                                 get_lex();
                                 type = evaluate_expression(1, TYPE_8, 0);
                                 if (target == CPU_6502) {
+                                    /* Nothing to do */
+                                } else if (target == CPU_9900) {
                                     /* Nothing to do */
                                 } else {
                                     cpuz80_2op("LD", "B", "$07");
@@ -4859,6 +4918,14 @@ void compile_statement(int check_for_else)
                     cpu6502_noop("SEI");
                     cpu6502_1op("JSR", "WRTVDP");
                     cpu6502_noop("CLI");
+                } else if (target == CPU_9900) {
+                    // simpler to do inline
+                    sprintf(temp, "%d", vdp_reg*256+0x8000);
+                    cpu9900_2op("li","r1",temp);
+                    cpu9900_2op("movb","r1","@VDPWADR");
+                    cpu9900_2op("movb","r0","@VDPWADR");
+                    // only timing critical in scratchpad with register indirect addressing,
+                    // even then probably safe on the 99/4A
                 } else {
                     cpuz80_2op("LD", "B", "A");
                     sprintf(temp, "%d", vdp_reg);
@@ -5049,6 +5116,17 @@ int process_variables(void)
                         address += 2;
                         bytes_used += 2;
                     }
+                } else if (target == CPU_9900) {
+                    strcpy(temp, LABEL_PREFIX);
+                    strcat(temp, label->name);
+                    strcat(temp, "\t");
+                    if ((label->used & MAIN_TYPE) == TYPE_8) {
+                        strcat(temp, "bss 1");
+                        bytes_used++;
+                    } else {
+                        strcat(temp, "bss 2");
+                        bytes_used += 2;
+                    }
                 } else {
                     strcpy(temp, LABEL_PREFIX);
                     strcat(temp, label->name);
@@ -5090,6 +5168,8 @@ int process_variables(void)
                     address = 0x0200;
                 sprintf(temp, ARRAY_PREFIX "%s:\tequ $%04x", label->name, address);
                 address += size;
+            } else if (target == CPU_9900) {
+                sprintf(temp, ARRAY_PREFIX "%s\tbss %d", label->name, size);
             } else {
                 sprintf(temp, ARRAY_PREFIX "%s:\trb %d", label->name, size);
             }
@@ -5098,7 +5178,11 @@ int process_variables(void)
             label = label->next;
         }
     }
-    fprintf(output, "ram_end:\n");
+    if (target == CPU_9900) {
+        fprintf(output, "ram_end\n");
+    } else {
+        fprintf(output, "ram_end:\n");
+    }
     return bytes_used;
 }
 
@@ -5283,34 +5367,46 @@ int main(int argc, char *argv[])
             fprintf(output, "%s ", argv[c]);
     }
     fprintf(output, "\n");
-    fprintf(output, "\t; Created: %s\n", asctime(date));
-    fprintf(output, "COLECO:\tequ %d\n",
-            (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
-    fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
-    fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
-    fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
-    fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
-    fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
-    fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
-    fprintf(output, "CPM:\tequ %d\n", cpm_option);
-    fprintf(output, "PENCIL:\tequ %d\n", pencil);
-    fprintf(output, "\n");
-    fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
-    fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
-    fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
-    fprintf(output, "\n");
-    fprintf(output, "BASE_RAM:\tequ $%04x\t; Base of RAM\n", consoles[machine].base_ram - extra_ram);
-    if (machine == MEMOTECH && cpm_option != 0)
-        fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", 0xe000);
-    else
-        fprintf(output, "STACK:\tequ $%04x\t; Base stack pointer\n", consoles[machine].stack);
-    fprintf(output, "VDP:\tequ $%02x\t; VDP port (write)\n", consoles[machine].vdp_port_write);
-    fprintf(output, "VDPR:\tequ $%02x\t; VDP port (read)\n", consoles[machine].vdp_port_read);
-    fprintf(output, "PSG:\tequ $%02x\t; PSG port (write)\n", consoles[machine].psg_port);
+    {
+        char comment = ';';
+        char label = ':';
+        if (target == CPU_9900) {
+            comment = '*';
+            label = ' ';
+        }
+        fprintf(output, "\t%c Created%c %s\n", comment, label, asctime(date));
+        fprintf(output, "COLECO%c\tequ %d\n", label,
+                (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
+        fprintf(output, "SG1000%c\tequ %d\n", label, (machine == SG1000) ? 1 : 0);
+        fprintf(output, "MSX%c\tequ %d\n", label, (machine == MSX) ? 1 : 0);
+        fprintf(output, "SGM%c\tequ %d\n", label, (machine == COLECOVISION_SGM) ? 1 : 0);
+        fprintf(output, "SVI%c\tequ %d\n", label, (machine == SVI) ? 1 : 0);
+        fprintf(output, "SORD%c\tequ %d\n", label, (machine == SORD) ? 1 : 0);
+        fprintf(output, "MEMOTECH%c\tequ %d\n", label, (machine == MEMOTECH) ? 1 : 0);
+        fprintf(output, "CPM%c\tequ %d\n", label, cpm_option);
+        fprintf(output, "PENCIL%c\tequ %d\n", label, pencil);
+        fprintf(output, "TI99%c\tequ %d\n", label, (machine == TI994A) ? 1 : 0);
+        fprintf(output, "\n");
+        fprintf(output, "CVBASIC_MUSIC_PLAYER%c\tequ %d\n", label, music_used);
+        fprintf(output, "CVBASIC_COMPRESSION%c\tequ %d\n", label, compression_used);
+        fprintf(output, "CVBASIC_BANK_SWITCHING%c\tequ %d\n", label, bank_switching);
+        fprintf(output, "\n");
+        fprintf(output, "BASE_RAM%c\tequ $%04x\t%c Base of RAM\n", label, consoles[machine].base_ram - extra_ram, comment);
+        if (machine == MEMOTECH && cpm_option != 0)
+            fprintf(output, "STACK%c\tequ $%04x\t%c Base stack pointer\n", label, 0xe000, comment);
+        else
+            fprintf(output, "STACK%c\tequ $%04x\t%c Base stack pointer\n", label, consoles[machine].stack, comment);
+        fprintf(output, "VDP%c\tequ $%02x\t%c VDP port (write)\n", label, consoles[machine].vdp_port_write, comment);
+        fprintf(output, "VDPR%c\tequ $%02x\t%c VDP port (read)\n", label, consoles[machine].vdp_port_read, comment);
+        fprintf(output, "PSG%c\tequ $%02x\t%c PSG port (write)\n", label, consoles[machine].psg_port, comment);
+    }
     fprintf(output, "\n");
     if (bank_switching) {
         if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
             fprintf(output, "\tforg $%05x\n", bank_rom_size * 0x0400 - 0x4000);
+        } else if (machine == TI994A) {
+            // not implemented yet anyway...
+            fprintf(output, "\taorg >6000\n");
         } else {
             fprintf(output, "\tforg $00000\n");
         }
@@ -5318,6 +5414,8 @@ int main(int argc, char *argv[])
     strcpy(path, library_path);
     if (target == CPU_6502)
         strcat(path, "cvbasic_6502_prologue.asm");
+    if (target == CPU_9900)
+        strcat(path, "cvbasic_9900_prologue.asm");
     else
         strcat(path, "cvbasic_prologue.asm");
     prologue = fopen(path, "r");
@@ -5329,10 +5427,13 @@ int main(int argc, char *argv[])
         p = line;
         while (*p && isspace(*p))
             p++;
+        if (*p = '*') ++p;  // allow one character for the different TI99 assembler comments
         if (memcmp(p, ";CVBASIC MARK DON'T CHANGE", 26) == 0) {  /* Location to replace */
             if (frame_drive != NULL) {
                 if (target == CPU_6502)
                     fprintf(output, "\tJSR " LABEL_PREFIX "%s\n", frame_drive->name);
+                else if (target == CPU_9900)
+                    fprintf(output, "\tbl @" LABEL_PREFIX "%s\n", frame_drive->name);
                 else
                     fprintf(output, "\tCALL " LABEL_PREFIX "%s\n", frame_drive->name);
             }
@@ -5342,8 +5443,9 @@ int main(int argc, char *argv[])
     }
     fclose(prologue);
     
-    if (target == CPU_6502)
+    if ((target == CPU_6502)||(target == CPU_9900)) {
         bytes_used = process_variables();
+    }
     
     input = fopen(TEMPORARY_ASSEMBLER, "r");
     if (input == NULL) {
@@ -5359,6 +5461,8 @@ int main(int argc, char *argv[])
     strcpy(path, library_path);
     if (target == CPU_6502)
         strcat(path, "cvbasic_6502_epilogue.asm");
+    else if (target == CPU_9900)
+        strcat(path, "cvbasic_99002_epilogue.asm");
     else
         strcat(path, "cvbasic_epilogue.asm");
     prologue = fopen(path, "r");

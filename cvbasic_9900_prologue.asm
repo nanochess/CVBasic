@@ -937,7 +937,7 @@ int_handler
 * These labels test if any code was injected. If we aren't using the music player
 * and we don't inject any code, then don't bother with the register save/restore
 .inttestlabel1
-    *CVBASIC MARK DON'T CHANGE
+    *;CVBASIC MARK DON'T CHANGE
 .inttestlabel2
 
     if CVBASIC_MUSIC_PLAYER || .inttestlabel1 != .inttestlabel2

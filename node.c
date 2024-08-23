@@ -16,6 +16,7 @@
 #include "node.h"
 #include "cpuz80.h"
 #include "cpu6502.h"
+#include "cpu9900.h"
 
 static char *node_types[] = {
     "N_OR8", "N_OR16",
@@ -760,6 +761,8 @@ void node_label(struct node *node)
         cpuz80_node_label(node);
     if (target == CPU_6502)
         cpu6502_node_label(node);
+    if (target == CPU_9900)
+        cpu9900_node_label(node);
 }
 
 /*
@@ -771,6 +774,8 @@ void node_generate(struct node *node, int decision)
         cpuz80_node_generate(node, decision);
     if (target == CPU_6502)
         cpu6502_node_generate(node, decision);
+    if (target == CPU_9900)
+        cpu9900_node_generate(node, decision);
 }
 
 /*
