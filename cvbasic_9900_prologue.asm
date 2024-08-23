@@ -1,81 +1,79 @@
-*
-* CVBasic prologue (BASIC compiler, 9900 target)
-* this is intended to be assembled by xdt99, no console ROM dependencies
-*
-* by Tursi
-* https//harmlesslion.com
-*
-* based on code by
-*
-* by Oscar Toledo G.
-* https//nanochess.org/
-*
-* Creation date Aug/05/2024.
-* Revision date Aug/06/2024. Ported music player from Z80 CVBasic.
-* Revision date Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
-*                            Added VDP delays.
-* Revision date Aug/12/2024. Rewrite started for TMS9900 cpu
-* Revision date Aug/16/2024. Corrected bug in define_char_unpack.
-* Revision date Aug/18/2024. Ported bugfixes to TMS9900 version
-*
+;
+; CVBasic prologue (BASIC compiler, 9900 target)
+; this is intended to be assembled by xdt99, no console ROM dependencies
+;
+; by Tursi
+; https//harmlesslion.com
+;
+; based on code by
+;
+; by Oscar Toledo G.
+; https//nanochess.org/
+;
+; Creation date Aug/05/2024.
+; Revision date Aug/06/2024. Ported music player from Z80 CVBasic.
+; Revision date Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
+;                            Added VDP delays.
+; Revision date Aug/12/2024. Rewrite started for TMS9900 cpu
+; Revision date Aug/16/2024. Corrected bug in define_char_unpack.
+; Revision date Aug/18/2024. Ported bugfixes to TMS9900 version
+;
 
-*
-* Platforms supported:
-* o TI-99/4A. (/4 supported if bitmap not used)
-* o TI-99/4A with 32k Memory Expansion
+;
+; Platforms supported:
+; o TI-99/4A. (/4 supported if bitmap not used)
+; o TI-99/4A with 32k Memory Expansion
 
-*
-* CVBasic variables in scratchpad.
-*
+;
+; CVBasic variables in scratchpad.
+;
 
-* When looking at this - remember that JUMP and BRANCH have the /opposite/
-* meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
+; When looking at this - remember that JUMP and BRANCH have the /opposite/
+; meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
 
-* TODO: Concern - changing the endianess of 16-bit values from little to big,
-* does anything break? Ideally not if I'm careful...
+; TODO: Concern - changing the endianess of 16-bit values from little to big,
+; does anything break? Ideally not if I'm careful...
 
-* We have to use our own workspace, not GPLWS, because the interrupt routine makes it unsafe to
-* use r11, which we kind of need! So that eats 32 bytes of RAM but means most of the register
-* restrictions I wrote this code on (avoid R1, avoid R6, avoid R13-R15) are lifted.
+; We have to use our own workspace, not GPLWS, because the interrupt routine makes it unsafe to
+; use r11, which we kind of need! So that eats 32 bytes of RAM but means most of the register
+; restrictions I wrote this code on (avoid R1, avoid R6, avoid R13-R15) are lifted.
 mywp      equ >8300
+myintwp   equ >8320
 
-* data storage in scratchpad
-    aorg >8320
+; data storage in scratchpad
+    aorg >8340
 
-* used to track scratchpad variables
-firstsp
+; used to track scratchpad variables
+firstsp         equ $
 
 read_pointer	bss 2
 cursor		    bss 2
-pletter_off	    bss 2  * Used by Pletter
+pletter_off	    bss 2       ; Used by Pletter
 
-* joystick bytes
-joy1_data	    bss 1       * keep these bytes together and even aligned
+; joystick bytes
+joy1_data	    bss 1       ; keep these bytes together and even aligned
 joy2_data	    bss 1
 
-key1_data	    bss 1       * byte - keyboard - keep these bytes together and even aligned
-key2_data	    bss 1       * byte - keyboard (not used)
+key1_data	    bss 1       ; byte - keyboard - keep these bytes together and even aligned
+key2_data	    bss 1       ; byte - keyboard (not used)
 
-frame	        bss 2       * word
-lfsr		    bss 2       * word MUST BE EVEN ALIGNED
+frame	        bss 2       ; word
+lfsr		    bss 2       ; word MUST BE EVEN ALIGNED
 
 mode            bss 1
 flicker         bss 1
 
-sprite_data	    bss 4       * 2 words MUST BE EVEN ALIGNED
+sprite_data	    bss 4       ; 2 words MUST BE EVEN ALIGNED
 
 ntsc            bss 1
 pletter_bit     bss 1
 
-* register backup          * backup space for registers for interrupt - in scratchpad for speed
-intreg_backup   bss 22     * need room for 11 regs - 22 bytes
-
-    IF CVBASIC_MUSIC_PLAYER     * TODO: how do IFs work in xdt99?
+    .ifne CVBASIC_MUSIC_PLAYER
 music_playing		bss 1
 music_timing		bss 1       
 
-music_start		    bss 2       * word
-music_pointer		bss 2       * word
+music_start		    bss 2   ; word
+music_pointer		bss 2   ; word
 
 music_note_counter	bss 1
 music_instrument_1	bss 1
@@ -95,11 +93,11 @@ music_counter_3	    bss 1
 music_drum		    bss 1
 music_counter_4	    bss 1
 
-audio_freq1		    bss 2       * word
-audio_freq2		    bss 2       * word
-audio_freq3		    bss 2       * word
+audio_freq1		    bss 2   ; word
+audio_freq2		    bss 2   ; word
+audio_freq3		    bss 2   ; word
 
-audio_vol1  		bss 1       * must be kept together
+audio_vol1  		bss 1
 audio_vol2	    	bss 1
 audio_vol3		    bss 1
 audio_vol4hw		bss 1
@@ -109,85 +107,85 @@ audio_control		bss 1
 
 music_mode	    	bss 1
     even
-    ENDIF
+    .endif
 
-* used to track scratchpad variables
-lastsp
+; used to track scratchpad variables
+lastsp              equ $
 
-* While we don't mean to USE the console ROM, for interrupts we
-* are forced to interface with some of it. We need these addresses
-* to minimize what it does so we can maximize our use of scratchpad.
-* While I'd like to use the cassette hook - requires only 10 instructions
-* and only uses 6 words of scratchpad, we can't here because it
-* loses the return address, meaning you can only use it if you
-* know where your LIMI 2 is and interrupts are otherwise disabled. So
-* we have to use the longer but more standard interrupt hook, which also
-* reads VDP status for us (no choice).
+; While we don't mean to USE the console ROM, for interrupts we
+; are forced to interface with some of it. We need these addresses
+; to minimize what it does so we can maximize our use of scratchpad.
+; While I'd like to use the cassette hook - requires only 10 instructions
+; and only uses 6 words of scratchpad, we can't here because it
+; loses the return address, meaning you can only use it if you
+; know where your LIMI 2 is and interrupts are otherwise disabled. So
+; we have to use the longer but more standard interrupt hook, which also
+; reads VDP status for us (no choice).
 
-intcnt              equ >8379   * interrupt counter byte, adds 1 (from GPLWS r14) every frame
-statusmirror        equ >837B   * VDP status byte mirror
-intwsr1             equ >83c2   * INT WS R1  - interrupt control flags - must be >8000
-intwsr2             equ >83c4   * INT WS R2  - address of user interrupt routine (point to int_handler)
-intwsr11            equ >83d6   * screen timeout counter - must be odd (init to 1, is inct every frame)
-intwsr13            equ >83da   * INT WS R13 - used for interrupt call (word)
-intwsr14            equ >83dc   * INT WS R14 - used for interrupt call (word)
-intwsr15            equ >83de   * INT WS R15 - used for interrupt call (word)
-gplwsr11            equ >83f6   * GPL WS R11 - return address to interrupt ROM (not used, but overwritten each int)
-gplwsr12            equ >83f8   * GPL WS R12 - used for cassette test and interrupt hook test (zeroed each int)
-gplwsr13            equ >83fa   * GPL WS R13 - used in my interrupt handler
-gplwsr14            equ >83fc   * GPL WS R14 - flags used to detect cassette - must be >0108 (or at least >0020 clear)
-gplwsr15            equ >83fe   * GPL WS R15 - base address of VDP for status read - must be >8C00
+intcnt              equ >8379   ; interrupt counter byte, adds 1 (from GPLWS r14) every frame
+statusmirror        equ >837B   ; VDP status byte mirror
+intwsr1             equ >83c2   ; INT WS R1  - interrupt control flags - must be >8000
+intwsr2             equ >83c4   ; INT WS R2  - address of user interrupt routine (point to int_handler)
+intwsr11            equ >83d6   ; screen timeout counter - must be odd (init to 1, is inct every frame)
+intwsr13            equ >83da   ; INT WS R13 - used for interrupt call (word)
+intwsr14            equ >83dc   ; INT WS R14 - used for interrupt call (word)
+intwsr15            equ >83de   ; INT WS R15 - used for interrupt call (word)
+gplwsr11            equ >83f6   ; GPL WS R11 - return address to interrupt ROM (not used, but overwritten each int)
+gplwsr12            equ >83f8   ; GPL WS R12 - used for cassette test and interrupt hook test (zeroed each int)
+gplwsr13            equ >83fa   ; GPL WS R13 - used in my interrupt handler
+gplwsr14            equ >83fc   ; GPL WS R14 - flags used to detect cassette - must be >0108 (or at least >0020 clear)
+gplwsr15            equ >83fe   ; GPL WS R15 - base address of VDP for status read - must be >8C02
 
-* Some hardware equates
-INTWP     equ >83C0     * interrupt calling WP
-GPLWP     equ >83E0     * we use this one
+; Some hardware equates
+INTWS     equ >83C0     ; interrupt calling Workspace
+GPLWP     equ >83E0     ; we use this one
 SOUND     equ >8400
 VDPDATA   equ >8800
 VDPSTATUS equ >8802
 VDPWDATA  equ >8c00
 VDPWADR   equ >8c02
 
-* Safe scratchpad RAM, assuming above setup (ints disabled by flag, screen blank disabled):
-* Need to see how much BSS is using
-* 8320 - 8377   ->  100 bytes
-* 837C - 83C1   ->   70 bytes
+; Safe scratchpad RAM, assuming above setup (ints disabled by flag, screen blank disabled):
+; Need to see how much BSS is using
+; 8320 - 8377   ->  100 bytes
+; 837C - 83C1   ->   70 bytes
 
-* RAM we need:
-* - 128 bytes for a sprite table double-buffer - no choice, needs to go in 8-bit RAM
-* - TBD bytes defined above for BASIC
-* - 48 bytes for interrupt ROM and workspace
-* - 32 bytes for main workspace
+; RAM we need:
+; - 128 bytes for a sprite table double-buffer - no choice, needs to go in 8-bit RAM
+; - TBD bytes defined above for BASIC
+; - 48 bytes for interrupt ROM and workspace
+; - 32 bytes for main workspace
 
-* Variables are defined by equ, and can be bytes or words. Since it's originally an 8-bit
-* target, we can assume mostly bytes. For now we'll just do an EA#5 target. We can consider
-* a cart+32k target later if it's desired. This will limit programs to 24k + 8k of RAM data.
-* if we do cart+32k then we have 8k of variables, 24k of fixed space, and unlimited paged space
-* (though the compiler limits to 1MB). But I'll need to bring in my paging code and startup.
+; Variables are defined by equ, and can be bytes or words. Since it's originally an 8-bit
+; target, we can assume mostly bytes. For now we'll just do an EA#5 target. We can consider
+; a cart+32k target later if it's desired. This will limit programs to 24k + 8k of RAM data.
+; if we do cart+32k then we have 8k of variables, 24k of fixed space, and unlimited paged space
+; (though the compiler limits to 1MB). But I'll need to bring in my paging code and startup.
 
-* program in high RAM
+; program in high RAM
     aorg >a000
 
-* for EA#3, a DEF helps testing
-* for EA#5, we need a start instruction at the beginning
+; for EA#3, a DEF helps testing
+; for EA#5, we need a start instruction at the beginning
     def START,SLOAD,SFIRST,SLAST
 
 SLOAD
 SFIRST
     b @START
 
-* Utility functions
+; Utility functions
 
-* Write register to VDP - R0 = reg in MSB, data in LSB
+; Write register to VDP - R0 = reg in MSB, data in LSB
 WRTVDP
     ori r0,>8000
     jmp SETRD
 
-* Set VDP for write address - address in R0
+; Set VDP for write address - address in R0
 SETWRT
     ori r0,>4000
-* fall through
+; fall through
 
-* Set VDP for read address - address in R0
+; Set VDP for read address - address in R0
 SETRD
     swpb r0
     movb r0,@VDPWADR
@@ -195,20 +193,20 @@ SETRD
     movb r0,@VDPWADR
     b *r11
 
-* Write byte to VDP - address in R0, data in MSB R2
-* Inline address set to avoid needing to cache r11
+; Write byte to VDP - address in R0, data in MSB R2
+; Inline address set to avoid needing to cache r11
 WRTVRM
     ori r0,>4000
     swpb r0
     movb r0,@VDPWADR
     swpb r0
     movb r0,@VDPWADR
-* No need to delay after setting a write address - there's no VRAM access
+; No need to delay after setting a write address - there's no VRAM access
     movb r2,@VDPWDATA
     b *r11
 
-* Read byte from VDP - address in R0, data returned in MSB R0
-* Inline address set to avoid needing to cache r11
+; Read byte from VDP - address in R0, data returned in MSB R0
+; Inline address set to avoid needing to cache r11
 RDVRM
     swpb r0
     movb r0,@VDPWADR
@@ -218,57 +216,57 @@ RDVRM
     movb @VDPDATA,r0
     b *r11
 
-* Fill VRAM - address in R0, byte in R2, count in R3
-* Original: address in pointer, byte in temp, count in temp2 (ZP)
-* Inline address set to avoid needing to cache r11
+; Fill VRAM - address in R0, byte in R2, count in R3
+; Original: address in pointer, byte in temp, count in temp2 (ZP)
+; Inline address set to avoid needing to cache r11
 FILVRM
     ori r0,>4000
     swpb r0
     movb r0,@VDPWADR
     swpb r0
     movb r0,@VDPWADR
-* No need to delay after setting a write address - there's no VRAM access
-.1
+; No need to delay after setting a write address - there's no VRAM access
+!1
     movb r2,@VDPWDATA
     dec r3
-    jne .1
+    jne -!1
     b *r11
 
-* Load VRAM - address in R0, CPU data at R2, count in R3
-* Original: address in pointer, CPU address at temp, count in temp2
-* Inline address set to avoid needing to cache r11
+; Load VRAM - address in R0, CPU data at R2, count in R3
+; Original: address in pointer, CPU address at temp, count in temp2
+; Inline address set to avoid needing to cache r11
 LDIRVM
     ori r0,>4000
     swpb r0
     movb r0,@VDPWADR
     swpb r0
     movb r0,@VDPWADR
-* No need to delay after setting a write address - there's no VRAM access
-.1
+; No need to delay after setting a write address - there's no VRAM access
+!1
     movb *r2+,@VDPWDATA
     dec r3
-    jne .1
+    jne -!1
     b *r11
 
-* Define a pattern three times with 2k offsets - used for bitmap color and pattern tables
-* Load VRAM 3 times with offset - address in R0, CPU data at R2, count in R3
-* Original: address in pointer, CPU address at temp, count in temp2
+; Define a pattern three times with 2k offsets - used for bitmap color and pattern tables
+; Load VRAM 3 times with offset - address in R0, CPU data at R2, count in R3
+; Original: address in pointer, CPU address at temp, count in temp2
 LDIRVM3
-    mov r11,r4      * save return address
-    mov r2,r5       * save CPU address
-    mov r3,r7       * save count
+    mov r11,r4      ; save return address
+    mov r2,r5       ; save CPU address
+    mov r3,r7       ; save count
     bl @LDIRVM
-    ai r0,>0800     * the OR'd mask doesn't matter
-    mov r5,r2       * restore CPU
-    mov r7,r3       * restore count
+    ai r0,>0800     ; the OR'd mask doesn't matter
+    mov r5,r2       ; restore CPU
+    mov r7,r3       ; restore count
     bl @LDIRVM
-    ai r0,>0800     * the OR'd mask doesn't matter
+    ai r0,>0800     ; the OR'd mask doesn't matter
     mov r5,r2
     mov r7,r3
-    mov r4,r11      * for tail recursion
+    mov r4,r11      ; for tail recursion
     b @LDIRVM
 
-* Disable screen by setting VDP register 1 to >a2
+; Disable screen by setting VDP register 1 to >a2
 DISSCR
     limi 0
     li r0,>a281
@@ -280,335 +278,335 @@ DISSCR2
     limi 2
     b *r11
 
-* enable screen by setting VDP register 1 to >E2
+; enable screen by setting VDP register 1 to >E2
 ENASCR
     limi 0
     li r0,>e281
     jmp DISSCR2
 
-* copy a set of blocks of data to VDP, offset by 32 bytes each
-* address in R1, CPU data at R2, count per row in R3, number rows in R4, CPU stride in R5 (VDP stride fixed at 32)
-* original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
+; copy a set of blocks of data to VDP, offset by 32 bytes each
+; address in R1, CPU data at R2, count per row in R3, number rows in R4, CPU stride in R5 (VDP stride fixed at 32)
+; original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
 CPYBLK
     limi 0
-    mov r11,r7      * save return
+    mov r11,r7      ; save return
     mov r1,r0
-    mov r0,r8       * save vdp address
-    mov r2,r9       * save cpu address
-    mov r3,r6       * save count per row
-    jmp .2          * skip over the restore step
-.1
-    mov r8,r0       * get vdp address
-    mov r9,r2       * get cpu address
-    mov r6,r3       * get count
-.2
-    bl @LDRIVM      * copy one row
-    a r5,r9         * add stride to CPU address
-    ai r8,32        * add 32 to VDP
-    dec r4          * count down rows
-    jne .1          * loop till done
+    mov r0,r8       ; save vdp address
+    mov r2,r9       ; save cpu address
+    mov r3,r6       ; save count per row
+    jmp !2          ; skip over the restore step
+!1
+    mov r8,r0       ; get vdp address
+    mov r9,r2       ; get cpu address
+    mov r6,r3       ; get count
+!2
+    bl @LDIRVM      ; copy one row
+    a r5,r9         ; add stride to CPU address
+    ai r8,32        ; add 32 to VDP
+    dec r4          ; count down rows
+    jne -!1         ; loop till done
     limi 2
-    b *r7           * back to caller
+    b *r7           ; back to caller
 
-* clear screen and reset cursor to >1800
+; clear screen and reset cursor to >1800
 cls
-    mov r11,r4      * save return
-    li r0,>1800     * SIT address
-    mov r0,@cursor  * save cursor
-    li r2,>2000     * byte to write
-    li r3,768       * number of bytes
-    limi 0          * ints off
-    bl @FILVRM      * write them
-    limi 2          * ints back on
-    b *r4           * back to caller
+    mov r11,r4      ; save return
+    li r0,>1800     ; SIT address
+    mov r0,@cursor  ; save cursor
+    li r2,>2000     ; byte to write
+    li r3,768       ; number of bytes
+    limi 0          ; ints off
+    bl @FILVRM      ; write them
+    limi 2          ; ints back on
+    b *r4           ; back to caller
 
-* copy a string to screen at cursor - address enforced
-* CPU address in R2, length in R3
+; copy a string to screen at cursor - address enforced
+; CPU address in R2, length in R3
 print_string
-    mov r11,r4      * save return
-    mov @cursor,r0  * get cursor pos
-    andi r0,>07ff   * enforce position - pretty large range though? 80 column support maybe?
-    ai r0,>1800     * add is safer than OR, and we have that option
-    a r3,@cursor    * add the count to cursor (might as well do it now!)
+    mov r11,r4      ; save return
+    mov @cursor,r0  ; get cursor pos
+    andi r0,>07ff   ; enforce position - pretty large range though? 80 column support maybe?
+    ai r0,>1800     ; add is safer than OR, and we have that option
+    a r3,@cursor    ; add the count to cursor (might as well do it now!)
     limi 0
-    bl @LDIRVM      * do the write
+    bl @LDIRVM      ; do the write
     limi 2
-    b *r4           * back to caller
+    b *r4           ; back to caller
 
-* emit a 16-bit number as decimal with leading zero masking at cursor
-* R0 - number to print
-* original number in YYAA?
+; emit a 16-bit number as decimal with leading zero masking at cursor
+; R0 - number to print
+; original number in YYAA?
 print_number
-    mov r11,r4          * save return address
-    limi 0              * interrupts off so we can hold the VDP address
-    mov r0,r3           * save value off
-    mov @cursor,r0      * get cursor
-    andi r0,>07ff       * enforce position - pretty large range though? 80 column support maybe?
-    ai r0,>1800         * add is safer than OR, and we have that option
-    bl @SETWRT          * set write address
-    clr r5              * leading zero flag
+    mov r11,r4          ; save return address
+    limi 0              ; interrupts off so we can hold the VDP address
+    mov r0,r3           ; save value off
+    mov @cursor,r0      ; get cursor
+    andi r0,>07ff       ; enforce position - pretty large range though? 80 column support maybe?
+    ai r0,>1800         ; add is safer than OR, and we have that option
+    bl @SETWRT          ; set write address
+    clr r5              ; leading zero flag
 
 print_number5
-    clr r2              * make r2/r3 a 32-bit value
-    li r1,10000         * divisor
-    div r1,r2           * yields quotient(r2), remainder(r3)
-    mov r2,r2           * check for zero
-    jeq print_number4   * skip ahead if so
-    li r5,>0030         * ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           * OR in the ASCII
-    swpb r2             * get value into MSB
-    movb r2,@VDPWDATA   * write it
-    inc @cursor         * track it
+    clr r2              ; make r2/r3 a 32-bit value
+    li r1,10000         ; divisor
+    div r1,r2           ; yields quotient(r2), remainder(r3)
+    mov r2,r2           ; check for zero
+    jeq print_number4   ; skip ahead if so
+    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
+    soc r5,r2           ; OR in the ASCII
+    swpb r2             ; get value into MSB
+    movb r2,@VDPWDATA   ; write it
+    inc @cursor         ; track it
 
 print_number4
-    clr r2              * make r2/r3 a 32-bit value
-    li r1,1000          * divisor
-    div r1,r2           * yields quotient(r2), remainder(r3)
-    soc r5,r2           * OR in the leading flags
-    jeq print_number3   * if result was 0 and leading flags are zero, skip
-    li r5,>0030         * ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           * we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             * get value into MSB
-    movb r2,@VDPWDATA   * write it
-    inc @cursor         * track it
+    clr r2              ; make r2/r3 a 32-bit value
+    li r1,1000          ; divisor
+    div r1,r2           ; yields quotient(r2), remainder(r3)
+    soc r5,r2           ; OR in the leading flags
+    jeq print_number3   ; if result was 0 and leading flags are zero, skip
+    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
+    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
+    swpb r2             ; get value into MSB
+    movb r2,@VDPWDATA   ; write it
+    inc @cursor         ; track it
 
 print_number3
-    clr r2              * make r2/r3 a 32-bit value
-    li r1,100           * divisor
-    div r1,r2           * yields quotient(r2), remainder(r3)
-    soc r5,r2           * OR in the leading flags
-    jeq print_number2   * if result was 0 and leading flags are zero, skip
-    li r5,>0030         * ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           * we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             * get value into MSB
-    movb r2,@VDPWDATA   * write it
-    inc @cursor         * track it
+    clr r2              ; make r2/r3 a 32-bit value
+    li r1,100           ; divisor
+    div r1,r2           ; yields quotient(r2), remainder(r3)
+    soc r5,r2           ; OR in the leading flags
+    jeq print_number2   ; if result was 0 and leading flags are zero, skip
+    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
+    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
+    swpb r2             ; get value into MSB
+    movb r2,@VDPWDATA   ; write it
+    inc @cursor         ; track it
 
 print_number2
-    clr r2              * make r2/r3 a 32-bit value
-    li r1,10            * divisor
-    div r1,r2           * yields quotient(r2), remainder(r3)
-    soc r5,r2           * OR in the leading flags
-    jeq print_number1   * if result was 0 and leading flags are zero, skip
-    li r5,>0030         * ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           * we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             * get value into MSB
-    movb r2,@VDPWDATA   * write it
-    inc @cursor         * track it
+    clr r2              ; make r2/r3 a 32-bit value
+    li r1,10            ; divisor
+    div r1,r2           ; yields quotient(r2), remainder(r3)
+    soc r5,r2           ; OR in the leading flags
+    jeq print_number1   ; if result was 0 and leading flags are zero, skip
+    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
+    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
+    swpb r2             ; get value into MSB
+    movb r2,@VDPWDATA   ; write it
+    inc @cursor         ; track it
 
 print_number1
-    ori r3,>0030        * we know we always print this one
-    swpb r3             * get value into MSB
-    movb r3,@VDPWDATA   * write it
-    inc @cursor         * track it
+    ori r3,>0030        ; we know we always print this one
+    swpb r3             ; get value into MSB
+    movb r3,@VDPWDATA   ; write it
+    inc @cursor         ; track it
 
-    limi 2              * ints on
-    b *r4               * back to caller
+    limi 2              ; ints on
+    b *r4               ; back to caller
 
-* Load sprite definitions: Sprite char number in R1, CPU data in R2, count of sprites in R3
-* Original: pointer = sprite char number, temp = CPU address, a = number sprites
-* Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
-* Sprite pattern table at >3800
+; Load sprite definitions: Sprite char number in R1, CPU data in R2, count of sprites in R3
+; Original: pointer = sprite char number, temp = CPU address, a = number sprites
+; Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
+; Sprite pattern table at >3800
 define_sprite
-    mov r11,r4          * save return
-    mov r1,r0           * copy it into r0 for LDIRVM
-    sla r0,5            * char number times 32
-    ai r0,>3800         * add VDP base
-    sla r3,5            * count times 32
-    limi 0              * ints off
-    bl @LDIRVM          * do the copy
-    limi 2              * ints on
-    b *r4               * back to caller
+    mov r11,r4          ; save return
+    mov r1,r0           ; copy it into r0 for LDIRVM
+    sla r0,5            ; char number times 32
+    ai r0,>3800         ; add VDP base
+    sla r3,5            ; count times 32
+    limi 0              ; ints off
+    bl @LDIRVM          ; do the copy
+    limi 2              ; ints on
+    b *r4               ; back to caller
 
-* Load character definitions: Char number in R1, CPU data in R2, count in R3
-* Original: pointer = char number, temp = CPU address, a = number chars
-* Note this loads the pattern three times if in bitmap mode (MODE&0x04)
-* Pattern table at >0000
+; Load character definitions: Char number in R1, CPU data in R2, count in R3
+; Original: pointer = char number, temp = CPU address, a = number chars
+; Note this loads the pattern three times if in bitmap mode (MODE&0x04)
+; Pattern table at >0000
 define_char
-    mov r11,r8          * save return
-    mov r1,r0           * move input to scratch
-    sla r0,3            * char number times 8 (VDP base is 0, so already there)
-    sla r3,3            * count times 8
-    mov @mode,r5        * get mode flags
+    mov r11,r8          ; save return
+    mov r1,r0           ; move input to scratch
+    sla r0,3            ; char number times 8 (VDP base is 0, so already there)
+    sla r3,3            ; count times 8
+    mov @mode,r5        ; get mode flags
     andi r5,>0004
-    jne .1              * not in bitmap mode, do a single copy
+    jne !1              ; not in bitmap mode, do a single copy
 
-    limi 0              * ints off
-    bl @LDIRVM3         * do the triple copy
-    limi 2              * ints on
-    b *r8               * back to caller
+    limi 0              ; ints off
+    bl @LDIRVM3         ; do the triple copy
+    limi 2              ; ints on
+    b *r8               ; back to caller
 
-.1
-    limi 0              * ints off
-    bl @LDIRVM          * do the single copy
-    limi 2              * ints on
-    b *r8               * back to caller
+!1
+    limi 0              ; ints off
+    bl @LDIRVM          ; do the single copy
+    limi 2              ; ints on
+    b *r8               ; back to caller
 
-* Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3
-* Original: pointer = char number, temp = CPU address, a = number chars
-* Note: always does the triple copy. Color table at >2000
+; Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3
+; Original: pointer = char number, temp = CPU address, a = number chars
+; Note: always does the triple copy. Color table at >2000
 define_color
-    mov r11,r8          * save return
-    mov r1,r0           * move input to scratch
-    sla r0,3            * char number times 8
-    ai r0,>2000         * add base address
-    sla r3,3            * count times 8
-    limi 0              * ints off
-    bl @LDIRVM3         * do the triple copy
-    limi 2              * ints on
-    b *r8               * back to caller
+    mov r11,r8          ; save return
+    mov r1,r0           ; move input to scratch
+    sla r0,3            ; char number times 8
+    ai r0,>2000         ; add base address
+    sla r3,3            ; count times 8
+    limi 0              ; ints off
+    bl @LDIRVM3         ; do the triple copy
+    limi 2              ; ints on
+    b *r8               ; back to caller
 
-* Update sprite entry - copy sprite_data (4 bytes) to sprite table mirror at sprites
-* R1 = sprite number, R2=bytes 1 and 2, r3=bytes 3 and 4
-* Original: A = sprite number
+; Update sprite entry - copy sprite_data (4 bytes) to sprite table mirror at sprites
+; R1 = sprite number, R2=bytes 1 and 2, r3=bytes 3 and 4
+; Original: A = sprite number
 update_sprite
-    srl r1,8            * make word
-    sla r1,2            * x4 for address
-    ai r1,sprites       * sprite mirror address
-    mov r2,*r1+         * move two bytes (must be aligned)
-    mov r3,*r1          * move second two bytes
+    srl r1,8            ; make word
+    sla r1,2            ; x4 for address
+    ai r1,sprites       ; sprite mirror address
+    mov r2,*r1+         ; move two bytes (must be aligned)
+    mov r3,*r1          ; move second two bytes
     b *r11
 
-* ABS R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
-*_abs16
+; ABS R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
+;_abs16
 
-* NEG R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
-*_neg16
+; NEG R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
+;_neg16
 
-* SGN R0 - return 1, -1 or 0 as 16 bit
+; SGN R0 - return 1, -1 or 0 as 16 bit
 _sgn16
-    mov r0,r0       * check for zero
-    jeq .1          * if yes, we're done
-    andi r0,>8000   * check for negative
-    jeq .2          * was not
-    seto r0         * was negative, make it -1
-    b *r11          * back to caller
-.2
-    inc r0          * we know it was zero, and we want 1
-.1
-    b *r11          * back to caller
+    mov r0,r0       ; check for zero
+    jeq !1          ; if yes, we're done
+    andi r0,>8000   ; check for negative
+    jeq !2          ; was not
+    seto r0         ; was negative, make it -1
+    b *r11          ; back to caller
+!2
+    inc r0          ; we know it was zero, and we want 1
+!1
+    b *r11          ; back to caller
 
-* Read 16 bits from read_pointer into r0 and increment, see if we can inline it - TODO (YYAA)
-*_read16
+; Read 16 bits from read_pointer into r0 and increment, see if we can inline it - TODO (YYAA)
+;_read16
 
-* read 8 bits from read_pointer into r0 and increment, see if we can inline it
-*_read8
+; read 8 bits from read_pointer into r0 and increment, see if we can inline it
+;_read8
 
-* Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA)
-*_peek8
+; Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA)
+;_peek8
 
-* Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA -> YYAA)
-*_peek16
+; Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA -> YYAA)
+;_peek16
 
-* 16 bit multiply = temp2*temp - see if we can inline it - TODO (stack*stack -> YYAA)  
-*_mul16
+; 16 bit multiply = temp2*temp - see if we can inline it - TODO (stack*stack -> YYAA)  
+;_mul16
 
-* 16-bit signed modulo. R1 % R2 = R0 - 9900 doesn't do signed divide
-* original was stack%stack=YYAA
-* Remainder is negative if the dividend was negative
+; 16-bit signed modulo. R1 % R2 = R0 - 9900 doesn't do signed divide
+; original was stack%stack=YYAA
+; Remainder is negative if the dividend was negative
 _mod16s
-    clr r0          * make dividend 32-bit
-    mov r2,r2       * check divisor for zero
-    jne .1          * continue if not
+    clr r0          ; make dividend 32-bit
+    mov r2,r2       ; check divisor for zero
+    jne !1          ; continue if not
 
-    clr r2          * result is zero
-    b *r11          * return
+    clr r2          ; result is zero
+    b *r11          ; return
 
-.1
-    abs r2          * make sure divisor is positive
-    mov r1,r1       * check sign of dividend
-    jgt .2          * go do the faster positive version
+!1
+    abs r2          ; make sure divisor is positive
+    mov r1,r1       ; check sign of dividend
+    jgt !2          ; go do the faster positive version
 
-    abs r1          * was negative, make it positive
-    div r2,r0       * do the division => r2=quotient, r3=remainder
-    neg r1          * make remainder negative
-    mov r1,r0       * into r0
+    abs r1          ; was negative, make it positive
+    div r2,r0       ; do the division => r2=quotient, r3=remainder
+    neg r1          ; make remainder negative
+    mov r1,r0       ; into r0
     b *r11
 
-.2
-    div r2,r0       * do the division => r2=quotient, r3=remainder
-    mov r1,r0       * into r0
+!2
+    div r2,r0       ; do the division => r2=quotient, r3=remainder
+    mov r1,r0       ; into r0
     b *r11
 
-* 16-bit signed divide. R1 / R2 = R0 - 9900 doesn't do signed divide
-* original was stack/stack=YYAA
-* Remainder is negative if the signs differ
+; 16-bit signed divide. R1 / R2 = R0 - 9900 doesn't do signed divide
+; original was stack/stack=YYAA
+; Remainder is negative if the signs differ
 _div16s
-    mov r2,r2       * check divisor for zero
-    jne .1          * continue if not
+    mov r2,r2       ; check divisor for zero
+    jne !1          ; continue if not
 
-    clr r2          * result is zero (maybe should be max_int?)
-    b *r11          * return
+    clr r2          ; result is zero (maybe should be max_int?)
+    b *r11          ; return
 
-.1
-    mov r2,r4       * make working copies
+!1
+    mov r2,r4       ; make working copies
     mov r1,r5
-    andi r4,>8000   * mask out sign bit
+    andi r4,>8000   ; mask out sign bit
     andi r5,>8000
     abs r2
-    abs r1          * might as well make them positive now that we have copies
-    clr r0          * make dividend 32-bit
-    div r2,r0       * do the divide => r0=quotient, r1=remainder
-    c r4,r5         * compare the original sign bits
-    jeq .2          * skip ahead to positive version
+    abs r1          ; might as well make them positive now that we have copies
+    clr r0          ; make dividend 32-bit
+    div r2,r0       ; do the divide => r0=quotient, r1=remainder
+    c r4,r5         ; compare the original sign bits
+    jeq !2          ; skip ahead to positive version
 
-    neg r0          * negate the result
-.2
+    neg r0          ; negate the result
+!2
     b *r11
 
-* unsigned 16-bit div - see if we can do this inline (TODO)
-* original was stack/stack=YYAA
-*_div16
+; unsigned 16-bit div - see if we can do this inline (TODO)
+; original was stack/stack=YYAA
+;_div16
 
-* unsigned 16-bit mod - see if we can do this inline (TODO)
-* original was stack%stack=YYAA
-*_mod16
+; unsigned 16-bit mod - see if we can do this inline (TODO)
+; original was stack%stack=YYAA
+;_mod16
 
-* Random number generator - return in R0
-* Original output into YYAA
-* TODO: Not 100% sure I ported this one right... probably could be simpler with 16-bit manips...
+; Random number generator - return in R0
+; Original output into YYAA
+; TODO: Not 100% sure I ported this one right... probably could be simpler with 16-bit manips...
 random
-    mov @lfsr,r0        * fetch current state
-    jne .0
-    li r0,>7811         * reset value if zero
+    mov @lfsr,r0        ; fetch current state
+    jne !0
+    li r0,>7811         ; reset value if zero
     mov r0,@lfsr
-.0
+!0
     movb @lfsr+1,r0
-    movb @mywp,@mywp+1  * trick, copy msb to lsb (so the 16-bit rotate works)
-    mov r0,r3           * we use this again
-    src r0,2            * circular rotate twice (rotates directly like z80)
-    xor @lfsr+1,r0      * because of 16 bit addressing, only the LSB is correct
-    movb @mywp+1,@mywp  * fix up - copy LSB to MSB
-    mov r0,r2           * save it (temp)
-    src r3,1            * rotate the second read once
-    xor r3,r2           * xor into the temp copy
-    movb @lfsr,r0       * get the lsb
-    sla r0,2            * just a straight shift
-    xor r2,r0           * xor the temp copy in (both bytes of r2 were valid)
-    mov @lfsr,r2        * get word for shifting
-    srl r2,1            * shift once
-    socb r0,r2          * merge in the msb we just generated
-    mov r2,@lfsr        * write it back
-    mov r2,r0           * for return
+    movb @mywp,@mywp+1  ; trick, copy msb to lsb (so the 16-bit rotate works)
+    mov r0,r3           ; we use this again
+    src r0,2            ; circular rotate twice (rotates directly like z80)
+    xor @lfsr+1,r0      ; because of 16 bit addressing, only the LSB is correct
+    movb @mywp+1,@mywp  ; fix up - copy LSB to MSB
+    mov r0,r2           ; save it (temp)
+    src r3,1            ; rotate the second read once
+    xor r3,r2           ; xor into the temp copy
+    movb @lfsr,r0       ; get the lsb
+    sla r0,2            ; just a straight shift
+    xor r2,r0           ; xor the temp copy in (both bytes of r2 were valid)
+    mov @lfsr,r2        ; get word for shifting
+    srl r2,1            ; shift once
+    socb r0,r2          ; merge in the msb we just generated
+    mov r2,@lfsr        ; write it back
+    mov r2,r0           ; for return
     b *r11
 
 
-* Set SN Frequency: R0=freqency code, R2=channel command (MSB)
-* Original: A=least significant byte  X=channel command  Y=most significant byte
+; Set SN Frequency: R0=freqency code, R2=channel command (MSB)
+; Original: A=least significant byte  X=channel command  Y=most significant byte
 sn76489_freq
     mov r0,r3
     andi r3,>000f
     swpb r3
     socb r3,r2
-    movb r2,@SOUND  * cmd and least significant nibble
+    movb r2,@SOUND  ; cmd and least significant nibble
     srl r0,4
     andi r0,>003f
     swpb r0
-    movb r0,@SOUND  * most significant byte
+    movb r0,@SOUND  ; most significant byte
     b *r11
 
-* Set SN volume: R0=volume (MSB, inverse of attenuation), R2=channel command (MSB)
-* Original: A=volume (inverse of attenuation), X=channel command
+; Set SN volume: R0=volume (MSB, inverse of attenuation), R2=channel command (MSB)
+; Original: A=volume (inverse of attenuation), X=channel command
 sn76489_vol
     inv r0
     andi r0,>0f00
@@ -616,56 +614,56 @@ sn76489_vol
     movb r0,@SOUND
     b *r11
 
-* Set noise type: R0=Noise type (MSB)
-* original: A=noise command
+; Set noise type: R0=Noise type (MSB)
+; original: A=noise command
 sn76489_control
     andi r0,>0f00
     ori r0,>e000
     movb r0,@SOUND
     b *r11
 
-* Set up vdp generic settings - R0 should be preloaded with a register in MSB, data in LSB
-* R2 should contain the color table entry (in MSB), R3 the bitmap table (in MSB). Rest is
-* hard coded. WARNING: Disables interrupts but does not re-enable them.
+; Set up vdp generic settings - R0 should be preloaded with a register in MSB, data in LSB
+; R2 should contain the color table entry (in MSB), R3 the bitmap table (in MSB). Rest is
+; hard coded. WARNING: Disables interrupts but does not re-enable them.
 vdp_generic_mode
-    mov r11,r4      * save return
-    limi 0          * ints off
+    mov r11,r4      ; save return
+    limi 0          ; ints off
 
-    bl @WRTVDP      * caller must set up this one
-    li r0,>01a2     * VDP mode, screen off
+    bl @WRTVDP      ; caller must set up this one
+    li r0,>01a2     ; VDP mode, screen off
     bl @WRTVDP
-    li r0,>0206     * >1800 pattern table
+    li r0,>0206     ; >1800 pattern table
     bl @WRTVDP
-    li r0,>0003     * for color table
+    li r0,>0003     ; for color table
     socb r2,r0
     swpb r0
     bl @WRTVDP
-    li r0,>0004     * for pattern table
+    li r0,>0004     ; for pattern table
     socb r3,r0
     swpb r0
     bl @WRTVDP
-    li r0,>0536     * >1b00 for sprite attribute table
+    li r0,>0536     ; >1b00 for sprite attribute table
     bl @WRTVDP
-    li r0,>0607     * >3800 for sprite pattern table
+    li r0,>0607     ; >3800 for sprite pattern table
     bl @WRTVDP
-    li r0,>0701     * default screen color
+    li r0,>0701     ; default screen color
     bl @WRTVDP
     b *r4
 
-* set up VDP mode 0
+; set up VDP mode 0
 mode_0
-    mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     * bit we want to clear
+    mov r11,r8      ; careful - we call vdp_generic_mode and LDIRVM3
+    li r0,>0400     ; bit we want to clear
     szcb r0,@mode
 
-    li r2,>ff00	    * $2000 for color table.
-    li r3,>0300	    * $0000 for bitmaps
-    li r0,>0002     * r0 setting
-    bl @vdp_generic_mode    * interrupts are now off
+    li r2,>ff00	    ; $2000 for color table.
+    li r3,>0300	    ; $0000 for bitmaps
+    li r0,>0002     ; r0 setting
+    bl @vdp_generic_mode    ; interrupts are now off
 
-    li r0,>0100     * target in VDP memory
-    li r2,font_bitmaps  * CPU memory source
-    li r3,>0300     * number of bytes
+    li r0,>0100     ; target in VDP memory
+    li r2,font_bitmaps  ; CPU memory source
+    li r3,>0300     ; number of bytes
     bl @LDIRVM3
     
     limi 2
@@ -673,52 +671,52 @@ mode_0
 
     li r0,>2000
     li r2,>f000
-    li r3,>1800     * fill color table with white on transparent
+    li r3,>1800     ; fill color table with white on transparent
     bl @FILVRM
 
     limi 2
     bl @cls
-    mov r8,r11      * restore return address, and fall through to vdp_generic_sprites
+    mov r8,r11      ; restore return address, and fall through to vdp_generic_sprites
 
-* Initialize sprite table
+; Initialize sprite table
 vdp_generic_sprites
-    mov r11,r8      * save return address
-    li r0,>1b00     * sprite attribute table in VDP
-    li r2,>d100     * off screen, and otherwise unimportant
-    li r3,128       * number of bytes
+    mov r11,r8      ; save return address
+    li r0,>1b00     ; sprite attribute table in VDP
+    li r2,>d100     ; off screen, and otherwise unimportant
+    li r3,128       ; number of bytes
 
     limi 0
     bl @FILVRM
 
     li r0,sprites
-    li r2,>d1d1     * write 2 bytes at a time
+    li r2,>d1d1     ; write 2 bytes at a time
     li r3,128
-.1
-    mov r2,*r0+     * initialize CPU mirror
+!1
+    mov r2,*r0+     ; initialize CPU mirror
     dect r3
-    jne .1
+    jne -!1
 
-    li r0,>01e2     * screen on
+    li r0,>01e2     ; screen on
     bl @WRTVDP
 
     limi 2
     b *r8
 
-* set up VDP mode 1
+; set up VDP mode 1
 mode_1
-    mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     * bit we want to clear
+    mov r11,r8      ; careful - we call vdp_generic_mode and LDIRVM3
+    li r0,>0400     ; bit we want to clear
     szcb r0,@mode
 
-    li r2,>ff00	    * $2000 for color table.
-    li r3,>0300	    * $0000 for bitmaps
-    li r0,>0002     * r0 setting
-    bl @vdp_generic_mode    * interrupts are now off
+    li r2,>ff00	    ; $2000 for color table.
+    li r3,>0300	    ; $0000 for bitmaps
+    li r0,>0002     ; r0 setting
+    bl @vdp_generic_mode    ; interrupts are now off
 
     li r0,>0000
     li r2,>0000
     li r3,>1800
-    bl @FILVRM      * clear pattern table
+    bl @FILVRM      ; clear pattern table
 
     limi 2
 
@@ -727,13 +725,13 @@ mode_1
     li r3,>1800
 
     limi 0
-    bl @FILVRM      * init color table
-    limi r2
+    bl @FILVRM      ; init color table
+    limi 2
 
-    li r0,>5800     * >1800 with the write bit set
+    li r0,>5800     ; >1800 with the write bit set
 
-.1
-    limi 0          * write the screen image table, but pause every 32 bytes for interrupts
+!1
+    limi 0          ; write the screen image table, but pause every 32 bytes for interrupts
 
     swpb r0
     movb r0,@VDPWADR
@@ -742,37 +740,37 @@ mode_1
 
     li r2,32
     mov r0,r3
-    swpb r3         * address LSB, no need to mask it, we don't do any compares
+    swpb r3         ; address LSB, no need to mask it, we don't do any compares
 
-.2
+!2
     movb r3,@VDPWDATA
     ai r3,>0100
     dec r2
-    jne .2
+    jne -!2
 
     limi 2
     ai r0,32
     ci r0,>1b00
-    jl .1
+    jl -!1
 
-    mov r8,r11      * restore return address
+    mov r8,r11      ; restore return address
     b @vdp_generic_sprites
 
-* Set up VDP mode 2
+; Set up VDP mode 2
 mode_2
-    mov r11,r8      * careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     * bit we want to set
+    mov r11,r8      ; careful - we call vdp_generic_mode and LDIRVM3
+    li r0,>0400     ; bit we want to set
     socb r0,@mode
 
-    li r2,>8000	    * $2000 for color table.
-    li r3,>0000	    * $0000 for bitmaps
-    li r0,>0000     * r0 setting
-    bl @vdp_generic_mode    * interrupts are now off
+    li r2,>8000	    ; $2000 for color table.
+    li r3,>0000	    ; $0000 for bitmaps
+    li r0,>0000     ; r0 setting
+    bl @vdp_generic_mode    ; interrupts are now off
 
     li r0,>0100
     li r2,font_bitmaps
     li r3,>0300
-    bl @LDIRVM      * load character set
+    bl @LDIRVM      ; load character set
 
     limi 2
     limi 0
@@ -780,241 +778,217 @@ mode_2
     li r0,>2000
     li r2,>f000
     li r3,>0020
-    bl @FILVRM      * init color table
+    bl @FILVRM      ; init color table
 
     limi 2
-    bl @cls         * clear screen
-    mov r8,r11      * restore return
+    bl @cls         ; clear screen
+    mov r8,r11      ; restore return
     b @vdp_generic_sprites
 
-* this is where interrupts happen every frame
-* Unlike a normal TI application, this one runs with interrupts ON,
-* so all operations need to be sure to protect VDP address with LIMI 0,
-* as well as any operations that might need to manipulate data managed
-* by this interrupt. We enter via the normal user hook, so WP is already
-* GPLWS, interrupts are off, and the VDP is already reset and status 
-* stashed on statusmirror (>837b). Our return address to the ROM is in
-* r11, but we are NOT going to use it so that we don't need to reserve
-* r8 for whatever nonsense it does. That means we need to load intws
-* and RTWP ourselves at the end. Since the compiler may inject user
-* code, we need to save all our free registers anyway, so we should feel
-* free to use what we will. (The normal TI approach would be a separate
-* workspace, but we'd have to save the regs anyway since there are some
-* functions that assume the WP address.) We can freely use R11,R12,R13
-* for temporary data, though R11 will not carry across the user block.
+; this is where interrupts happen every frame
+; Unlike a normal TI application, this one runs with interrupts ON,
+; so all operations need to be sure to protect VDP address with LIMI 0,
+; as well as any operations that might need to manipulate data managed
+; by this interrupt. We enter via the normal user hook, so WP is on
+; GPLWS, interrupts are off, and the VDP is already reset and status 
+; stashed on statusmirror (>837b). Our return address to the ROM is in
+; r11, but we are NOT going to use it so that we don't need to reserve
+; r8 for whatever nonsense it does. That means we need to load intws
+; and RTWP ourselves at the end. We are on our own workspace so we
+; don't have to worry about the main app's workspace.
 int_handler
-* first copy the sprite table
-    li r11,>005b        * >1b00 with the write bit added, and byte flipped
-    movb r11,@VDPWADR   * SAL address
+; first copy the sprite table
+    lwpi myintwp        ; separate safe workspace
+    
+    li r11,>005b        ; >1b00 with the write bit added, and byte flipped
+    movb r11,@VDPWADR   ; SAL address
     swpb r11
-    movb r11,@VDPWADR   * going to copy the sprite table to VDP
+    movb r11,@VDPWADR   ; going to copy the sprite table to VDP
 
     movb @mode,r11
-    andi r11,>0400      * if bit >04 (inhibit flicker) is cleared, jump ahead to rotate
-    jeq .4
+    andi r11,>0400      ; if bit >04 (inhibit flicker) is cleared, jump ahead to rotate
+    jeq !4
 
-    clr r11             * else we're going to just write it straight across
+    clr r11             ; else we're going to just write it straight across
     li r12,128
     li r13,sprites
-.7
+!7
     movb *r13+,@VDPWDATA
     dec r12
-    jne .7
-    jmp .5
+    jne -!7
+    jmp !5
 
-.4
-    movb @flicker,r11   * here we write it rotated every frame, and backwards for no reason
+!4
+    movb @flicker,r11   ; here we write it rotated every frame, and backwards for no reason
     ai r11,>0400
     andi r11,>7f00
     movb r11,@flicker
-    swpb r11            * make count
-    li r12,31           * count
+    swpb r11            ; make count
+    li r12,31           ; count
 
-.6
-    ai r11,sprites        * this is still faster than separate incs
-    movb *r11+,@VDPWDATA  * copy one sprite
-    movb *r11+,@VDPWDATA  * no delay needed    
+!6
+    ai r11,sprites        ; this is still faster than separate incs
+    movb *r11+,@VDPWDATA  ; copy one sprite
+    movb *r11+,@VDPWDATA  ; no delay needed    
     movb *r11+,@VDPWDATA    
-    movb *r11,@VDPWDATA   * small optimization, since we have an add coming anyway
-    ai r11,25-sprites     * remove address and add the rest of the increment - the total increment is 28
-    andi r11,>007F        * clamp it in range (basically write the list backwards?)
+    movb *r11,@VDPWDATA   ; small optimization, since we have an add coming anyway
+    ai r11,25-sprites     ; remove address and add the rest of the increment - the total increment is 28
+    andi r11,>007F        ; clamp it in range (basically write the list backwards?)
     dec r12
-    jne .6
+    jne -!6
+!5
 
-* next read the joysticks - output needs to be 21xxLDRU - 1 and 2 are button and button2 respectively
-* We don't have a button 2. We also need to read the keyboard and fill in key1_data. key2_data we
-* will leave unused. Note key1_data expects Coleco-style 0-9,10-*,11-#,15=not pressed, but we can throw
-* everything else as ASCII. We could do a split keyboard for 2 players, but I guess we'll leave it for now.
-.5
- * joy1
-    li r12,>0024    * CRU base of select output
-    li r13,>0600    * joystick 1 column
-    ldcr r13,3      * select it
-    src 12,7        * delay
-    li r12,>0006    * CRU base of return read
-    stcr r13,8      * read 8 bits (we could get away with fewer, but be consistent)
+; next read the joysticks - output needs to be 21xxLDRU - 1 and 2 are button and button2 respectively
+; We don't have a button 2. We also need to read the keyboard and fill in key1_data. key2_data we
+; will leave unused. Note key1_data expects Coleco-style 0-9,10-*,11-#,15=not pressed, but we can throw
+; everything else as ASCII. We could do a split keyboard for 2 players, but I guess we'll leave it for now.
+; joy1
+    li r12,>0024    ; CRU base of select output
+    li r13,>0600    ; joystick 1 column
+    ldcr r13,3      ; select it
+    src r12,7       ; delay
+    li r12,>0006    ; CRU base of return read
+    stcr r13,8      ; read 8 bits (we could get away with fewer, but be consistent)
     bl @convert_joystick
     movb r12,@joy1_data
 
-* joy2
-    li r12,>0024    * CRU base of select output
-    li r13,>0700    * joystick 2 column
-    ldcr r13,3      * select it
-    src 12,7        * delay
-    li r12,>0006    * CRU base of return read
-    stcr r13,8      * read 8 bits (we could get away with fewer, but be consistent)
+; joy2
+    li r12,>0024    ; CRU base of select output
+    li r13,>0700    ; joystick 2 column
+    ldcr r13,3      ; select it
+    src r12,7       ; delay
+    li r12,>0006    ; CRU base of return read
+    stcr r13,8      ; read 8 bits (we could get away with fewer, but be consistent)
     bl @convert_joystick
     movb r12,@joy2_data
 
-* key1 - this is a very simple read with no modifiers, it just gives access to the letters and numbers
-    clr r11         * column
-.key1
-    li r12,>0024    * CRU base of select output
-    ldcr r11,3      * select column
-    src r12,7       * delay
-    li r12,>0006    * CRU base of return read
-    stcr r13,8      * get the bits
-    li r12,7        * bit search
-.key2
-    cocb @masktable(r12),r13    * bit set?
-    jeq .key3       * continue
+; key1 - this is a very simple read with no modifiers, it just gives access to the letters and numbers
+    clr r11         ; column
+!key1
+    li r12,>0024    ; CRU base of select output
+    ldcr r11,3      ; select column
+    src r12,7       ; delay
+    li r12,>0006    ; CRU base of return read
+    stcr r13,8      ; get the bits
+    li r12,7        ; bit search
+!key2
+    sla r12,1
+    czc @masktable(r12),r13    ; bit set?
+    jne !key3       ; continue
+    srl r12,1
     srl r11,5
-    a r12,r11       * calculate table offset
-    movb @keyboard_table(r11),@key1_data    * might be a dead key, but that's okay
-    
-    mov r12,r12     * if column 0, check for QUIT before we go
-    jne .key4
-    li r11,>1100    * zero pattern for FCTN-=
-    czcb r11,r13    * were both pressed?
-    jne .key4
-    clr @intwsr2    * clear user interrupt hook
-    blwp @>0000     * soft reset
+    a r12,r11       ; calculate table offset
+    movb @keyboard_table(r11),@key1_data    ; might be a dead key, but that's okay
+    jmp !key4
 
-.key3
+!key3
+    srl r12,1
     dec r12
-    jgt .key1
-    jeq .key1       * we don't have a jump if not negative
-.key4
+    jgt -!key2
+    jeq -!key2      ; we don't have a jump if not negative
+    
+    ai r11,>0100
+    ci r11,>0700
+    jne -!key1
+    
+    li r11,>0f00
+    movb r11,@key1_data     ; no key was pressed
+!key4
 
-* gone as far as I can with the 3 reserved registers, it's time to save the main regs off
-* not sure if I can do this IF, if I can I can save a lot of code when there's no user int
-* and no music player...
+; check for quit - attempts to work it into the above were not working
+; borrowed from console ROM
+    li r12,>0024
+    ldcr r12,3
+    src r12,7
+    li r12,>0006
+    stcr r11,8
+    li r12,>1100
+    czc r12,r11
+    jne .noquit
+    clr @intwsr2
+    blwp @>0000
+.noquit    
 
-    if CVBASIC_MUSIC_PLAYER || .inttestlabel1 != .inttestlabel2
-* backup R0-R10 (11 regs)
-    li r12,intreg_backup
-    mov r0,*r12+
-    mov r1,*r12+
-    mov r2,*r12+
-    mov r3,*r12+
-    mov r4,*r12+
-    mov r5,*r12+
-    mov r6,*r12+
-    mov r7,*r12+
-    mov r8,*r12+
-    mov r9,*r12+
-    mov r10,*r12
-    endif
-
-    if CVBASIC_MUSIC_PLAYER
+    .ifne CVBASIC_MUSIC_PLAYER
     movb @music_mode,r0
-    jeq .10
+    jeq !10
     bl @music_hardware
-.10
-    endif
+!10
+    .endif
 
     inc @frame
     li r0,3
-    a r0,@lfsr  * Make LFSR more random
+    a r0,@lfsr  ; Make LFSR more random
 
-    if CVBASIC_MUSIC_PLAYER
+    .ifne CVBASIC_MUSIC_PLAYER
     movb @music_mode,r0
-    jeq .9
+    jeq !9
     bl @music_generate
-.9
-    endif
+!9
+    .endif
 
-* These labels test if any code was injected. If we aren't using the music player
-* and we don't inject any code, then don't bother with the register save/restore
-.inttestlabel1
-    *;CVBASIC MARK DON'T CHANGE
-.inttestlabel2
+    ;CVBASIC MARK DON'T CHANGE
 
-    if CVBASIC_MUSIC_PLAYER || .inttestlabel1 != .inttestlabel2
-* restore R0-R10 (11 regs)
-    li r12,intreg_backup
-    mov *r12+,r0
-    mov *r12+,r1
-    mov *r12+,r2
-    mov *r12+,r3
-    mov *r12+,r4
-    mov *r12+,r5
-    mov *r12+,r6
-    mov *r12+,r7
-    mov *r12+,r8
-    mov *r12+,r9
-    mov *r12+,r10
-    endif
-
-* get back the interrupt workspace and return
+; get back the interrupt workspace and return
     lwpi INTWS
     RTWP
 
-* given a joystick read in r13, return bits in r12
-* The final output is 8 bits:
-* 21xxLDRU - 1 and 2 are button and button2 respectively
-* NOTE: if called by the compiler, this won't act as expected
+; given a joystick read in r13, return bits in r12
+; The final output is 8 bits:
+; 21xxLDRU - 1 and 2 are button and button2 respectively
+; NOTE: if called by the compiler, this won't act as expected
 convert_joystick
     clr r12
-    czcb @joystick_table,r13
-    jne .j1
-    ori r12,>08
-.j1
-    czcb @joystick_table+1,r13
-    jne .j2
-    ori r12,>04
-.j2
-    czcb @joystick_table+2,r13
-    jne .j3
-    ori r12,>02
-.j3
-    czcb @joystick_table+3,r13
-    jne .j4
-    ori r12,>01
-.j4
-    czcb @joystick_table+4,r13
-    jne .j5
-    ori r12,>40
-.j5
+    czc @joystick_table,r13
+    jne !j1
+    ori r12,>0800
+!j1
+    czc @joystick_table+2,r13
+    jne !j2
+    ori r12,>0400
+!j2
+    czc @joystick_table+4,r13
+    jne !j3
+    ori r12,>0200
+!j3
+    czc @joystick_table+6,r13
+    jne !j4
+    ori r12,>0100
+!j4
+    czc @joystick_table+8,r13
+    jne !j5
+    ori r12,>4000
+!j5
     b *r11
 
 joystick_table
-    byte >02,>08,>04,>10,>01    * LDRU1
+    data >0200,>0800,>0400,>1000,>0100    ; LDRU1
 
-* By columns, then rows. 8 Rows per column. No shift states - converted to the Coleco returns
-* for numbers, , and . become * and #
+; By columns, then rows. 8 Rows per column. No shift states - converted to the Coleco returns
+; for numbers, , and . become ; and #
 keyboard_table
-    byte 61,32,13,15,15,15,15,15    * '=',' ',enter,n/a,fctn,shift,ctrl,n/a
-    byte 11,76,79,9,2,83,87,88      * '.','L','O','9','2','S','W','X'
-    byte 10,75,73,8,3,68,69,67      * ',','K','I','8','3','D','E','C'
-    byte 77,74,85,7,4,70,82,86      * 'M','J','U','7','4','F','R','V'
-    byte 78,72,89,6,5,71,84,66      * 'N','H','Y','6','5','G','T','B'
-    byte 47,59,80,0,1,65,81,90      * '/',';','P','0','1','A','Q','Z'
+    byte 61,32,13,15,15,15,15,15    ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
+    byte 11,76,79,9,2,83,87,88      ; '.','L','O','9','2','S','W','X'
+    byte 10,75,73,8,3,68,69,67      ; ',','K','I','8','3','D','E','C'
+    byte 77,74,85,7,4,70,82,86      ; 'M','J','U','7','4','F','R','V'
+    byte 78,72,89,6,5,71,84,66      ; 'N','H','Y','6','5','G','T','B'
+    byte 47,59,80,0,1,65,81,90      ; '/',';','P','0','1','A','Q','Z'
 
 masktable
-    byte >01,>02,>04,>08,>10,>20,>40,>80
-
-* wait for frame to increment
+    data >0100,>0200,>0400,>0800,>1000,>2000,>4000,>8000
+    data >0f00
+    
+; wait for frame to increment
 wait
     mov @frame,r0
-.1
+!1
     c r0,@frame
-    jeq .1
+    jeq -!1
     b *r11
 
-* initialize music system
+; initialize music system
 music_init
-* mute sound chip
+; mute sound chip
     li r0,>9fbf
     movb r0,@SOUND
     swpb r0
@@ -1024,89 +998,89 @@ music_init
     swpb r0
     movb r0,@SOUND
 
-    if CVBASIC_MUSIC_PLAYER == 0
-* return if we don't have the player compiled in    
+    .ifeq CVBASIC_MUSIC_PLAYER
+; return if we don't have the player compiled in    
     b *r11
-    endif
+    .endif
 
-* all the rest of the player is under this if    
-    if CVBASIC_MUSIC_PLAYER
+; all the rest of the player is under this if    
+    .ifne CVBASIC_MUSIC_PLAYER
 
-* set some... things?    
+; set some... things?    
     li r0,>ff00
     movb r0,@audio_vol4hw
     swpb r0
     movb r0,@audio_control
 
-* set up silence, and fall through into music_play
+; set up silence, and fall through into music_play
     li r0,music_silence
 
-*
-* Play music.
-* R0 = Pointer to music (original YYAA)
-*
+;
+; Play music.
+; R0 = Pointer to music (original YYAA)
+;
 music_play
-    limi 0                          * ints off
-    clr r2                          * get a zero
-    movb r2,@music_note_counter     * store in the counter
-    movb *r0+,r2                    * fetch the first byte of the music and increment
-    mov r0,@music_pointer           * store the updated address
-    movb r2,@music_timing           * store fetched byte in timing
+    limi 0                          ; ints off
+    clr r2                          ; get a zero
+    movb r2,@music_note_counter     ; store in the counter
+    movb *r0+,r2                    ; fetch the first byte of the music and increment
+    mov r0,@music_pointer           ; store the updated address
+    movb r2,@music_timing           ; store fetched byte in timing
     li r2,>0100
-    movb r2,@music_playing          * needs to be a 1 for BASIC
-    mov @music_pointer,@music_start  * remember this point
-    limi 2                          * ints back on
-    b *r11                          * back to caller
+    movb r2,@music_playing          ; needs to be a 1 for BASIC
+    mov @music_pointer,@music_start  ; remember this point
+    limi 2                          ; ints back on
+    b *r11                          ; back to caller
 
-*
-* Generates music - called from interrupt (regs are saved)
-*
+;
+; Generates music - called from interrupt (regs are saved)
+;
 music_generate
     mov r11,r6
-    clr r4                          * use r4 as a zero
+    clr r4                          ; use r4 as a zero
     movb r4,@audio_vol1
     movb r4,@audio_vol2
     movb r4,@audio_vol3
     li r0,>ff00
     movb r0,@audiovol4hw
-    movb @music_note_counter,r0     * check countdown
-    jeq .1                          * if zero, time to work
-    b @.2                           * else skip ahead
-.1
-    mov @music_pointer,r1           * keep music pointer in r1 - update it if needed
+    movb @music_note_counter,r0     ; check countdown
+    jeq !1                          ; if zero, time to work
+    b @!2                           ; else skip ahead
+!1
+    mov @music_pointer,r1           ; keep music pointer in r1 - update it if needed
     clr r0
     movb *r1,r0
-    ci r0,>fe00                     * end of music?
-    jne .3                          * nope, jump ahead
-    movb r4,@music_playing          * keep at same place
+    ci r0,>fe00                     ; end of music?
+    jne !3                          ; nope, jump ahead
+    movb r4,@music_playing          ; keep at same place
     b *r6
 
-.3	
-    ci r0,>fd00                     * repeat?
-    jne .4                          * nope, skip
-    mov @music_start,@music_pointer  * yep, copy back the loop point
-    jmp .1                          * and start again (So music that STARTS with FD will spin forever - bug)
+!3	
+    ci r0,>fd00                     ; repeat?
+    jne !4                          ; nope, skip
+    mov @music_start,@music_pointer  ; yep, copy back the loop point
+    jmp -!1                          ; and start again (So music that STARTS with FD will spin forever - bug)
 
-.4
+!4
     movb @music_timing,r0
-    andi r0,>3f00                   * restart note time
+    andi r0,>3f00                   ; restart note time
     movb r0,@music_note_counter
     clr r0
-    movb *r1+,r0                    * fetch byte and increment
-    ci r0,>3f00                     * sustain?
-    jeq .5
+    movb *r1+,r0                    ; fetch byte and increment
+    ci r0,>3f00                     ; sustain?
+    jeq !5
     mov r0,r2
     andi r2,>c000
-    movb r2,@music_instrument_1     * save instrument type
+    movb r2,@music_instrument_1     ; save instrument type
     andi r0,>3f00
     sla r0,1
-    movb r0,@music_note_1           * save note
-    movb r4,@music_counter_1        * and reset count
+    movb r0,@music_note_1           ; save note
+    movb r4,@music_counter_1        ; and reset count
 
-.5
-    movb *r1+,r0                    * fetch next byte and increment
-    ci r0,>3f00                     * sustain
-    jeq .6
+!5
+    movb *r1+,r0                    ; fetch next byte and increment
+    ci r0,>3f00                     ; sustain
+    jeq !6
     mov r0,r2
     andi r2,>c000
     movb r2,@music_instrument_2
@@ -1115,10 +1089,10 @@ music_generate
     movb r0,@>music_note_2
     movb r4,@music_counter_2
     
-.6
-    movb *r1+,r0                    * fetch next byte and increment
-    ci r0,>3f00                     * sustain
-    jeq .7
+!6
+    movb *r1+,r0                    ; fetch next byte and increment
+    ci r0,>3f00                     ; sustain
+    jeq !7
     mov r0,r2
     andi r2,>c000
     movb r2,@music_instrument_3
@@ -1127,85 +1101,85 @@ music_generate
     movb r0,@>music_note_3
     movb r4,@music_counter_3
     
-.7
-    movb *r1,r0                     * fetch drum byte - no need to increment
+!7
+    movb *r1,r0                     ; fetch drum byte - no need to increment
     movb r0,@music_drum
     movb r4,@music_counter_4
     li r0,4
-    a r0,@music_pointer             * this brings music_pointer up to date - done with r1
+    a r0,@music_pointer             ; this brings music_pointer up to date - done with r1
     
-.2
+!2
     clr r2
     movb @music_note_1,r2
-    jeq .8
+    jeq !8
     movb @music_instrument_1,r0
     movb @music_counter_1,r1
     bl @music_note2freq
     mov r0,@audio_freq1
     movb r1,@audio_vol1
 
-.8
+!8
     movb @music_note2,r2
-    jeq .9
+    jeq !9
     movb @music_instrument_2,r0
     movb @music_counter_2,r1
     bl @music_note2freq
     mov r0,@audio_freq2
     movb r1,@audio_vol2
     
-.9
+!9
     movb @music_note3,r2
-    jeq .10
+    jeq !10
     movb @music_instrument_3,r0
     movb @music_counter_3,r1
     bl @music_note2freq
     mov r0,@audio_freq3
     movb r1,@audio_vol3
     
-.10
+!10
     clr r2
     movb @music_drum,r2
-    jeq .11
-    ci r2,>0100                     * 1 - long drum
-    jne .12
+    jeq !11
+    ci r2,>0100                     ; 1 - long drum
+    jne !12
     movb @music_counter_4,r2
     ci r2,>0300
-    jhe .11
+    jhe !11
     
-.15
+!15
     li r0,>ecf5
     movb r0,@audio_noise
     swpb r0
     movb r0,@audio_vol4hw
-    jmp .11
+    jmp !11
 
-.12	
-    ci r2,>0200                     * 2 - short drum
-    jne .14
+!12	
+    ci r2,>0200                     ; 2 - short drum
+    jne !14
     movb @music_counter_4,r2
-    jne .11                         * was an explicit cmp #0 in original code... needed?
+    jne !11                         ; was an explicit cmp #0 in original code... needed?
     li r0,>edf5
     movb r0,@audio_noise
     swpb r0
     movb r0,@audio_vol4hw
-    jmp .11
+    jmp !11
 
-.14
-* 3 - Roll was commented out...
+!14
+; 3 - Roll was commented out...
     movb @music_counter_4,r2
     ci r2,>0200
-    jl .15
+    jl -!15
     sla r2,1
     sb @music_timing,r2
-    jnc .11
+    jnc !11
     ci r2,>0400
-    jl .15
+    jl -!15
 
-.11
+!11
     clr r1
     li r2,>1000
 
-    movb @music_counter_1,r1        * why aren't we incrementing the variables? We do for noise. TODO
+    movb @music_counter_1,r1        ; why aren't we incrementing the variables? We do for noise. TODO
     ai r1,>0100
     ci r1,>1800
     jne $+6
@@ -1228,9 +1202,9 @@ music_generate
     sb r1,@music_note_counter
     b *r6
 
-*
-* flute instrument
-*
+;
+; flute instrument
+;
 music_flute
     mov @music_notes_table(r2),r0
     movb @flutenote2(r1),r2
@@ -1250,19 +1224,19 @@ flutenote2
     byte 0,1,1,1,0,1,1,1
 
     *
-    * Converts note to frequency.
-    * Input
-    *   A = Instrument         (r0 - msb)
-    *   X = Instrument counter (r1 - msb)
-    *   Y = Note (1-62)        (r2 - msb)
-    * Output
-    *   YA = Frequency. (r0 - word)
-    *   X = Volume.     (r1 - msb)
+    ; Converts note to frequency.
+    ; Input
+    ;   A = Instrument         (r0 - msb)
+    ;   X = Instrument counter (r1 - msb)
+    ;   Y = Note (1-62)        (r2 - msb)
+    ; Output
+    ;   YA = Frequency. (r0 - word)
+    ;   X = Volume.     (r1 - msb)
     *
 music_note2freq
-    srl r2,8                * make int so they can be indexes
-    sla r2,1                * make word index
-    srl r1,8                * just byte index here
+    srl r2,8                ; make int so they can be indexes
+    sla r2,1                ; make word index
+    srl r1,8                ; just byte index here
     
     ci r0,>4000
     jl music_piano
@@ -1270,9 +1244,9 @@ music_note2freq
     ci r0,>8000
     jeq music_flute
     
-*
-* Bass instrument
-* 
+;
+; Bass instrument
+; 
 music_bass
     mov @music_notes_table(r2),r0
     sla r0,1
@@ -1284,9 +1258,9 @@ bassvol1
     byte 9,9,8,8,7,7,6,6
     byte 5,5,4,4,3,3,2,2
 
-*
-* Piano instrument
-* 
+;
+; Piano instrument
+; 
 music_piano
     mov @music_notes_table(r2),r0
     sla r0,1
@@ -1298,9 +1272,9 @@ pianovol1
     byte 8,7,7,6,6,5,5,4
     byte 4,4,5,5,4,4,3,3
 
-*
-* Clarinet instrument
-*
+;
+; Clarinet instrument
+;
 music_clarinet
     mov @music_notes_table(r2),r0
     movb @clarinetnote2(r1),r2
@@ -1321,10 +1295,10 @@ clarinetnote2
     byte 1,2,1,0,-1,-2,-1,0
 
     *
-    * Musical notes table.
+    ; Musical notes table.
     *
 music_notes_table
-    * Silence - 1 - Note: the TI sound chip is not mute at 0, it's actually 0x400. 1 is beyond hearing range.
+    ; Silence - 1 - Note: the TI sound chip is not mute at 0, it's actually 0x400. 1 is beyond hearing range.
     data 1
 	; Values for 3.58 mhz.
 	; 2nd octave - Index 1
@@ -1340,131 +1314,131 @@ music_notes_table
 	; 7th octave - Index 61
 	data 53,50,48
 
-* handle the hardware side of the music player
+; handle the hardware side of the music player
 music_hardware
     clr r0
     movb @music_mode,r0
-    ci r0,>0400         * play simple?
-    jl .7               * yes, jump
+    ci r0,>0400         ; play simple?
+    jl !7               ; yes, jump
     movb @audio_vol2,r0
-    jne .7
+    jne !7
     movb @audio_vol3,r0
-    jeq .7
+    jeq !7
     movb r0,@audio_vol2
     clr r0
     movb r0,@audio_vol3
     mov @audio_freq3,@audio_freq2
     
-.7
-    li r1,>9f00         * mute default
+!7
+    li r1,>9f00         ; mute default
     mov @audio_freq,r0
     ci r0,>0400
-    jhe .1
-    mov r0,r1           * write least significant plus command nibble
+    jhe !1
+    mov r0,r1           ; write least significant plus command nibble
     swpb r1
     andi r1,>0fff
     ori r1,>8000
-    movb r1,@SOUND      * command + least significant nibble
+    movb r1,@SOUND      ; command + least significant nibble
     sla r0,4
-    movb r1,@SOUND      * most significant byte
+    movb r1,@SOUND      ; most significant byte
     movb @audio_vol1,r2
     srl r2,8
-    movb @ay2sn(r2),r1  * translate from AY to SN
+    movb @ay2sn(r2),r1  ; translate from AY to SN
     ori r1,>9000
     
-.1    
-    movb r1,@SOUND      * volume
+!1    
+    movb r1,@SOUND      ; volume
 
-    li r1,>bf00         * mute default
+    li r1,>bf00         ; mute default
     mov @audio_freq2,r0
     ci r0,>0400
-    jhe .2
-    mov r0,r1           * write least significant plus command nibble
+    jhe !2
+    mov r0,r1           ; write least significant plus command nibble
     swpb r1
     andi r1,>0fff
     ori r1,>a000
-    movb r1,@SOUND      * command + least significant nibble
+    movb r1,@SOUND      ; command + least significant nibble
     sla r0,4
-    movb r1,@SOUND      * most significant byte
+    movb r1,@SOUND      ; most significant byte
     movb @audio_vol2,r2
     srl r2,8
-    movb @ay2sn(r2),r1  * translate from AY to SN
+    movb @ay2sn(r2),r1  ; translate from AY to SN
     ori r1,>b000
     
-.2    
-    movb r1,@SOUND      * volume
+!2    
+    movb r1,@SOUND      ; volume
 
     clr r0
     movb @music_mode,r0
-    ci r0,>0400         * play simple?
-    jl .6               * yes jump
+    ci r0,>0400         ; play simple?
+    jl !6               ; yes jump
     
-    li r1,>df00         * mute default
+    li r1,>df00         ; mute default
     mov @audio_freq2,r0
     ci r0,>0400
-    jhe .3
-    mov r0,r1           * write least significant plus command nibble
+    jhe !3
+    mov r0,r1           ; write least significant plus command nibble
     swpb r1
     andi r1,>0fff
     ori r1,>c000
-    movb r1,@SOUND      * command + least significant nibble
+    movb r1,@SOUND      ; command + least significant nibble
     sla r0,4
-    movb r1,@SOUND      * most significant byte
+    movb r1,@SOUND      ; most significant byte
     movb @audio_vol3,r2
     srl r2,8
-    movb @ay2sn(r2),r1  * translate from AY to SN
+    movb @ay2sn(r2),r1  ; translate from AY to SN
     ori r1,>d000
     
-.3
-    movb r1,@SOUND      * volume
+!3
+    movb r1,@SOUND      ; volume
 
-.6
+!6
     clr r0
     movb @music_mode,r0
-    srl r0,1            * no drums?
-    jnc .8
+    srl r0,1            ; no drums?
+    jnc !8
     
     movb @audio_vol4hw,r0
     ci r0,>ff00
-    jeq .4
+    jeq !4
     
     movb @audio_noise,r1
-    cb r1,@audio_control    * don't retrigger noise if same
-    jeq .4
+    cb r1,@audio_control    ; don't retrigger noise if same
+    jeq !4
     movb r1,@audio_control
-    movb r1,@SOUND      * noise type
+    movb r1,@SOUND      ; noise type
     
-.4
-    movb r0,@SOUND      * noise volume
+!4
+    movb r0,@SOUND      ; noise volume
 
-.8
+!8
     b *r11
 
-*
-* Converts AY-3-8910 volume to SN76489
-*
+;
+; Converts AY-3-8910 volume to SN76489
+;
 ay2sn
     byte >0f,>0f,>0f,>0e,>0e,>0e,>0d,>0b,>0a,>08,>07,>05,>04,>03,>01,>00
 
-* default silent tune to play when idle
+; default silent tune to play when idle
 music_silence
     byte 8
     byte 0,0,0,0
     byte -2
 
-* endif for CVBASIC_MUSIC_PLAYER
-    endif       
+; endif for CVBASIC_MUSIC_PLAYER
+    .endif       
 
 
-    if CVBASIC_COMPRESSION
-* TODO: Not implemented    
-**** not sure how badly I want to tackle this - seems to be
-**** no reference code besides the Z80 and 6502. Wonder which
-**** one would be easier to port? Probably Z80? 
+    .ifne CVBASIC_COMPRESSION
+; TODO: Not implemented    
+;**; not sure how badly I want to tackle this - seems to be
+;**; no reference code besides the Z80 and 6502. Wonder which
+;**; one would be easier to port? Probably Z80? 
 
 ERROR COMPRESSION NOT IMPLEMENTED
 
-* TODO: must use same calling syntax as define_char
+; TODO: must use same calling syntax as define_char
 define_char_unpack
     andi r3,>00ff
     sla r3,4
@@ -1473,14 +1447,14 @@ define_char_unpack
     jeq unpack3
     jmp unpack
 
-* TODO: must use same calling syntax as define_color
+; TODO: must use same calling syntax as define_color
 define_color_unpack
     li r0,>0400
     movb r0,r3
     sla r3,3
 
 unpack3
-    mov r11,r6      * save return address
+    mov r11,r6      ; save return address
     bl @unpack
     ai r3,8
     bl @unpack
@@ -1489,21 +1463,21 @@ unpack3
     ai r3,8
     b *r6
 
-*
-* Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
-* Ported from 6502 port
-* (r3) pointer = Pointer to target VRAM
-* (r4) temp = Pointer to source data 
-* (r5) temp2
-* (r6) result
-* pletter_off
-*
+;
+; Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
+; Ported from 6502 port
+; (r3) pointer = Pointer to target VRAM
+; (r4) temp = Pointer to source data 
+; (r5) temp2
+; (r6) result
+; pletter_off
+;
 unpack
-* Initialization
+; Initialization
     clr r5
     movb @r4+,r0
     
-**** 
+;**; 
     ldy #0
     sty temp2
     lda (temp),y
@@ -1529,7 +1503,7 @@ unpack
     tax
     iny
     lda (temp2),y
-    stx temp2	* IX (temp2)
+    stx temp2	; IX (temp2)
     sta temp2+1
     lda pletter_bit
 .literal
@@ -1555,7 +1529,7 @@ unpack
     jsr .getbit
     bcc .literal
 
-    * Compressed data
+    ; Compressed data
     ldx #1
     stx result
     dex
@@ -1694,170 +1668,170 @@ unpack
     dw .mode4
     dw .mode5
     dw .mode6
-    endif
+    .endif
 
-* Required for Creativision because it doesn't provide an ASCII charset.
-* Kept for TI to reduce dependence on the console and because it looks
-* better than the caps.
-*
-* My personal font for TMS9928.
-*
-* Patterned after the TMS9928 programming manual 6x8 letters
-* with better lowercase letters, also I made a proper
-* AT sign.
-*
+; Required for Creativision because it doesn't provide an ASCII charset.
+; Kept for TI to reduce dependence on the console and because it looks
+; better than the caps.
+;
+; My personal font for TMS9928.
+;
+; Patterned after the TMS9928 programming manual 6x8 letters
+; with better lowercase letters, also I made a proper
+; AT sign.
+;
 font_bitmaps
-    byte >00,>00,>00,>00,>00,>00,>00,>00      * >20 space
-    byte >20,>20,>20,>20,>20,>00,>20,>00      * >21 !
-    byte >50,>50,>50,>00,>00,>00,>00,>00      * >22 "
-    byte >50,>50,>f8,>50,>f8,>50,>50,>00      * >23 #
-    byte >20,>78,>a0,>70,>28,>f0,>20,>00      * >24 >
-    byte >c0,>c8,>10,>20,>40,>98,>18,>00      * >25 %
-    byte >40,>a0,>40,>a0,>a8,>90,>68,>00      * >26 &
-    byte >60,>20,>40,>00,>00,>00,>00,>00      * >27 '
-    byte >10,>20,>40,>40,>40,>20,>10,>00      * >28 (
-    byte >40,>20,>10,>10,>10,>20,>40,>00      * >29 )
-    byte >00,>a8,>70,>20,>70,>a8,>00,>00      * >2a *
-    byte >00,>20,>20,>f8,>20,>20,>00,>00      * >2b +
-    byte >00,>00,>00,>00,>00,>60,>20,>40      * >2c ,
-    byte >00,>00,>00,>fc,>00,>00,>00,>00      * >2d -
-    byte >00,>00,>00,>00,>00,>00,>60,>00      * >2e .
-    byte >00,>08,>10,>20,>40,>80,>00,>00      * >2f /
-    byte >70,>88,>98,>a8,>c8,>88,>70,>00      * >30 0
-    byte >20,>60,>20,>20,>20,>20,>f8,>00      * >31 1
-    byte >70,>88,>08,>10,>60,>80,>f8,>00      * >32 2
-    byte >70,>88,>08,>30,>08,>88,>70,>00      * >33 3
-    byte >30,>50,>90,>90,>f8,>10,>10,>00      * >34 4
-    byte >f8,>80,>f0,>08,>08,>08,>f0,>00      * >35 5
-    byte >30,>40,>80,>f0,>88,>88,>70,>00      * >36 6
-    byte >f8,>08,>10,>20,>20,>20,>20,>00      * >37 7
-    byte >70,>88,>88,>70,>88,>88,>70,>00      * >38 8
-    byte >70,>88,>88,>78,>08,>10,>60,>00      * >39 9
-    byte >00,>00,>00,>60,>00,>60,>00,>00      * >3a 
-    byte >00,>00,>00,>60,>00,>60,>20,>40      * >3b *
-    byte >10,>20,>40,>80,>40,>20,>10,>00      * >3c <
-    byte >00,>00,>f8,>00,>f8,>00,>00,>00      * >3d =
-    byte >08,>04,>02,>01,>02,>04,>08,>00      * >3e >
-    byte >70,>88,>08,>10,>20,>00,>20,>00      * >3f ?
-    byte >70,>88,>98,>a8,>98,>80,>70,>00      * >40 @
-    byte >20,>50,>88,>88,>f8,>88,>88,>00      * >41 A
-    byte >f0,>88,>88,>f0,>88,>88,>f0,>00      * >42 B
-    byte >70,>88,>80,>80,>80,>88,>70,>00      * >43 C
-    byte >f0,>88,>88,>88,>88,>88,>f0,>00      * >44 D
-    byte >f8,>80,>80,>f0,>80,>80,>f8,>00      * >45 E
-    byte >f8,>80,>80,>f0,>80,>80,>80,>00      * >46 F
-    byte >70,>88,>80,>b8,>88,>88,>70,>00      * >47 G
-    byte >88,>88,>88,>f8,>88,>88,>88,>00      * >48 H
-    byte >70,>20,>20,>20,>20,>20,>70,>00      * >49 I
-    byte >08,>08,>08,>08,>88,>88,>70,>00      * >4A J
-    byte >88,>90,>a0,>c0,>a0,>90,>88,>00      * >4B K
-    byte >80,>80,>80,>80,>80,>80,>f8,>00      * >4C L
-    byte >88,>d8,>a8,>a8,>88,>88,>88,>00      * >4D M
-    byte >88,>c8,>c8,>a8,>98,>98,>88,>00      * >4E N
-    byte >70,>88,>88,>88,>88,>88,>70,>00      * >4F O
-    byte >f0,>88,>88,>f0,>80,>80,>80,>00      * >50 P
-    byte >70,>88,>88,>88,>88,>a8,>90,>68      * >51 Q
-    byte >f0,>88,>88,>f0,>a0,>90,>88,>00      * >52 R
-    byte >70,>88,>80,>70,>08,>88,>70,>00      * >53 S
-    byte >f8,>20,>20,>20,>20,>20,>20,>00      * >54 T
-    byte >88,>88,>88,>88,>88,>88,>70,>00      * >55 U
-    byte >88,>88,>88,>88,>50,>50,>20,>00      * >56 V
-    byte >88,>88,>88,>a8,>a8,>d8,>88,>00      * >57 W
-    byte >88,>88,>50,>20,>50,>88,>88,>00      * >58 X
-    byte >88,>88,>88,>70,>20,>20,>20,>00      * >59 Y
-    byte >f8,>08,>10,>20,>40,>80,>f8,>00      * >5A Z
-    byte >78,>60,>60,>60,>60,>60,>78,>00      * >5B [
-    byte >00,>80,>40,>20,>10,>08,>00,>00      * >5C \
-    byte >F0,>30,>30,>30,>30,>30,>F0,>00      * >5D ]
-    byte >20,>50,>88,>00,>00,>00,>00,>00      * >5E 
-    byte >00,>00,>00,>00,>00,>00,>f8,>00      * >5F _
-    byte >40,>20,>10,>00,>00,>00,>00,>00      * >60 
-    byte >00,>00,>68,>98,>88,>98,>68,>00      * >61 a
-    byte >80,>80,>f0,>88,>88,>88,>f0,>00      * >62 b
-    byte >00,>00,>78,>80,>80,>80,>78,>00      * >63 c
-    byte >08,>08,>68,>98,>88,>98,>68,>00      * >64 d
-    byte >00,>00,>70,>88,>f8,>80,>70,>00      * >65 e
-    byte >30,>48,>40,>e0,>40,>40,>40,>00      * >66 f
-    byte >00,>00,>78,>88,>88,>78,>08,>70      * >67 g
-    byte >80,>80,>f0,>88,>88,>88,>88,>00      * >68 h
-    byte >20,>00,>60,>20,>20,>20,>70,>00      * >69 i
-    byte >08,>00,>18,>08,>88,>88,>70,>00      * >6a j
-    byte >80,>80,>88,>90,>e0,>90,>88,>00      * >6b k
-    byte >60,>20,>20,>20,>20,>20,>70,>00      * >6c l
-    byte >00,>00,>d0,>a8,>a8,>a8,>a8,>00      * >6d m
-    byte >00,>00,>b0,>c8,>88,>88,>88,>00      * >6e n
-    byte >00,>00,>70,>88,>88,>88,>70,>00      * >6f o
-    byte >00,>00,>f0,>88,>88,>88,>f0,>80      * >70 p
-    byte >00,>00,>78,>88,>88,>88,>78,>08      * >71 q
-    byte >00,>00,>b8,>c0,>80,>80,>80,>00      * >72 r
-    byte >00,>00,>78,>80,>70,>08,>f0,>00      * >73 s
-    byte >20,>20,>f8,>20,>20,>20,>20,>00      * >74 t
-    byte >00,>00,>88,>88,>88,>98,>68,>00      * >75 u
-    byte >00,>00,>88,>88,>88,>50,>20,>00      * >76 v
-    byte >00,>00,>88,>a8,>a8,>a8,>50,>00      * >77 w
-    byte >00,>00,>88,>50,>20,>50,>88,>00      * >78 x
-    byte >00,>00,>88,>88,>98,>68,>08,>70      * >79 y
-    byte >00,>00,>f8,>10,>20,>40,>f8,>00      * >7a z
-    byte >18,>20,>20,>40,>20,>20,>18,>00      * >7b {
-    byte >20,>20,>20,>20,>20,>20,>20,>00      * >7c |
-    byte >c0,>20,>20,>10,>20,>20,>c0,>00      * >7d } 
-    byte >00,>00,>40,>a8,>10,>00,>00,>00      * >7e
-    byte >70,>70,>20,>f8,>20,>70,>50,>00      * >7f
+    byte >00,>00,>00,>00,>00,>00,>00,>00      ; >20 space
+    byte >20,>20,>20,>20,>20,>00,>20,>00      ; >21 !
+    byte >50,>50,>50,>00,>00,>00,>00,>00      ; >22 "
+    byte >50,>50,>f8,>50,>f8,>50,>50,>00      ; >23 #
+    byte >20,>78,>a0,>70,>28,>f0,>20,>00      ; >24 >
+    byte >c0,>c8,>10,>20,>40,>98,>18,>00      ; >25 %
+    byte >40,>a0,>40,>a0,>a8,>90,>68,>00      ; >26 &
+    byte >60,>20,>40,>00,>00,>00,>00,>00      ; >27 '
+    byte >10,>20,>40,>40,>40,>20,>10,>00      ; >28 (
+    byte >40,>20,>10,>10,>10,>20,>40,>00      ; >29 )
+    byte >00,>a8,>70,>20,>70,>a8,>00,>00      ; >2a *
+    byte >00,>20,>20,>f8,>20,>20,>00,>00      ; >2b +
+    byte >00,>00,>00,>00,>00,>60,>20,>40      ; >2c ,
+    byte >00,>00,>00,>fc,>00,>00,>00,>00      ; >2d -
+    byte >00,>00,>00,>00,>00,>00,>60,>00      ; >2e .
+    byte >00,>08,>10,>20,>40,>80,>00,>00      ; >2f /
+    byte >70,>88,>98,>a8,>c8,>88,>70,>00      ; >30 0
+    byte >20,>60,>20,>20,>20,>20,>f8,>00      ; >31 1
+    byte >70,>88,>08,>10,>60,>80,>f8,>00      ; >32 2
+    byte >70,>88,>08,>30,>08,>88,>70,>00      ; >33 3
+    byte >30,>50,>90,>90,>f8,>10,>10,>00      ; >34 4
+    byte >f8,>80,>f0,>08,>08,>08,>f0,>00      ; >35 5
+    byte >30,>40,>80,>f0,>88,>88,>70,>00      ; >36 6
+    byte >f8,>08,>10,>20,>20,>20,>20,>00      ; >37 7
+    byte >70,>88,>88,>70,>88,>88,>70,>00      ; >38 8
+    byte >70,>88,>88,>78,>08,>10,>60,>00      ; >39 9
+    byte >00,>00,>00,>60,>00,>60,>00,>00      ; >3a 
+    byte >00,>00,>00,>60,>00,>60,>20,>40      ; >3b *
+    byte >10,>20,>40,>80,>40,>20,>10,>00      ; >3c <
+    byte >00,>00,>f8,>00,>f8,>00,>00,>00      ; >3d =
+    byte >08,>04,>02,>01,>02,>04,>08,>00      ; >3e >
+    byte >70,>88,>08,>10,>20,>00,>20,>00      ; >3f ?
+    byte >70,>88,>98,>a8,>98,>80,>70,>00      ; >40 @
+    byte >20,>50,>88,>88,>f8,>88,>88,>00      ; >41 A
+    byte >f0,>88,>88,>f0,>88,>88,>f0,>00      ; >42 B
+    byte >70,>88,>80,>80,>80,>88,>70,>00      ; >43 C
+    byte >f0,>88,>88,>88,>88,>88,>f0,>00      ; >44 D
+    byte >f8,>80,>80,>f0,>80,>80,>f8,>00      ; >45 E
+    byte >f8,>80,>80,>f0,>80,>80,>80,>00      ; >46 F
+    byte >70,>88,>80,>b8,>88,>88,>70,>00      ; >47 G
+    byte >88,>88,>88,>f8,>88,>88,>88,>00      ; >48 H
+    byte >70,>20,>20,>20,>20,>20,>70,>00      ; >49 I
+    byte >08,>08,>08,>08,>88,>88,>70,>00      ; >4A J
+    byte >88,>90,>a0,>c0,>a0,>90,>88,>00      ; >4B K
+    byte >80,>80,>80,>80,>80,>80,>f8,>00      ; >4C L
+    byte >88,>d8,>a8,>a8,>88,>88,>88,>00      ; >4D M
+    byte >88,>c8,>c8,>a8,>98,>98,>88,>00      ; >4E N
+    byte >70,>88,>88,>88,>88,>88,>70,>00      ; >4F O
+    byte >f0,>88,>88,>f0,>80,>80,>80,>00      ; >50 P
+    byte >70,>88,>88,>88,>88,>a8,>90,>68      ; >51 Q
+    byte >f0,>88,>88,>f0,>a0,>90,>88,>00      ; >52 R
+    byte >70,>88,>80,>70,>08,>88,>70,>00      ; >53 S
+    byte >f8,>20,>20,>20,>20,>20,>20,>00      ; >54 T
+    byte >88,>88,>88,>88,>88,>88,>70,>00      ; >55 U
+    byte >88,>88,>88,>88,>50,>50,>20,>00      ; >56 V
+    byte >88,>88,>88,>a8,>a8,>d8,>88,>00      ; >57 W
+    byte >88,>88,>50,>20,>50,>88,>88,>00      ; >58 X
+    byte >88,>88,>88,>70,>20,>20,>20,>00      ; >59 Y
+    byte >f8,>08,>10,>20,>40,>80,>f8,>00      ; >5A Z
+    byte >78,>60,>60,>60,>60,>60,>78,>00      ; >5B [
+    byte >00,>80,>40,>20,>10,>08,>00,>00      ; >5C \
+    byte >F0,>30,>30,>30,>30,>30,>F0,>00      ; >5D ]
+    byte >20,>50,>88,>00,>00,>00,>00,>00      ; >5E 
+    byte >00,>00,>00,>00,>00,>00,>f8,>00      ; >5F _
+    byte >40,>20,>10,>00,>00,>00,>00,>00      ; >60 
+    byte >00,>00,>68,>98,>88,>98,>68,>00      ; >61 a
+    byte >80,>80,>f0,>88,>88,>88,>f0,>00      ; >62 b
+    byte >00,>00,>78,>80,>80,>80,>78,>00      ; >63 c
+    byte >08,>08,>68,>98,>88,>98,>68,>00      ; >64 d
+    byte >00,>00,>70,>88,>f8,>80,>70,>00      ; >65 e
+    byte >30,>48,>40,>e0,>40,>40,>40,>00      ; >66 f
+    byte >00,>00,>78,>88,>88,>78,>08,>70      ; >67 g
+    byte >80,>80,>f0,>88,>88,>88,>88,>00      ; >68 h
+    byte >20,>00,>60,>20,>20,>20,>70,>00      ; >69 i
+    byte >08,>00,>18,>08,>88,>88,>70,>00      ; >6a j
+    byte >80,>80,>88,>90,>e0,>90,>88,>00      ; >6b k
+    byte >60,>20,>20,>20,>20,>20,>70,>00      ; >6c l
+    byte >00,>00,>d0,>a8,>a8,>a8,>a8,>00      ; >6d m
+    byte >00,>00,>b0,>c8,>88,>88,>88,>00      ; >6e n
+    byte >00,>00,>70,>88,>88,>88,>70,>00      ; >6f o
+    byte >00,>00,>f0,>88,>88,>88,>f0,>80      ; >70 p
+    byte >00,>00,>78,>88,>88,>88,>78,>08      ; >71 q
+    byte >00,>00,>b8,>c0,>80,>80,>80,>00      ; >72 r
+    byte >00,>00,>78,>80,>70,>08,>f0,>00      ; >73 s
+    byte >20,>20,>f8,>20,>20,>20,>20,>00      ; >74 t
+    byte >00,>00,>88,>88,>88,>98,>68,>00      ; >75 u
+    byte >00,>00,>88,>88,>88,>50,>20,>00      ; >76 v
+    byte >00,>00,>88,>a8,>a8,>a8,>50,>00      ; >77 w
+    byte >00,>00,>88,>50,>20,>50,>88,>00      ; >78 x
+    byte >00,>00,>88,>88,>98,>68,>08,>70      ; >79 y
+    byte >00,>00,>f8,>10,>20,>40,>f8,>00      ; >7a z
+    byte >18,>20,>20,>40,>20,>20,>18,>00      ; >7b {
+    byte >20,>20,>20,>20,>20,>20,>20,>00      ; >7c |
+    byte >c0,>20,>20,>10,>20,>20,>c0,>00      ; >7d } 
+    byte >00,>00,>40,>a8,>10,>00,>00,>00      ; >7e
+    byte >70,>70,>20,>f8,>20,>70,>50,>00      ; >7f
 
 
-* The stack is simulated using R10. It's not used in
-* these functions but the compiled code will need it.
-* To push: dect r10, mov r0,*r10
-* To pop:  mov *r10+,r0
-* However, for JSR a function is helpful - call this like:
-* bl @jsr
-* data <function_address>
+; The stack is simulated using R10. It's not used in
+; these functions but the compiled code will need it.
+; To push: dect r10, mov r0,*r10
+; To pop:  mov *r10+,r0
+; However, for JSR a function is helpful - call this like:
+; bl @jsr
+; data <function_address>
 jsr
-    mov *r11+,r14       * get the jump address
-    dect r10            * make room on stack
-    mov r11,*r10        * save return address
-    bl *r14             * new subroutine call, we come back here
-    mov *r10+,r11       * get real return off stack
-    b *r11              * back to caller
+    mov *r11+,r14       ; get the jump address
+    dect r10            ; make room on stack
+    mov r11,*r10        ; save return address
+    bl *r14             ; new subroutine call, we come back here
+    mov *r10+,r11       ; get real return off stack
+    b *r11              ; back to caller
 
-* entry code - we should enter with ints off anyway
+; entry code - we should enter with ints off anyway
 START
     limi 0
-    lwpi mywp           * get our private workspace
-    li R10,>4000        * pseudo stack pointer
-    movb @>8802,@statusmirror  * clear any pending VDP interrupt and initialize statusmirror if needed
+    lwpi mywp           ; get our private workspace
+    li R10,>4000        ; pseudo stack pointer
+    movb @>8802,@statusmirror  ; clear any pending VDP interrupt and initialize statusmirror if needed
     
-    li r0,>0182         * select 16k, magnified, blank, no ints
-    bl @wrtvdp          * other ports write this twice... maybe to be 100% sure no NMI happens? We don't have that problem.    
+    li r0,>0182         ; select 16k, magnified, blank, no ints
+    bl @wrtvdp          ; other ports write this twice... maybe to be 100% sure no NMI happens? We don't have that problem.    
 
-    li r0,firstsp       * clear variables in scratchpad
+    li r0,firstsp       ; clear variables in scratchpad
 stlp1
     clr *r0+
     ci r0,lastsp
     jne stlp1
     
-    lp r0,>2000         * clear lower 8k RAM
+    li r0,>2000         ; clear lower 8k RAM
 stlp2
     clr *r0+
     ci r0,>4000
     jne stlp2
 
     li r0,>0f0f
-    mov r0,@key1_data   * gets both - no key is >0f return
+    mov r0,@key1_data   ; gets both - no key is >0f return
     
     bl @music_init
     bl @mode_0
 
     li r0,int_handler
-    mov r0,@intwsr2     * set interrupt function
+    mov r0,@intwsr2     ; set interrupt function
     li r0,>8000
-    mov r0,@intwsr1     * disable most console ROM interrupt handling
+    mov r0,@intwsr1     ; disable most console ROM interrupt handling
     li r1,1
-    mov r1,@intwsr11    * make sure screen timeout is odd so it never triggers
+    mov r1,@intwsr11    ; make sure screen timeout is odd so it never triggers
     li r1,>0108
-    mov r1,@gplwsr14    * GPL status flags, should already be this, but be sure
-    movb r1,@ntsc       * init ntsc flag to true - we actually do not have a good way to detect
-    li r1,>8c00
-    mov r1,@gplwsr15    * Address of VDP for GPL - should already be this, but be sure
+    mov r1,@gplwsr14    ; GPL status flags, should already be this, but be sure
+    movb r1,@ntsc       ; init ntsc flag to true - we actually do not have a good way to detect
+    li r1,>8c02
+    mov r1,@gplwsr15    ; Address of VDP for GPL - should already be this, but be sure
     
-*** CVBasic code starts here
+;;; CVBasic code starts here

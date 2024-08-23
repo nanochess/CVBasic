@@ -19,15 +19,99 @@
 // Note the Z80 version of this file does a lot of peephole and other optimizations,
 // tracks register settings, and so on. This version doesn't right now. TODO.
 
-static char cpu9900_line[MAX_LINE_SIZE];
+static char cpu9900_line[MAX_LINE_SIZE] = "";
+static char cpu9900_lastline[MAX_LINE_SIZE] = "";
 
 static void cpu9900_emit_line(void);
+static int getargument(char *src, char *dest, int start);
+
+// parse a string to extract one assembly argument
+int getargument(char *src, char *dest, int start) {
+    static int idx = 0;
+    char *p = src;
+    
+    src += start;
+    
+    if (strlen(src) > 127) {
+        // make sure it never matches
+        sprintf(dest,"nomatch%d", ++idx);
+        return 0;
+    }
+    
+    while (*src == ' ') ++src;
+    
+    while ((*src > ' ')&&(*src <= 'z')&&(*src != ',')) {
+        *(dest++) = *(src++);
+    }
+    *dest = '\0';
+    
+    return src-p+1;
+}
 
 // Final emit phase. Some peephole optimizations can be placed here
 // The Z80 code maintains three lines in order to be able to do this.
 void cpu9900_emit_line(void)
 {
-    fprintf(output, "%s", cpu9900_line);
+    // xdt99 doesn't like '#' in labels, it has meaning, so map it to _
+    char buf[MAX_LINE_SIZE];
+    strncpy(buf, cpu9900_line, MAX_LINE_SIZE);
+    buf[MAX_LINE_SIZE-1]='\0';
+    char *p = buf;
+    while (p != NULL) {
+        p = strchr(p, '#');
+        if (NULL != p) {
+            *p = '_';
+        }
+    }
+    
+    // there's some simple things we can check for (is this too strict? Can improve later)
+    // it's a little too focused on the exact formatting, we should add some parsing
+    // to make it more resiliant.
+    
+    // Replace immediate operations for 0, 1 or 2
+    if (0 == strcmp(buf, "\tli r0,0\n")) {
+        strcpy(buf, "\tclr r0\n");
+    } else if (0 == strcmp(buf,"\tai r0,0\n")) {
+        strcpy(buf, "\t;ai r0,0\n");
+    } else if (0 == strcmp(buf,"\tai r0,1\n")) {
+        strcpy(buf, "\tinc r0\n");
+    } else if (0 == strcmp(buf,"\tai r0,2\n")) {
+        strcpy(buf, "\tinct r0\n");
+    } else if (0 == strcmp(buf,"\tai r0,-1\n")) {
+        strcpy(buf, "\tdec r0\n");
+    } else if (0 == strcmp(buf,"\tai r0,-2\n")) {
+        strcpy(buf, "\tdect r0\n");
+    }
+    
+    // remove second half of mov a,b / mov b,a, which happens a lot
+    // all bets are off if there is a label, but try to catch comments
+    if ((buf[0] != ';')&&(buf[1] != ';')) {
+        // are they both movs?
+        if ((0 == strncmp(buf, "\tmov", 4)) && (0 == strncmp(cpu9900_lastline, "\tmov", 4))) {
+            // yes, are they both the same size?
+            if (buf[4] == cpu9900_lastline[4]) {
+                // yes. see if they are using the same source and dest (in either order)
+                char s1[128],s2[128],s3[128],s4[128];
+                int p = getargument(buf, s1, 5);
+                getargument(buf, s2, p);
+                p = getargument(cpu9900_lastline, s3, 5);
+                getargument(cpu9900_lastline, s4, p);
+                //printf("%s,%s -> %s,%s\n", s1, s2, s3, s4);
+                if (
+                    ((0 == strcmp(s1,s3)) || (0 == strcmp(s1, s4))) &&
+                    ((0 == strcmp(s2,s3)) || (0 == strcmp(s2, s4)))
+                   ) {
+                       // drop this one - won't have formatting but that's okay
+                       int n = strlen(cpu9900_line)-1;
+                       cpu9900_line[n] = '\0';   // remove trailing \n
+                       sprintf(buf, "\t;%s\n", &cpu9900_line[2]);
+                }
+            }
+        }
+        strcpy(cpu9900_lastline, buf);
+    }
+    
+    fprintf(output, "%s", buf);
 }
 
 // Nothing here. The Z80 code uses this to emit the three line buffers,
@@ -321,13 +405,13 @@ void cpu9900_node_generate(struct node *node, int decision)
             }
             if (node->type == N_LESSEQUAL8 || node->type == N_GREATER8) {
                 if (node->left->type == N_NUM8) {
-                    cpu9900_noop("* Unclear code - N_LESSEQUAL8 || N_GREATER8 left=N_NUM8");
+                    cpu9900_noop("; Unclear code - N_LESSEQUAL8 || N_GREATER8 left=N_NUM8");
                     cpu9900_node_generate(node->right, 0);
                     sprintf(temp,"%d",(node->left->value&0xff)*256);
                     cpu9900_2op("li","r1",temp);
                     strcpy(temp, "r1");
                 } else {
-                    cpu9900_noop("* Unclear code - N_LESSEQUAL8 || N_GREATER8 left!=N_NUM8");
+                    cpu9900_noop("; Unclear code - N_LESSEQUAL8 || N_GREATER8 left!=N_NUM8");
                     // Is there a reason right needs to go first? Can't we swap them?
                     cpu9900_node_generate(node->right, 0);
                     cpu9900_2op("mov","r0","r2");
@@ -338,13 +422,12 @@ void cpu9900_node_generate(struct node *node, int decision)
                 }
             } else if (node->right->type == N_NUM8) {
                 int c;
-                cpu9900_noop("* Unclear code - node->right->type == N_NUM8");
                 c = node->right->value & 0xff;
                 cpu9900_node_generate(node->left, 0);
-                sprintf(temp, "%d", c);
+                sprintf(temp, "%d", c*256);
             } else {
-                cpu9900_noop("* Unclear code - node->right->type != N_NUM8");
-                // again, why this order?
+                cpu9900_noop("; Unclear code - node->right->type != N_NUM8 - check if reverse okay");
+                // again, why this order? TODO: can we just reverse the node_generate order?
                 cpu9900_node_generate(node->left, 0);
                 cpu9900_2op("mov","r0","r2");
                 cpu9900_node_generate(node->right, 0);
@@ -356,7 +439,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 // if temp is a number, use ORI, else use SOCB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
                     // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_noop("; TODO: check the next line is a byte value");
                     cpu9900_2op("ori","r0",temp);
                 } else {
                     cpu9900_2op("socb",temp,"r0");
@@ -383,7 +466,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 // if temp is a number, use ANDI, else use INV,SZCB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
                     // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_noop("; TODO: check the next line is a byte value");
                     cpu9900_2op("andi","r0",temp);
                 } else {
                     cpu9900_1op("inv","r0");
@@ -401,8 +484,6 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("andi","r0",">ff00");
                 // if temp is a number, use CI, else use CB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ci","r0",temp);
                 } else {
                     cpu9900_2op("cb",temp,"r0");
@@ -427,8 +508,6 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("andi","r0",">ff00");
                 // if temp is a number, use CI, else use CB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ci","r0",temp);
                 } else {
                     cpu9900_2op("cb",temp,"r0");
@@ -453,11 +532,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("andi","r0",">ff00");
                 // if temp is a number, use CI, else use CB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ci","r0",temp);
                 } else {
-                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_noop("; TODO: check the next line compare order");
                     cpu9900_2op("cb",temp,"r0");
                 }
                 if (decision) {
@@ -481,11 +558,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("andi","r0",">ff00");
                 // if temp is a number, use CI, else use CB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ci","r0",temp);
                 } else {
-                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_noop("; TODO: check the next line compare order");
                     cpu9900_2op("cb",temp,"r0");
                 }
                 if (decision) {
@@ -508,11 +583,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("andi","r0",">ff00");
                 // if temp is a number, use CI, else use CB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ci","r0",temp);
                 } else {
-                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_noop("; TODO: check the next line compare order");
                     cpu9900_2op("cb",temp,"r0");
                 }
                 if (decision) {
@@ -535,11 +608,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("andi","r0",">ff00");
                 // if temp is a number, use CI, else use CB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ci","r0",temp);
                 } else {
-                    cpu9900_noop("* TODO: check the next line compare order");
+                    cpu9900_noop("; TODO: check the next line compare order");
                     cpu9900_2op("cb",temp,"r0");
                 }
                 if (decision) {
@@ -561,8 +632,6 @@ void cpu9900_node_generate(struct node *node, int decision)
             } else if (node->type == N_PLUS8) {
                 // if temp is a number, use AI, else use AB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
-                    // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
                     cpu9900_2op("ai","r0",temp);
                 } else {
                     cpu9900_2op("ab",temp,"r0");
@@ -571,7 +640,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 // if temp is a number, use AI -x, else use SB
                 if ((temp[0]>='0')&&(temp[0]<='9')) {
                     // todo: but is it already a byte value?
-                    cpu9900_noop("* TODO: check the next line is a byte value");
+                    cpu9900_noop("; TODO: check the next line is a byte value");
                     memmove(&temp[1],&temp[0],strlen(temp)+1);
                     temp[0]='-';
                     cpu9900_2op("ai","r0",temp);
@@ -584,7 +653,7 @@ void cpu9900_node_generate(struct node *node, int decision)
         case N_ASSIGN8: /* 8-bit assignment */
             if (node->right->type == N_ADDR) {
                 cpu9900_node_generate(node->left, 0);
-                node_get_label(node->right, 0);
+                node_get_label(node->right, ADDRESS);
                 cpu9900_2op("movb", "r0", temp);
                 break;
             }
@@ -592,7 +661,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 char *p;
                 
                 cpu9900_node_generate(node->left, 0);
-                node_get_label(node->right->left, 0);
+                node_get_label(node->right->left, ADDRESS);
                 p = temp;
                 while (*p)
                     p++;
@@ -612,7 +681,7 @@ void cpu9900_node_generate(struct node *node, int decision)
         case N_ASSIGN16:    /* 16-bit assignment */
             if (node->right->type == N_ADDR) {
                 cpu9900_node_generate(node->left, 0);
-                node_get_label(node->right, 0);
+                node_get_label(node->right, ADDRESS);
                 cpu9900_2op("mov","r0",temp);
                 break;
             }
@@ -620,7 +689,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 char *p;
                 
                 cpu9900_node_generate(node->left, 0);
-                node_get_label(node->right->left, 0);
+                node_get_label(node->right->left, ADDRESS);
                 p = temp;
                 while (*p)
                     p++;
@@ -644,7 +713,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     if (node->right->type == N_NUM16) {
                         char *p;
                         
-                        node_get_label(node->left, 2);
+                        node_get_label(node->left, 0);
                         if (node->type == N_PLUS16)
                             strcat(temp, "+");
                         else
@@ -661,8 +730,8 @@ void cpu9900_node_generate(struct node *node, int decision)
             if (node->type == N_PLUS16) {
                 if (node->left->type == N_ADDR) {
                     cpu9900_node_generate(node->right, 0);
-                    node_get_label(node->left, 2);
-                    cpu9900_2op("a",temp,"r0");
+                    node_get_label(node->left, 0);
+                    cpu9900_2op("ai","r0",temp);
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
@@ -867,8 +936,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
-                cpu9900_noop("* TODO check order of compare");
-                cpu9900_2op("c","r2","r1");
+                cpu9900_2op("c","r1","r2");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -886,11 +954,10 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
-                cpu9900_noop("* TODO check order of compare");
-                cpu9900_2op("c","r2","r1");
+                cpu9900_2op("c","r1","r2");
                 if (decision) {
                     optimized = 1;
-                    sprintf(temp, "@ "INTERNAL_PREFIX "%d", decision);
+                    sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jhe", temp + 100);
                     cpu9900_1op("b", temp);
@@ -905,30 +972,32 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_PLUS16) {
+                // TODO: wonder if we can optimize add 2 and add 1 to register? (inc, inct)
                 cpu9900_2op("a","r2","r1");
                 cpu9900_2op("mov","r1","r0");
             } else if (node->type == N_MINUS16) {
-                cpu9900_noop("* TODO: check order of subtraction");
+                // TODO: wonder if we can optimize minus 2 and minus 1 to register? (dec, dect)
+                cpu9900_noop("; TODO: check order of subtraction");
                 cpu9900_2op("s","r2","r1");
                 cpu9900_2op("mov","r1","r0");
             } else if (node->type == N_MUL16) {
                 cpu9900_2op("mpy","r1","r2");   // r1 * r2 => r2_r3 (32 bit)
                 cpu9900_2op("mov","r3","r0");
             } else if (node->type == N_DIV16) {
-                cpu9900_noop("* TODO: check order of division - assume r1/r2");
+                cpu9900_noop("; TODO: check order of division - assume r1/r2");
                 cpu9900_1op("clr","r0");
                 cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
             } else if (node->type == N_MOD16) {
-                cpu9900_noop("* TODO: check order of mod - assume r1%r2");
+                cpu9900_noop("; TODO: check order of mod - assume r1%r2");
                 cpu9900_1op("clr","r0");
                 cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
                 cpu9900_2op("mov","r1","r0");   // get remainder
             } else if (node->type == N_DIV16S) {
-                cpu9900_noop("* TODO: check order of division - assume r1/r2");
+                cpu9900_noop("; TODO: check order of division - assume r1/r2");
                 cpu9900_1op("bl","@JSR");
                 cpu9900_1op("data", "_div16s");
             } else if (node->type == N_MOD16S) {
-                cpu9900_noop("* TODO: check order of mod - assume r1%r2");
+                cpu9900_noop("; TODO: check order of mod - assume r1%r2");
                 cpu9900_1op("bl","@JSR");
                 cpu9900_1op("data", "_mod16s");
             }

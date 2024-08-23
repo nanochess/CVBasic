@@ -274,6 +274,7 @@ void emit_warning(char *string)
  */
 void bank_finish(void)
 {
+    // TODO: not implemented for TI99 yet
     if (machine == SG1000) {
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $3fff-$\n");
@@ -2634,7 +2635,7 @@ void compile_statement(int check_for_else)
                 generic_call("cls");
             } else if (strcmp(name, "WAIT") == 0) {
                 get_lex();
-                if (machine == SORD || machine == CREATIVISION)
+                if (machine == SORD || machine == CREATIVISION || machine == TI994A)
                     generic_call("wait");
                 else
                     cpuz80_noop("HALT");
@@ -2695,11 +2696,19 @@ void compile_statement(int check_for_else)
                         if (lex == C_STRING) {
                             for (d = 0; d < name_size; d++) {
                                 if (c == 0) {
-                                    fprintf(output, "\tDB ");
+                                    if (target == CPU_9900) {
+                                        fprintf(output, "\tbyte ");
+                                    } else {
+                                        fprintf(output, "\tDB ");
+                                    }
                                 } else {
                                     fprintf(output, ",");
                                 }
-                                fprintf(output, "$%02x", name[d] & 0xff);
+                                if (target == CPU_9900) {
+                                    fprintf(output, ">%02x", name[d] & 0xff);
+                                } else {
+                                    fprintf(output, "$%02x", name[d] & 0xff);
+                                }
                                 if (c == 7) {
                                     fprintf(output, "\n");
                                     c = 0;
@@ -2718,11 +2727,19 @@ void compile_statement(int check_for_else)
                             node_delete(tree);
                             tree = NULL;
                             if (c == 0) {
-                                fprintf(output, "\tDB ");
+                                if (target == CPU_9900) {
+                                    fprintf(output, "\tbyte ");
+                                } else {
+                                    fprintf(output, "\tDB ");
+                                }
                             } else {
                                 fprintf(output, ",");
                             }
-                            fprintf(output, "$%02x", value & 0xff);
+                            if (target == CPU_9900) {
+                                fprintf(output, ">%02x", value & 0xff);
+                            } else {
+                                fprintf(output, "$%02x", value & 0xff);
+                            }
                             if (c == 7) {
                                 fprintf(output, "\n");
                                 c = 0;
@@ -2780,7 +2797,11 @@ void compile_statement(int check_for_else)
                                     else
                                         get_lex();
                                     if (c == 0) {
-                                        fprintf(output, "\tDW ");
+                                        if (target == CPU_9900) {
+                                            fprintf(output, "\tdata ");
+                                        } else {
+                                            fprintf(output, "\tDW ");
+                                        }
                                     } else {
                                         fprintf(output, ",");
                                     }
@@ -2817,7 +2838,11 @@ void compile_statement(int check_for_else)
                                         }
                                         get_lex();
                                         if (c == 0) {
-                                            fprintf(output, "\tDW ");
+                                            if (target == CPU_9900) {
+                                                fprintf(output, "\tdata ");
+                                            } else {
+                                                fprintf(output, "\tDW ");
+                                            }
                                         } else {
                                             fprintf(output, ",");
                                         }
@@ -2841,11 +2866,19 @@ void compile_statement(int check_for_else)
                             node_delete(tree);
                             tree = NULL;
                             if (c == 0) {
-                                fprintf(output, "\tDW ");
+                                if (target == CPU_9900) {
+                                    fprintf(output, "\tdata ");
+                                } else {
+                                    fprintf(output, "\tDW ");
+                                }
                             } else {
                                 fprintf(output, ",");
                             }
-                            fprintf(output, "$%04x", value & 0xffff);
+                            if (target == CPU_9900) {
+                                fprintf(output, ">%04x", value & 0xffff);
+                            } else {
+                                fprintf(output, "$%04x", value & 0xffff);
+                            }
                             if (c == 7) {
                                 fprintf(output, "\n");
                                 c = 0;
@@ -5116,15 +5149,23 @@ int process_variables(void)
                         address += 2;
                         bytes_used += 2;
                     }
+                    fprintf(output, "%s\n", temp);
                 } else if (target == CPU_9900) {
+                    // using the cpu9900_xxop() functions to get the character remapping
+                    if (((label->used & MAIN_TYPE) != TYPE_8) && (bytes_used&1)) {
+                        cpu9900_noop("even");
+                        ++bytes_used;
+                    }
+                    
                     strcpy(temp, LABEL_PREFIX);
                     strcat(temp, label->name);
-                    strcat(temp, "\t");
+                    strcat(temp, ":");
+                    cpu9900_label(temp);
                     if ((label->used & MAIN_TYPE) == TYPE_8) {
-                        strcat(temp, "bss 1");
+                        cpu9900_1op("bss","1");
                         bytes_used++;
                     } else {
-                        strcat(temp, "bss 2");
+                        cpu9900_1op("bss","2");
                         bytes_used += 2;
                     }
                 } else {
@@ -5138,8 +5179,8 @@ int process_variables(void)
                         strcat(temp, "rb 2");
                         bytes_used += 2;
                     }
+                    fprintf(output, "%s\n", temp);
                 }
-                fprintf(output, "%s\n", temp);
                 
                 /* Warns of variables only read or only written */
                 if ((label->used & LABEL_VAR_ACCESS) == LABEL_VAR_READ) {
@@ -5168,21 +5209,30 @@ int process_variables(void)
                     address = 0x0200;
                 sprintf(temp, ARRAY_PREFIX "%s:\tequ $%04x", label->name, address);
                 address += size;
+                fprintf(output, "%s\n", temp);
             } else if (target == CPU_9900) {
-                sprintf(temp, ARRAY_PREFIX "%s\tbss %d", label->name, size);
+                if (bytes_used&1) {
+                    cpu9900_noop("even");
+                    ++bytes_used;
+                }
+                
+                strcpy(temp, ARRAY_PREFIX);
+                strcat(temp, label->name);
+                strcat(temp, ":");
+                cpu9900_label(temp);
+
+                sprintf(temp, "%d", size);
+                cpu9900_1op("bss",temp);
+                address += size;
             } else {
                 sprintf(temp, ARRAY_PREFIX "%s:\trb %d", label->name, size);
+                fprintf(output, "%s\n", temp);
             }
-            fprintf(output, "%s\n", temp);
             bytes_used += size;
             label = label->next;
         }
     }
-    if (target == CPU_9900) {
-        fprintf(output, "ram_end\n");
-    } else {
-        fprintf(output, "ram_end:\n");
-    }
+    fprintf(output, "ram_end:\n");
     return bytes_used;
 }
 
@@ -5354,51 +5404,51 @@ int main(int argc, char *argv[])
             strcat(library_path, "/");
 #endif
     }
-    
-    fprintf(output, "\t; CVBasic compiler " VERSION "\n");
-    fprintf(output, "\t; Command: ");
-    for (c = 0; c < argc; c++) {
-        char *b;
-        
-        b = strchr(argv[c], ' ');
-        if (b != NULL)
-            fprintf(output, "\"%s\" ", argv[c]);
-        else
-            fprintf(output, "%s ", argv[c]);
-    }
-    fprintf(output, "\n");
     {
-        char comment = ';';
-        char label = ':';
+        char hex = '$';
         if (target == CPU_9900) {
-            comment = '*';
-            label = ' ';
+            // Texas Instruments is a free spirit...
+            hex = '>';
         }
-        fprintf(output, "\t%c Created%c %s\n", comment, label, asctime(date));
-        fprintf(output, "COLECO%c\tequ %d\n", label,
+    
+        fprintf(output, "\t; CVBasic compiler " VERSION "\n");
+        fprintf(output, "\t; Command: ");
+        for (c = 0; c < argc; c++) {
+            char *b;
+            
+            b = strchr(argv[c], ' ');
+            if (b != NULL)
+                fprintf(output, "\"%s\" ", argv[c]);
+            else
+                fprintf(output, "%s ", argv[c]);
+        }
+        fprintf(output, "\n");
+
+        fprintf(output, "\t; Created: %s\n", asctime(date));
+        fprintf(output, "COLECO:\tequ %d\n",
                 (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
-        fprintf(output, "SG1000%c\tequ %d\n", label, (machine == SG1000) ? 1 : 0);
-        fprintf(output, "MSX%c\tequ %d\n", label, (machine == MSX) ? 1 : 0);
-        fprintf(output, "SGM%c\tequ %d\n", label, (machine == COLECOVISION_SGM) ? 1 : 0);
-        fprintf(output, "SVI%c\tequ %d\n", label, (machine == SVI) ? 1 : 0);
-        fprintf(output, "SORD%c\tequ %d\n", label, (machine == SORD) ? 1 : 0);
-        fprintf(output, "MEMOTECH%c\tequ %d\n", label, (machine == MEMOTECH) ? 1 : 0);
-        fprintf(output, "CPM%c\tequ %d\n", label, cpm_option);
-        fprintf(output, "PENCIL%c\tequ %d\n", label, pencil);
-        fprintf(output, "TI99%c\tequ %d\n", label, (machine == TI994A) ? 1 : 0);
+        fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
+        fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
+        fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
+        fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
+        fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
+        fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
+        fprintf(output, "CPM:\tequ %d\n", cpm_option);
+        fprintf(output, "PENCIL:\tequ %d\n", pencil);
+        fprintf(output, "TI99:\tequ %d\n", (machine == TI994A) ? 1 : 0);
         fprintf(output, "\n");
-        fprintf(output, "CVBASIC_MUSIC_PLAYER%c\tequ %d\n", label, music_used);
-        fprintf(output, "CVBASIC_COMPRESSION%c\tequ %d\n", label, compression_used);
-        fprintf(output, "CVBASIC_BANK_SWITCHING%c\tequ %d\n", label, bank_switching);
+        fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
+        fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
+        fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
         fprintf(output, "\n");
-        fprintf(output, "BASE_RAM%c\tequ $%04x\t%c Base of RAM\n", label, consoles[machine].base_ram - extra_ram, comment);
+        fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].base_ram - extra_ram);
         if (machine == MEMOTECH && cpm_option != 0)
-            fprintf(output, "STACK%c\tequ $%04x\t%c Base stack pointer\n", label, 0xe000, comment);
+            fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, 0xe000);
         else
-            fprintf(output, "STACK%c\tequ $%04x\t%c Base stack pointer\n", label, consoles[machine].stack, comment);
-        fprintf(output, "VDP%c\tequ $%02x\t%c VDP port (write)\n", label, consoles[machine].vdp_port_write, comment);
-        fprintf(output, "VDPR%c\tequ $%02x\t%c VDP port (read)\n", label, consoles[machine].vdp_port_read, comment);
-        fprintf(output, "PSG%c\tequ $%02x\t%c PSG port (write)\n", label, consoles[machine].psg_port, comment);
+            fprintf(output, "STACK:\tequ %C%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
+        fprintf(output, "VDP:\tequ %c%02x\t; VDP port (write)\n", hex, consoles[machine].vdp_port_write);
+        fprintf(output, "VDPR:\tequ %c%02x\t; VDP port (read)\n", hex, consoles[machine].vdp_port_read);
+        fprintf(output, "PSG:\tequ %c%02x\t; PSG port (write)\n", hex, consoles[machine].psg_port);
     }
     fprintf(output, "\n");
     if (bank_switching) {
@@ -5427,7 +5477,6 @@ int main(int argc, char *argv[])
         p = line;
         while (*p && isspace(*p))
             p++;
-        if (*p = '*') ++p;  // allow one character for the different TI99 assembler comments
         if (memcmp(p, ";CVBASIC MARK DON'T CHANGE", 26) == 0) {  /* Location to replace */
             if (frame_drive != NULL) {
                 if (target == CPU_6502)
@@ -5443,7 +5492,7 @@ int main(int argc, char *argv[])
     }
     fclose(prologue);
     
-    if ((target == CPU_6502)||(target == CPU_9900)) {
+    if (target == CPU_6502) {
         bytes_used = process_variables();
     }
     
@@ -5475,8 +5524,9 @@ int main(int argc, char *argv[])
     }
     fclose(prologue);
     
-    if (target == CPU_Z80)
+    if ((target == CPU_Z80)||(target == CPU_9900)) {
         bytes_used = process_variables();
+    }
     fclose(output);
     if (machine == MEMOTECH) {
         fprintf(stderr, "%d RAM bytes used for variables.\n", bytes_used);

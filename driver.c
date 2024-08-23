@@ -34,7 +34,11 @@ void generic_write_8(char *name)
         cpu6502_1op("STA", name);
     }
     if (target == CPU_9900) {
-        cpu9900_2op("movb","r0",name);
+        char buf[64];
+        strcpy(buf,"@");
+        strncat(buf, name, 63);
+        buf[63]='\0';
+        cpu9900_2op("movb","r0",buf);
     }
     if (target == CPU_Z80) {
         strcpy(driver_temp, "(");
@@ -56,7 +60,11 @@ void generic_write_16(char *name)
         cpu6502_1op("STY", driver_temp);
     }
     if (target == CPU_9900) {
-        cpu9900_2op("mov","r0",name);
+        char buf[64];
+        strcpy(buf,"@");
+        strncat(buf, name, 63);
+        buf[63]='\0';
+        cpu9900_2op("mov","r0",buf);
     }
     if (target == CPU_Z80) {
         strcpy(driver_temp, "(");
@@ -133,8 +141,11 @@ void generic_return(void)
 {
     if (target == CPU_6502)
         cpu6502_noop("RTS");
-    if (target == CPU_9900)
-        cpu9900_1op("b","*r11");
+    if (target == CPU_9900) {
+        // we don't presume r11 was preserved - it probably wasn't!
+        cpu9900_2op("mov","*r10+","r0");
+        cpu9900_1op("b","*r0");
+    }
     if (target == CPU_Z80)
         cpuz80_noop("RET");
 }
