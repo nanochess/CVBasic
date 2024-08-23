@@ -3019,7 +3019,7 @@ void compile_statement(int check_for_else)
                             }
                         } else if (target == CPU_9900) {
                             if (format == 0) {
-                                cpu6502_1op("JSR", "print_number");
+                                cpu9900_1op("JSR", "print_number");
                             } else if (format == 1) {
                                 // TODO: I don't quite follow this - are we literally printing $220 and $230?
                                 cpu9900_1op("limi","0");        // print_number will turn it back on
@@ -3420,14 +3420,14 @@ void compile_statement(int check_for_else)
                     } else {
                         if (target == CPU_6502)
                             cpu6502_noop("SEI");
-                        else if (target == CPU_6502)
+                        else if (target == CPU_9900)
                             cpu9900_1op("limi","0");
                         else
                             cpuz80_1op("CALL", "nmi_off");
                         generic_call("LDIRVM");
                         if (target == CPU_6502)
                             cpu6502_noop("CLI");
-                        else if (target == CPU_6502)
+                        else if (target == CPU_9900)
                             cpu9900_1op("limi","2");
                         else
                             cpuz80_1op("CALL", "nmi_on");
@@ -3476,7 +3476,7 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502)
                         cpu6502_noop("PHA");
                     else if (target == CPU_9900)
-                        cpu6502_2op("mov","r0","r1");
+                        cpu9900_2op("mov","r0","r1");
                     else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
@@ -5462,7 +5462,7 @@ int main(int argc, char *argv[])
     if (target == CPU_6502)
         strcat(path, "cvbasic_6502_epilogue.asm");
     else if (target == CPU_9900)
-        strcat(path, "cvbasic_99002_epilogue.asm");
+        strcat(path, "cvbasic_9900_epilogue.asm");
     else
         strcat(path, "cvbasic_epilogue.asm");
     prologue = fopen(path, "r");
