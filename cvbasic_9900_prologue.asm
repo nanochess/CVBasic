@@ -1,6 +1,5 @@
 ;
 ; CVBasic prologue (BASIC compiler, 9900 target)
-; this is intended to be assembled by xdt99, no console ROM dependencies
 ;
 ; by Tursi
 ; https//harmlesslion.com
@@ -24,15 +23,16 @@
 ; o TI-99/4A. (/4 supported if bitmap not used)
 ; o TI-99/4A with 32k Memory Expansion
 
+; this is intended to be assembled by xdt99, no console ROM dependencies
+;   cvbasic --ti994a test1.bas test1.a99
+;   xas99.py -R test1.a99
+
 ;
 ; CVBasic variables in scratchpad.
 ;
 
 ; When looking at this - remember that JUMP and BRANCH have the /opposite/
 ; meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
-
-; TODO: Concern - changing the endianess of 16-bit values from little to big,
-; does anything break? Ideally not if I'm careful...
 
 ; We have to use our own workspace, not GPLWS, because the interrupt routine makes it unsafe to
 ; use r11, which we kind of need! So that eats 32 bytes of RAM but means most of the register
@@ -46,7 +46,6 @@ myintwp   equ >8320
 ; used to track scratchpad variables
 firstsp         equ $
 
-read_pointer	bss 2
 cursor		    bss 2
 pletter_off	    bss 2       ; Used by Pletter
 
@@ -62,8 +61,6 @@ lfsr		    bss 2       ; word MUST BE EVEN ALIGNED
 
 mode            bss 1
 flicker         bss 1
-
-sprite_data	    bss 4       ; 2 words MUST BE EVEN ALIGNED
 
 ntsc            bss 1
 pletter_bit     bss 1
@@ -144,23 +141,6 @@ VDPDATA   equ >8800
 VDPSTATUS equ >8802
 VDPWDATA  equ >8c00
 VDPWADR   equ >8c02
-
-; Safe scratchpad RAM, assuming above setup (ints disabled by flag, screen blank disabled):
-; Need to see how much BSS is using
-; 8320 - 8377   ->  100 bytes
-; 837C - 83C1   ->   70 bytes
-
-; RAM we need:
-; - 128 bytes for a sprite table double-buffer - no choice, needs to go in 8-bit RAM
-; - TBD bytes defined above for BASIC
-; - 48 bytes for interrupt ROM and workspace
-; - 32 bytes for main workspace
-
-; Variables are defined by equ, and can be bytes or words. Since it's originally an 8-bit
-; target, we can assume mostly bytes. For now we'll just do an EA#5 target. We can consider
-; a cart+32k target later if it's desired. This will limit programs to 24k + 8k of RAM data.
-; if we do cart+32k then we have 8k of variables, 24k of fixed space, and unlimited paged space
-; (though the compiler limits to 1MB). But I'll need to bring in my paging code and startup.
 
 ; program in high RAM
     aorg >a000
@@ -403,15 +383,16 @@ print_number1
     limi 2              ; ints on
     b *r4               ; back to caller
 
-; Load sprite definitions: Sprite char number in R1, CPU data in R2, count of sprites in R3
-; Original: pointer = sprite char number, temp = CPU address, a = number sprites
+; Load sprite definitions: Sprite number in R1, CPU data in R2, count of sprites in R3 (MSB)
+; Original: pointer = sprite number, temp = CPU address, a = number sprites
 ; Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
 ; Sprite pattern table at >3800
 define_sprite
     mov r11,r4          ; save return
     mov r1,r0           ; copy it into r0 for LDIRVM
-    sla r0,5            ; char number times 32
+    sla r0,5            ; sprite number times 32 for bytes
     ai r0,>3800         ; add VDP base
+    srl r3,8            ; make int
     sla r3,5            ; count times 32
     limi 0              ; ints off
     bl @LDIRVM          ; do the copy
@@ -456,9 +437,9 @@ define_color
     limi 2              ; ints on
     b *r8               ; back to caller
 
-; Update sprite entry - copy sprite_data (4 bytes) to sprite table mirror at sprites
+; Update sprite entry - copy data (4 bytes) to sprite table mirror at sprites
 ; R1 = sprite number, R2=bytes 1 and 2, r3=bytes 3 and 4
-; Original: A = sprite number
+; Original: A = sprite number, source data at sprite_data
 update_sprite
     srl r1,8            ; make word
     sla r1,2            ; x4 for address
@@ -819,12 +800,12 @@ int_handler
     jmp !5
 
 !4
-    movb @flicker,r11   ; here we write it rotated every frame, and backwards for no reason
+    movb @flicker,r11   ; here we write it rotated every frame
     ai r11,>0400
     andi r11,>7f00
     movb r11,@flicker
     swpb r11            ; make count
-    li r12,31           ; count
+    li r12,32           ; count
 
 !6
     ai r11,sprites        ; this is still faster than separate incs
@@ -832,8 +813,8 @@ int_handler
     movb *r11+,@VDPWDATA  ; no delay needed    
     movb *r11+,@VDPWDATA    
     movb *r11,@VDPWDATA   ; small optimization, since we have an add coming anyway
-    ai r11,25-sprites     ; remove address and add the rest of the increment - the total increment is 28
-    andi r11,>007F        ; clamp it in range (basically write the list backwards?)
+    ai r11,-(sprites-1)   ; remove address and add the rest of the increment
+    andi r11,>007F        ; clamp it in range
     dec r12
     jne -!6
 !5

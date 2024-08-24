@@ -10,7 +10,7 @@
  ** Revision date: Feb/28/2024. Implemented WHILE/WEND, DO/LOOP, FOR/NEXT, and EXIT.
  ** Revision date: Feb/29/2024. Implemented controller support. Added arrays, SOUND,
  **                             RESTORE/READ/DATA. Added small local optimization.
- ** Revision date: Aug/20/2024. Added TI-99/4A
+ ** Revision date: Aug/23/2024. Added TI-99/4A
   */
 
 #include <stdio.h>
@@ -2981,14 +2981,25 @@ void compile_statement(int check_for_else)
                             generic_dump();
                             for (c = 0; c < name_size; c++) {
                                 if ((c & 7) == 0) {
-                                    fprintf(output, "\tDB ");
+                                    if (target == CPU_9900) {
+                                        fprintf(output, "\tbyte ");
+                                    } else {
+                                        fprintf(output, "\tDB ");
+                                    }
                                 }
-                                fprintf(output, "$%02x", name[c] & 0xff);
+                                if (target == CPU_9900) {
+                                    fprintf(output, ">%02x", name[c] & 0xff);
+                                } else {
+                                    fprintf(output, "$%02x", name[c] & 0xff);
+                                }
                                 if ((c & 7) == 7 || c + 1 == name_size) {
                                     fprintf(output, "\n");
                                 } else {
                                     fprintf(output, ",");
                                 }
+                            }
+                            if (target == CPU_9900) {
+                                fprintf(output, "\teven\n");
                             }
                             sprintf(temp, INTERNAL_PREFIX "%d", label2);
                             generic_label(temp);
@@ -3177,9 +3188,6 @@ void compile_statement(int check_for_else)
                         else
                             emit_error("missing comma in DEFINE");
                         length = evaluate_save_expression(1, TYPE_8);   // count
-                        if (target == CPU_9900) {
-                            cpu9900_2op("mov","r0","r3");
-                        }
                         if (lex == C_COMMA)
                             get_lex();
                         else
@@ -3196,6 +3204,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("STY", "temp+1");
                                 cpu6502_noop("PLA");
                             } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r3");
                                 node_generate(source, 0);
                                 cpu9900_2op("mov","r0","r2");
                             } else {
@@ -3218,6 +3227,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("STA", "temp+1");
                                 cpu6502_noop("PLA");
                             } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r3");
                                 strcpy(temp, LABEL_PREFIX);
                                 strcat(temp, name);
                                 cpu9900_2op("li","r2",temp);
@@ -3583,9 +3593,15 @@ void compile_statement(int check_for_else)
                     if (bitmap_byte >= 16) {
                         bitmap_byte = 0;
                         for (c = 0; c < 32; c += 8) {
-                            sprintf(temp, "\tDB $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
-                                    bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
-                                    bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                            if (target == CPU_9900) {
+                                sprintf(temp, "\tbyte >%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x\n",
+                                        bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
+                                        bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                            } else {
+                                sprintf(temp, "\tDB $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
+                                        bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
+                                        bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                            }
                             fprintf(output, "%s", temp);
                         }
                     }
@@ -3605,9 +3621,15 @@ void compile_statement(int check_for_else)
                     if (bitmap_byte >= 8) {
                         bitmap_byte = 0;
                         c = 0;
-                        sprintf(temp, "\tDB $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
-                                bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
-                                bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                        if (target == CPU_9900) {
+                            sprintf(temp, "\tbyte >%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x\n",
+                                    bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
+                                    bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                        } else {
+                            sprintf(temp, "\tDB $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
+                                    bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
+                                    bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                        }
                         fprintf(output, "%s", temp);
                     }
                 }
@@ -4169,7 +4191,11 @@ void compile_statement(int check_for_else)
                     }
                     get_lex();
                 }
-                fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x\n", notes & 0xff, (notes >> 8) & 0xff, (notes >> 16) & 0xff, (notes >> 24) & 0xff);
+                if (target == CPU_9900) {
+                    fprintf(output, "\tbyte >%02x,>%02x,>%02x,>%02x\n", notes & 0xff, (notes >> 8) & 0xff, (notes >> 16) & 0xff, (notes >> 24) & 0xff);
+                } else {
+                    fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x\n", notes & 0xff, (notes >> 8) & 0xff, (notes >> 16) & 0xff, (notes >> 24) & 0xff);
+                }
             } else if (strcmp(name, "ON") == 0) {
                 struct label *label;
                 int table;
