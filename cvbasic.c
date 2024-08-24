@@ -2905,9 +2905,19 @@ void compile_statement(int check_for_else)
                 else
                     emit_error("missing comma in OUT");
                 value = evaluate_save_expression(1, TYPE_8);
-                if ((target == CPU_6502)||(target == CPU_9900)) {
-                    // TODO: although we could use IN/OUT for CRU operations on the 9900...
+                if (target == CPU_6502) {
                     emit_warning("Ignoring OUT (not supported in target)");
+                } else if (target == CPU_9900) {
+                    // we don't have ports (though we could map this to CRU)
+                    // however, since it seems OUT is the CVBasic way to directly
+                    // access the sound chip, we'll check for OUT $FF and map that
+                    // over.
+                    if (port->value == 0xff) {
+                        node_generate(value, 0);
+                        cpu9900_2op("mov","r0","@SOUND");
+                    } else {
+                        emit_warning("OUT to 0xff for audio is the only supported use.");
+                    }
                 } else {
                     node_generate(port, 0);
                     cpuz80_2op("LD", "C", "A");
@@ -4712,6 +4722,12 @@ void compile_statement(int check_for_else)
                     c++;
                 if (line[c - 1] == ':')
                     lex_skip_spaces();
+                if (target == CPU_9900) {
+                    // check for and remap INCBIN
+                    if (0 == strncmp(&line[line_pos]," INCBIN", 7)) {
+                        memcpy(&line[line_pos],"  bcopy", 7);
+                    }
+                }
                 fprintf(output, "%s\n", &line[line_pos]);
                 line_pos = line_size;
                 get_lex();
@@ -5507,8 +5523,12 @@ int main(int argc, char *argv[])
             if (frame_drive != NULL) {
                 if (target == CPU_6502)
                     fprintf(output, "\tJSR " LABEL_PREFIX "%s\n", frame_drive->name);
-                else if (target == CPU_9900)
-                    fprintf(output, "\tbl @" LABEL_PREFIX "%s\n", frame_drive->name);
+                else if (target == CPU_9900) {
+                    // to call compiled code, we need the stack pointer and we need to jsr it
+                    fprintf(output, "\tmov @>8314,r10\n");
+                    fprintf(output, "\tbl @jsr\n");
+                    fprintf(output, "\tdata " LABEL_PREFIX "%s\n", frame_drive->name);
+                }
                 else
                     fprintf(output, "\tCALL " LABEL_PREFIX "%s\n", frame_drive->name);
             }

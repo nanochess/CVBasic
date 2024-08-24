@@ -842,6 +842,25 @@ int_handler
     stcr r13,8      ; read 8 bits (we could get away with fewer, but be consistent)
     bl @convert_joystick
     movb r12,@joy2_data
+    
+; do a quick modifier read for button 2 (control and fctn for joy 1 and 2 respectively)
+    li r12,>0024    ; CRU base of select output
+    clr r13         ; modifiers
+    ldcr r13,3      ; select it
+    src r12,7       ; delay
+    li r12,>0006    ; CRU base of return read
+    stcr r13,8      ; read 8 bits (we could get away with fewer, but be consistent)
+    li r12,>4000    ; control
+    li r11,>8000    ; button 2 bit
+    czc r12,r13
+    jne .noc1b2
+    socb r11,@joy1_data
+.noc1b2
+    li r12,>1000    ; fctn
+    czc r12,r13
+    jne .noc2b2
+    socb r11,@joy2_data
+.noc2b2
 
 ; key1 - this is a very simple read with no modifiers, it just gives access to the letters and numbers
     clr r11         ; column
@@ -946,9 +965,9 @@ joystick_table
     data >0200,>0800,>0400,>1000,>0100    ; LDRU1
 
 ; By columns, then rows. 8 Rows per column. No shift states - converted to the Coleco returns
-; for numbers, , and . become ; and #
+; for numbers, , and . become ; and #. Control is control1 button2, and Fctn is control2 button2
 keyboard_table
-    byte 61,32,13,15,15,15,15,15    ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
+    byte 61,32,13,15,254,15,255,15  ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
     byte 11,76,79,9,2,83,87,88      ; '.','L','O','9','2','S','W','X'
     byte 10,75,73,8,3,68,69,67      ; ',','K','I','8','3','D','E','C'
     byte 77,74,85,7,4,70,82,86      ; 'M','J','U','7','4','F','R','V'
