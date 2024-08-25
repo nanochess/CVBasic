@@ -3455,7 +3455,7 @@ void compile_statement(int check_for_else)
                             // r0 is already loaded by node_generate
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
-                            cpu9900_2op("li","r2",name);
+                            cpu9900_2op("li","r2",temp);
                         } else {
                             cpuz80_2op("EX", "DE", "HL");
                             strcpy(temp, LABEL_PREFIX);

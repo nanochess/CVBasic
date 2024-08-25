@@ -702,6 +702,7 @@ mode_1
     limi 2
 
     li r0,>5800     ; >1800 with the write bit set
+    clr r3          ; value to write
 
 !1
     limi 0          ; write the screen image table, but pause every 32 bytes for interrupts
@@ -712,8 +713,6 @@ mode_1
     movb r0,@VDPWADR
 
     li r2,32
-    mov r0,r3
-    swpb r3         ; address LSB, no need to mask it, we don't do any compares
 
 !2
     movb r3,@VDPWDATA
@@ -723,7 +722,7 @@ mode_1
 
     limi 2
     ai r0,32
-    ci r0,>1b00
+    ci r0,>5b00
     jl -!1
 
     mov r8,r11      ; restore return address
@@ -1429,7 +1428,7 @@ music_silence
 ;**; no reference code besides the Z80 and 6502. Wonder which
 ;**; one would be easier to port? Probably Z80? 
 
-ERROR COMPRESSION NOT IMPLEMENTED
+    .error COMPRESSION NOT IMPLEMENTED
 
 ; TODO: must use same calling syntax as define_char
 define_char_unpack
