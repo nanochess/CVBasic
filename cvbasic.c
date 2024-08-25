@@ -2914,7 +2914,7 @@ void compile_statement(int check_for_else)
                     // over.
                     if (port->value == 0xff) {
                         node_generate(value, 0);
-                        cpu9900_2op("mov","r0","@SOUND");
+                        cpu9900_2op("movb","r0","@SOUND");
                     } else {
                         emit_warning("OUT to 0xff for audio is the only supported use.");
                     }
@@ -5506,13 +5506,13 @@ int main(int argc, char *argv[])
     strcpy(path, library_path);
     if (target == CPU_6502)
         strcat(path, "cvbasic_6502_prologue.asm");
-    if (target == CPU_9900)
+    else if (target == CPU_9900)
         strcat(path, "cvbasic_9900_prologue.asm");
     else
         strcat(path, "cvbasic_prologue.asm");
     prologue = fopen(path, "r");
     if (prologue == NULL) {
-        fprintf(stderr, "Unable to open cvbasic_prologue.asm.\n");
+        fprintf(stderr, "Unable to open %s.\n", path);
         exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {

@@ -46,7 +46,8 @@ myintwp   equ >8320
 ; used to track scratchpad variables
 firstsp         equ $
 
-cursor		    bss 2
+read_pointer    bss 2       ; for data/read statements
+cursor		    bss 2       ; screen position
 pletter_off	    bss 2       ; Used by Pletter
 
 ; joystick bytes
@@ -448,12 +449,6 @@ update_sprite
     mov r3,*r1          ; move second two bytes
     b *r11
 
-; ABS R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
-;_abs16
-
-; NEG R0 - this is a single opcode, see if we can inline it - TODO (YYAA?)
-;_neg16
-
 ; SGN R0 - return 1, -1 or 0 as 16 bit
 _sgn16
     mov r0,r0       ; check for zero
@@ -466,21 +461,6 @@ _sgn16
     inc r0          ; we know it was zero, and we want 1
 !1
     b *r11          ; back to caller
-
-; Read 16 bits from read_pointer into r0 and increment, see if we can inline it - TODO (YYAA)
-;_read16
-
-; read 8 bits from read_pointer into r0 and increment, see if we can inline it
-;_read8
-
-; Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA)
-;_peek8
-
-; Read 8 bits from R0 into R0 - see if we can inline it - TODO (YYAA -> YYAA)
-;_peek16
-
-; 16 bit multiply = temp2*temp - see if we can inline it - TODO (stack*stack -> YYAA)  
-;_mul16
 
 ; 16-bit signed modulo. R1 % R2 = R0 - 9900 doesn't do signed divide
 ; original was stack%stack=YYAA
@@ -534,14 +514,6 @@ _div16s
     neg r0          ; negate the result
 !2
     b *r11
-
-; unsigned 16-bit div - see if we can do this inline (TODO)
-; original was stack/stack=YYAA
-;_div16
-
-; unsigned 16-bit mod - see if we can do this inline (TODO)
-; original was stack%stack=YYAA
-;_mod16
 
 ; Random number generator - return in R0
 ; Original output into YYAA
@@ -1790,8 +1762,8 @@ jsr
     mov *r11+,r14       ; get the jump address
     dect r10            ; make room on stack
     mov r11,*r10        ; save return address
-    bl *r14             ; new subroutine call, we come back here
-    mov *r10+,r11       ; get real return off stack
+    bl *r14             ; new subroutine call, we can come back here
+    mov *r10+,r11       ; get real return off stack - warning, all basic functions do this inline rather than return
     b *r11              ; back to caller
 
 ; entry code - we should enter with ints off anyway
