@@ -19,6 +19,8 @@ Other assemblers are unlikely to work as it makes use of some of xdt99's ifdefs.
 
 The target is a stock TI-99/4A system with 32k memory expansion and joysticks. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick.
 
+The program supports FCTN-= (Alt-= on PC emulation) to reset.
+
 The program is stored in the 24k memory expansion starting at >A000. The 8k RAM block at >2000 is used for variables and stack. (This is significantly more than most projects require.)
 
 The output of the compiler is an assembly file, it can be assembled like so:

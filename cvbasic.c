@@ -3530,7 +3530,7 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502)
                         cpu6502_noop("PHA");
                     else if (target == CPU_9900)
-                        cpu9900_2op("mov","r0","r1");
+                        cpu9900_2op("mov","r0","r2");
                     else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
@@ -3541,8 +3541,7 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502)
                         cpu6502_1op("STA", "sprite_data");
                     else if (target == CPU_9900) {
-                        cpu9900_2op("movb","r0","r2");
-                        cpu9900_1op("swpb","r2");
+                        cpu9900_2op("movb","r0","r3");
                     } else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
@@ -3553,8 +3552,7 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502)
                         cpu6502_1op("STA", "sprite_data+1");
                     else if (target == CPU_9900) {
-                        cpu9900_2op("movb","r0","r2");
-                        cpu9900_1op("swpb","r2");
+                        cpu9900_2op("movb","r0","r4");
                     } else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
@@ -3565,8 +3563,7 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502)
                         cpu6502_1op("STA", "sprite_data+2");
                     else if (target == CPU_9900) {
-                        cpu9900_2op("movb","r0","r3");
-                        cpu9900_1op("swpb","r3");
+                        cpu9900_2op("movb","r0","r5");
                     } else
                         cpuz80_1op("PUSH", "AF");
                     if (lex == C_COMMA)
@@ -3578,8 +3575,7 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("STA", "sprite_data+3");
                         cpu6502_noop("PLA");
                     } else if (target == CPU_9900) {
-                        cpu9900_2op("movb","r0","r3");
-                        cpu9900_1op("swpb","r3");
+                        cpu9900_2op("movb","r0","r6");
                     }
                     generic_call("update_sprite");
                 }

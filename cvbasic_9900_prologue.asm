@@ -447,14 +447,16 @@ define_color
     b *r8               ; back to caller
 
 ; Update sprite entry - copy data (4 bytes) to sprite table mirror at sprites
-; R1 = sprite number, R2=bytes 1 and 2, r3=bytes 3 and 4
+; R2 = sprite number, R3 = byte 1, r4 = byte 2, r5 = byte 3, r6 = byte 4 (all MSB)
 ; Original: A = sprite number, source data at sprite_data
 update_sprite
-    srl r1,8            ; make word
-    sla r1,2            ; x4 for address
-    ai r1,sprites       ; sprite mirror address
-    mov r2,*r1+         ; move two bytes (must be aligned)
-    mov r3,*r1          ; move second two bytes
+    srl r2,8            ; make word
+    sla r2,2            ; x4 for address
+    ai r2,sprites       ; sprite mirror address
+    movb r3,*r2+        ; move bytes
+    movb r4,*r2+        ; move bytes
+    movb r5,*r2+        ; move bytes
+    movb r6,*r2+        ; move bytes
     b *r11
 
 ; SGN R0 - return 1, -1 or 0 as 16 bit

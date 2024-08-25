@@ -17,7 +17,7 @@
 #define ADDRESS 4
 
 // if enabled, replaced code from emit_line will be commented out in the assembler output
-#define DEBUGPEEP
+//#define DEBUGPEEP
 
 // some tracking for peepholes
 static char cpu9900_line[MAX_LINE_SIZE] = "";
@@ -133,9 +133,9 @@ void cpu9900_emit_line(void)
         
         // there's some simple things we can check for
         
-        // Replace immediate operations for 0, 1 or 2
-        if ((0 == strcmp(op1,"li")) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"0"))) {
-            strcpy(buf, "\tclr r0\n");
+        // Replace immediate operations for select cases
+        if ((0 == strcmp(op1,"li")) && (s1[0] == 'r') && (0 == strcmp(s2,"0"))) {
+            sprintf(buf, "\tclr %s\n", s1);
         } else if ((0 == strcmp(op1,"ai")) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"0"))) {
 #ifdef DEBUGPEEP
             fprintf(output, "\t;PEEP: don't add zero\n");
@@ -212,6 +212,24 @@ void cpu9900_emit_line(void)
 #endif
             return;
         }
+        
+        // similar case, but push/pop to different regs - only seen r0->r1 so I'll just code for that
+        if ( ((0 == strcmp(op3,"dect")) && (0 == strcmp(s5,"r10"))) && 
+                    ((0 == strcmp(op2,"mov")) && (0 == strcmp(s3,"r0")) && (0 == strcmp(s4,"*r10"))) &&
+                    ((0 == strcmp(op1,"mov")) && (0 == strcmp(s1,"*r10+")) && (0 == strcmp(s2,"r1"))) ) {
+            fflush(output);
+            fseek(output, pushpos, SEEK_SET);
+            // update history - we should have JUST enough for the largest pattern
+            strcpy(cpu9900_lastline, cpu9900_lastline3);
+            strcpy(cpu9900_lastline2, cpu9900_lastline4);
+            strcpy(cpu9900_lastline3, "");
+            strcpy(cpu9900_lastline4, "");
+#ifdef DEBUGPEEP
+            fprintf(output, "\t;PEEP: simplify push r0/pop r1\n");
+            fprintf(output, "\t;ect r10\n\t;ov r0,*r10\n\t;ov *r10+,r1\n");
+#endif
+            strcpy(buf,"\tmov r0,r1\n");
+        }        
 
         // check for repeated absolute loads. Doesn't happen very often, but the savings is worth it
         // first check - labels cancels all bets. We can try to get smarter with the registers like
@@ -367,7 +385,7 @@ void cpu9900_emit_line(void)
         // I don't think we'd ever generate it using s[b]...
         if ((0 == strncmp(op4,"mov",3)) && (s7[0] == '@') && (0 == strcmp(s8,"r0")) &&
             (0 == strcmp(op3,"li")) && (0 == strcmp(s5,"r1")) &&
-            ((0 == strcmp(op2,"a"))||(0 == strcmp(op2,"ab"))) && (0 == strcmp(s3,"r1")) && (0 == strcmp(s4,"r0")) &&
+            ((0 == strcmp(op2,"a"))||(0 == strcmp(op2,"ab"))||(0 == strcmp(op2,"s"))||(0 == strcmp(op2,"sb"))) && (0 == strcmp(s3,"r1")) && (0 == strcmp(s4,"r0")) &&
             (0 == strncmp(op1,"mov",3)) && (0 == strcmp(s1,"r0")) && (s2[0] == '@') &&
             (0 == strcmp(op4,op1)) && (0 == strcmp(s7,s2)) ) {
             fseek(output, loadr0pos, SEEK_SET);
