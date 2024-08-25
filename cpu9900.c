@@ -137,7 +137,8 @@ void cpu9900_emit_line(void)
         if ((0 == strcmp(op1,"li")) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"0"))) {
             strcpy(buf, "\tclr r0\n");
         } else if ((0 == strcmp(op1,"ai")) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"0"))) {
-#ifdef DEBUGPEEP        
+#ifdef DEBUGPEEP
+            fprintf(output, "\t;PEEP: don't add zero\n");
             fprintf(output, "\t;ai r0,0\n");    // doesn't count as a line anymore
 #endif
             return;
@@ -164,6 +165,7 @@ void cpu9900_emit_line(void)
                    ) {
 #ifdef DEBUGPEEP                   
                    // drop this one
+                   fprintf(output, "\t;PEEP: skip second step of mov a,b / mov b,a\n");
                    fprintf(output, "\t;%s", &buf[2]);
 #endif 
                    return;
@@ -189,7 +191,8 @@ void cpu9900_emit_line(void)
             strcpy(cpu9900_lastline2, cpu9900_lastline4);
             strcpy(cpu9900_lastline3, "");
             strcpy(cpu9900_lastline4, "");
-#ifdef DEBUGPEEP            
+#ifdef DEBUGPEEP
+            fprintf(output, "\t;PEEP: skip push/pop r1\n");
             fprintf(output, "\t;ect r10\n\t;ov r1,*r10\n\t;ov *r10+,r1\n");
 #endif
             return;
@@ -204,6 +207,7 @@ void cpu9900_emit_line(void)
             strcpy(cpu9900_lastline3, "");
             strcpy(cpu9900_lastline4, "");
 #ifdef DEBUGPEEP            
+            fprintf(output, "\t;PEEP: skip push/pop r0\n");
             fprintf(output, "\t;ect r10\n\t;ov r0,*r10\n\t;ov *r10+,r0\n");
 #endif
             return;
@@ -221,6 +225,7 @@ void cpu9900_emit_line(void)
                 if ((0 == strcmp(s1,last_r0_load)) && (last_r0_load[0] != '\0')) {
                     // then never mind this one
 #ifdef DEBUGPEEP
+                    fprintf(output, "\t;PEEP: skip repeated r0 load\n");
                     fprintf(output, "\t;%s", &buf[2]);
 #endif
                     return;
@@ -239,6 +244,10 @@ void cpu9900_emit_line(void)
                 if (0 == strcmp(op1,"ai") && (0 == strcmp(s1,"r0"))) {
                     strcpy(last_r0_load, "");
                 }
+                // and bl - all bets are off
+                if (0 == strcmp(op1,"bl")) {
+                    strcpy(last_r0_load, "");
+                }
             }
         }
         
@@ -248,8 +257,8 @@ void cpu9900_emit_line(void)
              fflush(output);
              loadr0pos = ftell(output);
         } else if (loadsr0(op2, s3, s4)) {
-            if ((0 == strncmp(op1,"mov",3)) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"r1"))) {
-                // change the last line to load r1
+            if ((0 == strncmp(op1,"mov",3)) && (0 == strcmp(s1,"r0")) && (s2[0] == 'r') && (s2[1] != '0')) {
+                // change the last line to load r'X' (s2)
                 fseek(output, loadr0pos, SEEK_SET);
 #ifdef DEBUGPEEP
                 char tmp[MAX_LINE_SIZE];
@@ -257,6 +266,7 @@ void cpu9900_emit_line(void)
                 strcpy(tmp, buf);
                 cpu9900_lastline[1]=';';
                 tmp[1] = ';';
+                fprintf(output, "\t;PEEP: simplify load r0 / mov r0,rx\n");
                 fprintf(output, "%s%s", cpu9900_lastline, tmp);
                 cpu9900_lastline[1]=old;
 #endif
@@ -267,40 +277,12 @@ void cpu9900_emit_line(void)
                 strcpy(cpu9900_lastline4, "");
                 
                 if (0 == strncmp(op2,"mov",3)) {
-                    sprintf(buf, "\t%s %s,r1\n", op2, s3);
+                    sprintf(buf, "\t%s %s,%s\n", op2, s3, s2);
                 } else {
                     if (s4[0] == '\0') {
-                        sprintf(buf, "\t%s r1\n", op2);
+                        sprintf(buf, "\t%s %s\n", op2, s2);
                     } else {
-                        sprintf(buf, "\t%s r1,%s\n", op2, s4);
-                    }
-                }
-            } else if ((0 == strncmp(op1,"mov",3)) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"r2"))) {
-                // change the last line to load r2
-                fseek(output, loadr0pos, SEEK_SET);
-#ifdef DEBUGPEEP                
-                char tmp[MAX_LINE_SIZE];
-                char old = cpu9900_lastline[1];
-                strcpy(tmp, buf);
-                cpu9900_lastline[1]=';';
-                tmp[1] = ';';
-                fprintf(output, "%s%s", cpu9900_lastline, tmp);
-                cpu9900_lastline[1]=old;
-#endif
-
-                // remove one line from history
-                strcpy(cpu9900_lastline, cpu9900_lastline2);
-                strcpy(cpu9900_lastline2, cpu9900_lastline3);
-                strcpy(cpu9900_lastline3, cpu9900_lastline4);
-                strcpy(cpu9900_lastline4, "");
-                
-                if (0 == strncmp(op2,"mov",3)) {
-                    sprintf(buf, "\t%s %s,r2\n", op2, s3);
-                } else {
-                    if (s4[0] == '\0') {
-                        sprintf(buf, "\t%s r2\n", op2);
-                    } else {
-                        sprintf(buf, "\t%s r2,%s\n", op2, s4);
+                        sprintf(buf, "\t%s %s,%s\n", op2, s2, s4);
                     }
                 }
             }
@@ -317,6 +299,7 @@ void cpu9900_emit_line(void)
             strcpy(tmp, buf);
             cpu9900_lastline[1]=';';
             tmp[1] = ';';
+            fprintf(output, "\t;PEEP: simplify clr r0 / mov r0,@xxx\n");
             fprintf(output, "%s%s", cpu9900_lastline, tmp);
 #endif
             
@@ -340,6 +323,7 @@ void cpu9900_emit_line(void)
             strcpy(tmp, buf);
             cpu9900_lastline[1]=';';
             tmp[1] = ';';
+            fprintf(output, "\t;PEEP: simplify mov xxx,r0 / mov r0,@xxx\n");
             fprintf(output, "%s%s", cpu9900_lastline, tmp);
 #endif
 
@@ -366,6 +350,7 @@ void cpu9900_emit_line(void)
             cpu9900_lastline[1]=';';
             strcpy(tmp, buf);
             tmp[1]=';';
+            fprintf(output, "\t;PEEP: simplify mov @x,r0 / inc r0 / mov r0,@x (all forms)\n");
             fprintf(output,"%s%s%s", cpu9900_lastline2, cpu9900_lastline, tmp);
 #endif
 
@@ -394,6 +379,7 @@ void cpu9900_emit_line(void)
             cpu9900_lastline[1]=';';
             strcpy(tmp, buf);
             tmp[1]=';';
+            fprintf(output, "\t;PEEP: simplify mov @x,r0 / li r1,>xxxx / a r1,r0 / mov r0,@x\n");
             fprintf(output,"%s%s%s%s", cpu9900_lastline3, cpu9900_lastline2, cpu9900_lastline, tmp);
 #endif
 

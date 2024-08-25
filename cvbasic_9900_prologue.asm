@@ -34,6 +34,9 @@
 ; When looking at this - remember that JUMP and BRANCH have the /opposite/
 ; meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
 
+; use original (possibly incorrectly ported) random
+OLD_RND equ 0
+
 ; We have to use our own workspace, not GPLWS, because the interrupt routine makes it unsafe to
 ; use r11, which we kind of need! So that eats 32 bytes of RAM but means most of the register
 ; restrictions I wrote this code on (avoid R1, avoid R6, avoid R13-R15) are lifted.
@@ -266,11 +269,14 @@ ENASCR
     jmp DISSCR2
 
 ; copy a set of blocks of data to VDP, offset by 32 bytes each
-; address in R1, CPU data at R2, count per row in R3, number rows in R4, CPU stride in R5 (VDP stride fixed at 32)
+; address in R1, CPU data at R2, count per row in R3 (MSB), number rows in R4 (MSB), CPU stride in R5 (MSB) (VDP stride fixed at 32)
 ; original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
 CPYBLK
     limi 0
     mov r11,r7      ; save return
+    srl r3,8
+    srl r4,8
+    srl r5,8        ; bytes to words
     mov r1,r0
     mov r0,r8       ; save vdp address
     mov r2,r9       ; save cpu address
@@ -400,7 +406,7 @@ define_sprite
     limi 2              ; ints on
     b *r4               ; back to caller
 
-; Load character definitions: Char number in R1, CPU data in R2, count in R3
+; Load character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 ; Note this loads the pattern three times if in bitmap mode (MODE&0x04)
 ; Pattern table at >0000
@@ -408,9 +414,10 @@ define_char
     mov r11,r8          ; save return
     mov r1,r0           ; move input to scratch
     sla r0,3            ; char number times 8 (VDP base is 0, so already there)
+    srl r3,8            ; make word
     sla r3,3            ; count times 8
-    mov @mode,r5        ; get mode flags
-    andi r5,>0004
+    movb @mode,r5       ; get mode flags
+    andi r5,>0400
     jne !1              ; not in bitmap mode, do a single copy
 
     limi 0              ; ints off
@@ -424,7 +431,7 @@ define_char
     limi 2              ; ints on
     b *r8               ; back to caller
 
-; Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3
+; Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 ; Note: always does the triple copy. Color table at >2000
 define_color
@@ -432,6 +439,7 @@ define_color
     mov r1,r0           ; move input to scratch
     sla r0,3            ; char number times 8
     ai r0,>2000         ; add base address
+    srl r3,8            ; make word
     sla r3,3            ; count times 8
     limi 0              ; ints off
     bl @LDIRVM3         ; do the triple copy
@@ -515,10 +523,11 @@ _div16s
 !2
     b *r11
 
-; Random number generator - return in R0
+; Random number generator - return in R0, uses R3,R4
 ; Original output into YYAA
-; TODO: Not 100% sure I ported this one right... probably could be simpler with 16-bit manips...
 random
+    .ifne OLD_RND
+; TODO: Not 100% sure I ported this one right... probably could be simpler with 16-bit manips...
     mov @lfsr,r0        ; fetch current state
     jne !0
     li r0,>7811         ; reset value if zero
@@ -530,19 +539,30 @@ random
     src r0,2            ; circular rotate twice (rotates directly like z80)
     xor @lfsr+1,r0      ; because of 16 bit addressing, only the LSB is correct
     movb @mywp+1,@mywp  ; fix up - copy LSB to MSB
-    mov r0,r2           ; save it (temp)
+    mov r0,r4           ; save it (temp)
     src r3,1            ; rotate the second read once
-    xor r3,r2           ; xor into the temp copy
+    xor r3,r4           ; xor into the temp copy
     movb @lfsr,r0       ; get the lsb
     sla r0,2            ; just a straight shift
-    xor r2,r0           ; xor the temp copy in (both bytes of r2 were valid)
-    mov @lfsr,r2        ; get word for shifting
-    srl r2,1            ; shift once
-    socb r0,r2          ; merge in the msb we just generated
-    mov r2,@lfsr        ; write it back
-    mov r2,r0           ; for return
+    xor r4,r0           ; xor the temp copy in (both bytes of r4 were valid)
+    mov @lfsr,r4        ; get word for shifting
+    srl r4,1            ; shift once
+    socb r0,r4          ; merge in the msb we just generated
+    mov r4,@lfsr        ; write it back
+    mov r4,r0           ; for return
     b *r11
-
+    .else
+; simpler one from dreamcast days...
+    mov @lfsr,r0        ; get seed
+    srl r0,1            ; shift
+    jnc .rand1          ; jump if no 1
+    xor @rmask,r0       ; xor new bits
+.rand1
+    mov r0,@lfsr        ; save the output
+    b *r11
+rmask
+    data >b400          ; mask for 16 bit
+    .endif    
 
 ; Set SN Frequency: R0=freqency code, R2=channel command (MSB)
 ; Original: A=least significant byte  X=channel command  Y=most significant byte
@@ -997,6 +1017,7 @@ music_play
     movb r2,@music_note_counter     ; store in the counter
     movb *r0+,r2                    ; fetch the first byte of the music and increment
     mov r0,@music_pointer           ; store the updated address
+    ai r2,>0100                     ; TODO HACK: why do I seem to need this?
     movb r2,@music_timing           ; store fetched byte in timing
     li r2,>0100
     movb r2,@music_playing          ; needs to be a 1 for BASIC
@@ -1014,14 +1035,13 @@ music_generate
     movb r4,@audio_vol2
     movb r4,@audio_vol3
     li r0,>ff00
-    movb r0,@audiovol4hw
+    movb r0,@audio_vol4hw
     movb @music_note_counter,r0     ; check countdown
-    jeq !1                          ; if zero, time to work
-    b @!2                           ; else skip ahead
+    jne !2                          ; if not zero, skip ahead
 !1
     mov @music_pointer,r1           ; keep music pointer in r1 - update it if needed
     clr r0
-    movb *r1,r0
+    movb *r1,r0                     ; checking if first byte of pack is loop or end
     ci r0,>fe00                     ; end of music?
     jne !3                          ; nope, jump ahead
     movb r4,@music_playing          ; keep at same place
@@ -1045,7 +1065,6 @@ music_generate
     andi r2,>c000
     movb r2,@music_instrument_1     ; save instrument type
     andi r0,>3f00
-    sla r0,1
     movb r0,@music_note_1           ; save note
     movb r4,@music_counter_1        ; and reset count
 
@@ -1057,8 +1076,7 @@ music_generate
     andi r2,>c000
     movb r2,@music_instrument_2
     andi r0,>3f00
-    sla r0,1
-    movb r0,@>music_note_2
+    movb r0,@music_note_2
     movb r4,@music_counter_2
     
 !6
@@ -1069,8 +1087,7 @@ music_generate
     andi r2,>c000
     movb r2,@music_instrument_3
     andi r0,>3f00
-    sla r0,1
-    movb r0,@>music_note_3
+    movb r0,@music_note_3
     movb r4,@music_counter_3
     
 !7
@@ -1091,7 +1108,7 @@ music_generate
     movb r1,@audio_vol1
 
 !8
-    movb @music_note2,r2
+    movb @music_note_2,r2
     jeq !9
     movb @music_instrument_2,r0
     movb @music_counter_2,r1
@@ -1100,7 +1117,7 @@ music_generate
     movb r1,@audio_vol2
     
 !9
-    movb @music_note3,r2
+    movb @music_note_3,r2
     jeq !10
     movb @music_instrument_3,r0
     movb @music_counter_3,r1
@@ -1151,23 +1168,26 @@ music_generate
     clr r1
     li r2,>1000
 
-    movb @music_counter_1,r1        ; why aren't we incrementing the variables? We do for noise. TODO
+    movb @music_counter_1,r1
     ai r1,>0100
     ci r1,>1800
     jne $+6
-    movb r2,@music_counter_1
+    li r1,>1000
+    movb r1,@music_counter_1
    
     movb @music_counter_2,r1
     ai r1,>0100
     ci r1,>1800
     jne $+6
-    movb r2,@music_counter_2
+    li r1,>1000
+    movb r1,@music_counter_2
 
     movb @music_counter_3,r1
     ai r1,>0100
     ci r1,>1800
     jne $+6
-    movb r2,@music_counter_3
+    li r1,>1000
+    movb r1,@music_counter_3
 
     li r1,>0100
     ab r1,@music_counter_4
@@ -1195,7 +1215,7 @@ flutenote2
     byte 0,1,1,1,0,1,1,1
     byte 0,1,1,1,0,1,1,1
 
-    *
+    ;
     ; Converts note to frequency.
     ; Input
     ;   A = Instrument         (r0 - msb)
@@ -1204,11 +1224,14 @@ flutenote2
     ; Output
     ;   YA = Frequency. (r0 - word)
     ;   X = Volume.     (r1 - msb)
-    *
+    ;
 music_note2freq
     srl r2,8                ; make int so they can be indexes
     sla r2,1                ; make word index
     srl r1,8                ; just byte index here
+    swpb r0
+    movb r1,r0              ; conveniently we now know it's >00 so we can clear out r0's LSB for easier tests
+    swpb r0
     
     ci r0,>4000
     jl music_piano
@@ -1235,7 +1258,6 @@ bassvol1
 ; 
 music_piano
     mov @music_notes_table(r2),r0
-    sla r0,1
     movb @pianovol1(r1),r1
     b *r11
 
@@ -1252,8 +1274,7 @@ music_clarinet
     movb @clarinetnote2(r1),r2
     srl r2,8
     a r2,r0
-    srl r0,1
-    movb @clarinetvol1(r1),r1
+    movb @clarinetvol1(r1),r1   ; msb only?
     b *r11
 
 clarinetvol1
@@ -1266,9 +1287,9 @@ clarinetnote2
     byte 1,2,1,0,-1,-2,-1,0
     byte 1,2,1,0,-1,-2,-1,0
 
-    *
+    ;
     ; Musical notes table.
-    *
+    ;
 music_notes_table
     ; Silence - 1 - Note: the TI sound chip is not mute at 0, it's actually 0x400. 1 is beyond hearing range.
     data 1
@@ -1292,7 +1313,8 @@ music_hardware
     movb @music_mode,r0
     ci r0,>0400         ; play simple?
     jl !7               ; yes, jump
-    movb @audio_vol2,r0
+
+    movb @audio_vol2,r0  ; what is this block's intent?
     jne !7
     movb @audio_vol3,r0
     jeq !7
@@ -1303,8 +1325,8 @@ music_hardware
     
 !7
     li r1,>9f00         ; mute default
-    mov @audio_freq,r0
-    ci r0,>0400
+    mov @audio_freq1,r0
+    ci r0,>0400         ; filter out of range
     jhe !1
     mov r0,r1           ; write least significant plus command nibble
     swpb r1
@@ -1312,7 +1334,7 @@ music_hardware
     ori r1,>8000
     movb r1,@SOUND      ; command + least significant nibble
     sla r0,4
-    movb r1,@SOUND      ; most significant byte
+    movb r0,@SOUND      ; most significant byte
     movb @audio_vol1,r2
     srl r2,8
     movb @ay2sn(r2),r1  ; translate from AY to SN
@@ -1331,7 +1353,7 @@ music_hardware
     ori r1,>a000
     movb r1,@SOUND      ; command + least significant nibble
     sla r0,4
-    movb r1,@SOUND      ; most significant byte
+    movb r0,@SOUND      ; most significant byte
     movb @audio_vol2,r2
     srl r2,8
     movb @ay2sn(r2),r1  ; translate from AY to SN
@@ -1346,7 +1368,7 @@ music_hardware
     jl !6               ; yes jump
     
     li r1,>df00         ; mute default
-    mov @audio_freq2,r0
+    mov @audio_freq3,r0
     ci r0,>0400
     jhe !3
     mov r0,r1           ; write least significant plus command nibble
@@ -1355,7 +1377,7 @@ music_hardware
     ori r1,>c000
     movb r1,@SOUND      ; command + least significant nibble
     sla r0,4
-    movb r1,@SOUND      ; most significant byte
+    movb r0,@SOUND      ; most significant byte
     movb @audio_vol3,r2
     srl r2,8
     movb @ay2sn(r2),r1  ; translate from AY to SN
@@ -1365,10 +1387,9 @@ music_hardware
     movb r1,@SOUND      ; volume
 
 !6
-    clr r0
     movb @music_mode,r0
-    srl r0,1            ; no drums?
-    jnc !8
+    andi r0,>0100       ; check for drums
+    jeq !8
     
     movb @audio_vol4hw,r0
     ci r0,>ff00
