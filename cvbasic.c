@@ -3073,7 +3073,8 @@ void compile_statement(int check_for_else)
                             }
                         } else if (target == CPU_9900) {
                             if (format == 0) {
-                                cpu9900_1op("JSR", "print_number");
+                                cpu9900_1op("bl","@JSR");
+                                cpu9900_1op("data","print_number");
                             } else if (format == 1) {
                                 // TODO: I don't quite follow this - are we literally printing $220 and $230?
                                 cpu9900_1op("limi","0");        // print_number will turn it back on
@@ -4345,7 +4346,7 @@ void compile_statement(int check_for_else)
                         } else if (target == CPU_9900) {
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
                             cpu9900_2op("li","r1",temp);
-                            cpu9900_1op("dec","r10");   // stack manip
+                            cpu9900_1op("dect","r10");   // stack manip
                             cpu9900_2op("mov","r1","*r10");
                         } else {
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
@@ -4377,7 +4378,8 @@ void compile_statement(int check_for_else)
                             cpu9900_2op("srl","r0","8");
                         }
                         cpu9900_2op("sla","r0","1");
-                        sprintf(temp, "@" INTERNAL_PREFIX "%d(r0)", table);
+                        cpu9900_2op("mov","r0","r1");
+                        sprintf(temp, "@" INTERNAL_PREFIX "%d(r1)", table);
                         cpu9900_2op("mov",temp,"r0");
                         cpu9900_1op("b","*r0");
                     } else {

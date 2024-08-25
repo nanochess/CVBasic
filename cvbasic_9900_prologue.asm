@@ -245,7 +245,7 @@ LDIRVM3
     mov r5,r2
     mov r7,r3
     mov r4,r11      ; for tail recursion
-    b @LDIRVM
+    jmp LDIRVM
 
 ; Disable screen by setting VDP register 1 to >a2
 DISSCR
@@ -707,7 +707,7 @@ mode_1
     jl -!1
 
     mov r8,r11      ; restore return address
-    b @vdp_generic_sprites
+    jmp vdp_generic_sprites     ; using tail recursion
 
 ; Set up VDP mode 2
 mode_2
