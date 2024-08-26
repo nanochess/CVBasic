@@ -1475,7 +1475,7 @@ nmi_handler:
 
     endif
     if MSX
-
+	; Keyboard matrix from https://map.grauw.nl/articles/keymatrix.php
 	ld a,15
 	call RDPSG
 	and $b0
@@ -1514,23 +1514,36 @@ nmi_handler:
 	out ($aa),a
 	in a,($a9)
 	cp $ff
-	ld c,$00
+	ld c,$ff
 	jr nz,.key1
 	in a,($aa)
 	and $f0
 	or $01
 	out ($aa),a
 	in a,($a9)
-	and $0f
-	cp $0f
+	and $03
+	cp $03
+	ld c,$07
+	jr nz,.key1
+	in a,($aa)
+	and $f0
+	or $07
+	out ($aa),a
+	in a,($a9)
+	bit 5,a		; BS
+	ld c,$0a
 	jr z,.key2
-	ld c,$08
+	bit 7,a		; RET
+	ld c,$0b
+	jr z,.key2
+	ld c,$0f
+	jr .key2
+
 .key1:	rra
 	inc c
 	jr c,.key1
-	ld a,c
-	dec a
 .key2:
+	ld a,c
 	ld (key1_data),a	
 
         ld b,$ff
@@ -1624,21 +1637,35 @@ nmi_handler:
 	out ($96),a
 	in a,($99)
 	cp $ff
-	ld c,$00
+	ld c,$ff
 	jr nz,.key1
 	ld a,$11
 	out ($96),a
 	in a,($99)
-	and $0f
-	cp $0f
+	and $03
+	cp $03
+	ld c,$07
+	jr nz,.key1
+	ld a,$16
+	out ($96),a
+	in a,($99)
+	bit 6,a
+	ld c,$0b
 	jr z,.key2
-	ld c,$08
+	ld a,$15
+	out ($96),a
+	in a,($99)
+	bit 6,a
+	ld c,$0a
+	jr z,.key2
+	ld c,$0f
+	jr .key2
+
 .key1:	rra
 	inc c
 	jr c,.key1
-	ld a,c
-	dec a
 .key2:
+	ld a,c
 	ld (key1_data),a	
 
         ld b,$ff
@@ -1752,27 +1779,30 @@ nmi_handler:
 	ld (joy2_data),a
 	in a,($31)	; Keyboard 1-8
 	or a
-	ld c,$01
+	ld c,$00
 	jr nz,.key3
-	in a,($35)	; Keyboard 9 0 - ^
-	and $0f
-	jr z,.key4
+	in a,($35)	
+	bit 0,a		; 9
 	ld c,$09
+	jr nz,.key5
+	bit 1,a		; 0
+	ld c,$00
+	jr nz,.key5
+	bit 7,a		; Backspace
+	ld c,$0a
+	jr nz,.key5
+	in a,($30)
+	bit 7,a		; Enter
+	ld c,$0b	
+	jr nz,.key5
+	ld c,$0f
+	jr .key5
+
 .key3:	rra
 	inc c
 	jr nc,.key3
-	ld a,c
-	dec a
-	cp $0a
-	jr c,.key5
-	dec a
-	cp $09
-	jr nz,.key5
-	xor a
-	jr .key5
-.key4:
-	ld a,$0f
 .key5:
+	ld a,c
 	ld (key1_data),a	
 
     endif
@@ -1878,10 +1908,14 @@ nmi_handler:
 	rra
 	ld b,9
 	jr nc,.mt1
-	rra
-	ld b,10
-	jr nc,.mt1
-	ld b,15
+	ld a,$df
+	out ($05),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($05)
+	bit 6,a
+	ld b,11
+	jr z,.mt1
 	ld a,$fd
 	out ($05),a
 	ex (sp),hl
@@ -1903,8 +1937,9 @@ nmi_handler:
 	rra
 	ld b,0
 	jr nc,.mt1
+	in a,($06)
 	rra
-	ld b,11
+	ld b,10
 	jr nc,.mt1
 	ld b,15
 .mt1:
@@ -2034,6 +2069,9 @@ nmi_handler:
 	bit 3,a
 	ld b,8
 	jr z,.te1
+	bit 4,a
+	ld b,10
+	jr z,.te1
         ld a,$0e
         out ($02),a
         ld a,$fb
@@ -2046,10 +2084,16 @@ nmi_handler:
 	bit 6,a
 	ld b,9
 	jr z,.te1
-	bit 3,a
-	ld b,10
-	jr z,.te1
-	bit 2,a
+        ld a,$0e
+        out ($02),a
+        ld a,$fe
+        out ($03),a
+        ex (sp),hl
+        ex (sp),hl
+        ld a,$0f
+        out ($02),a  
+        in a,($02)
+	bit 5,a
 	ld b,11
 	jr z,.te1
         ld a,$0e
@@ -2122,19 +2166,25 @@ nmi_handler:
 	and $0f
 	ld b,$08
 	jr nz,.pv1
-	ld a,4
+	ld a,8
 	out ($20),a
 	ex (sp),hl
 	ex (sp),hl
 	in a,($10)
-	ld b,9
+	ld b,11
 	bit 0,a
 	jr nz,.pv2
-	inc b
-	bit 1,a
+	ld a,4
+	out ($20),a
+	ex (sp),hl
+	ex (sp),hl
+	in a,($20)
+	ld b,10
+	bit 3,a
 	jr nz,.pv2
-	inc b
-	bit 2,a
+	in a,($10)
+	ld b,9
+	bit 0,a
 	jr nz,.pv2
 	ld b,0
 	bit 3,a

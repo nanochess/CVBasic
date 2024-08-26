@@ -1187,11 +1187,12 @@ int_handler:
 	LDX #0
 	CMP #$12
 	BEQ .11
-	LDX #10
-	CMP #$0A
+	LDX #11
+	CMP #$09
 	BEQ .11
-	INX
-	CMP #$80
+	LDA $19
+	LDX #10
+	CMP #$09
 	BEQ .11
 	LDX #$0f
 .11:	STX key1_data
@@ -1269,16 +1270,16 @@ convert_joystick:
 	BEQ .1
 	AND #$0F
 	TAX
-	LDA FRAME
-	AND #1
-	BEQ .2
+;	LDA FRAME
+;	AND #1
+;	BEQ .2
 	TYA
 	ORA joystick_table,X
 	RTS
-.2:
-	TYA
-	ORA joystick_table+16,X
-	RTS
+;.2:
+;	TYA
+;	ORA joystick_table+16,X
+;	RTS
 
 .1:	TYA
 	RTS
@@ -1287,8 +1288,8 @@ joystick_table:
 	DB $04,$04,$06,$06,$02,$02,$03,$03
 	DB $01,$01,$09,$09,$08,$08,$0C,$0C
 
-	DB $0C,$04,$04,$06,$06,$02,$02,$03
-	DB $03,$01,$01,$09,$09,$08,$08,$0C
+;	DB $0C,$04,$04,$06,$06,$02,$02,$03
+;	DB $03,$01,$01,$09,$09,$08,$08,$0C
 
 wait:
 	LDA frame
