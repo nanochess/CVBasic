@@ -23,7 +23,7 @@
 #include "cpuz80.h"
 #include "cpu6502.h"
 
-#define VERSION "v0.6.1 Aug/19/2024"
+#define VERSION "v0.6.1 Aug/26/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -57,6 +57,7 @@ static struct console {
     char *name;         /* Machine name */
     char *options;      /* Options */
     char *description;  /* Description (for usage guide) */
+    char *canonical;    /* Canonical name */
     int base_ram;       /* Where the RAM starts */
     int stack;          /* Where the stack will start */
     int memory_size;    /* Memory available */
@@ -67,26 +68,37 @@ static struct console {
 } consoles[TOTAL_TARGETS] = {
     /*  RAM   STACK    Size  VDP R   VDP W  PSG */
     {"colecovision","",     "Standard Colecovision (1K RAM)",
+        "Colecovision",
         0x7000, 0x7400, 0x0400,  0xbe,   0xbe, 0xff, CPU_Z80},
-    {"sg1000",  "",         "Sega SG-1000 (1K RAM)",
+    {"sg1000",  "",         "Sega SG-1000/SC-3000 (1K RAM)",
+        "Sega SG-1000/SC-3000",
         0xc000, 0xc400, 0x0400,  0xbe,   0xbe, 0x7f, CPU_Z80},
     {"msx",     "-ram16",   "MSX (8K RAM), use -ram16 for 16K of RAM",
+        "MSX",
         0xe000, 0xf380, 0x1380,  0x98,   0x98, 0,    CPU_Z80},
     {"sgm",     "",         "Colecovision with Opcode's Super Game Module",
+        "Colecovision with SGM",
         0x7c00, 0x8000, 0x5c00,  0xbe,   0xbe, 0xff, CPU_Z80}, /* Note: Real RAM at 0x2000 */
-    {"svi",     "",         "Spectravideo SVI-318/SVI-328 (16K of RAM)",
+    {"svi",     "",         "Spectravideo SVI-318/328 (16K of RAM)",
+        "Spectravideo SVI-318/328",
         0xc000, 0xf000, 0x3000,  0x80,   0x84, 0,    CPU_Z80},
     {"sord",    "",         "Sord M5 (1K RAM)",
+        "Sord M5",
         0x7080, 0x7080, 0x0380,  0x10,   0x10, 0x20, CPU_Z80},
     {"memotech","-cpm",     "Memotech MTX (64K RAM), generates .run files, use -cpm for .com files",
+        "Memotech MTX",
         0,      0xa000, 0,       0x01,   0x01, 0x06, CPU_Z80},
     {"creativision","-rom16","Vtech Creativision (Dick Smith's Wizzard/Laser 2001), 6502+1K RAM.",
+        "Creativision/Wizzard",
         0x0050, 0x017f, 0x0400,  0,      0,    0,    CPU_6502},
     {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
+        "Soundic Pencil II",
         0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, CPU_Z80},
     {"einstein","",         "Tatung Einstein, generates .com files",
+        "Tatung Einstein",
         0,      0xa000, 0,       0x08,   0x08, 0,    CPU_Z80},
     {"pv2000",  "",         "Casio PV-2000",
+        "Casio PV-2000",
         0x7600, 0x8000, 0x0a00,0x4000, 0x4000, 0x40, CPU_Z80},
 };
 
@@ -5310,7 +5322,7 @@ int main(int argc, char *argv[])
         }
         fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used, available_bytes);
     }
-    fprintf(stderr, "Compilation finished.\n\n");
+    fprintf(stderr, "Compilation finished for %s.\n\n", consoles[machine].canonical);
     exit(err_code);
 }
 
