@@ -333,11 +333,11 @@ LDIRVM:
         INC A
         LD C,VDP
 .1:
-    if SG1000+SORD
-	NOP	; SG1000 is faster (reported by SiRioKD)
+    if SORD
+	NOP	
     endif
-    if MEMOTECH+EINSTEIN
-	NOP
+    if SG1000+MEMOTECH+EINSTEIN
+	NOP	; SG1000 is 3.58 mhz, but SC3000 is 4 mhz.
 	NOP
     endif
 	OUTI
@@ -1242,11 +1242,8 @@ nmi_handler:
 	inc hl
 	djnz .7
     else
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+SG1000
 	nop
-	nop
-    endif
-    if SG1000
 	nop
     endif
 	outi
@@ -1294,38 +1291,26 @@ nmi_handler:
     else
 	outi
 	jp $+3
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+SG1000
 	nop
-	nop
-    endif
-    if SG1000
 	nop
     endif
 	outi
 	jp $+3
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+SG1000
 	nop
-	nop
-    endif
-    if SG1000
 	nop
     endif
 	outi
 	jp $+3
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+SG1000
 	nop
-	nop
-    endif
-    if SG1000
 	nop
     endif
 	outi
 	jp $+3
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+SG1000
 	nop
-	nop
-    endif
-    if SG1000
 	nop
     endif
     endif
@@ -1393,7 +1378,72 @@ nmi_handler:
 	ld l,a
 	in a,($de)
 	cp 7
-	jr nz,.sg1000
+	jp nz,.sg1000
+
+	ld a,$00
+	out ($de),a
+	in a,($dc)
+	rra
+	ld c,1
+	jr nc,.sg1
+	in a,($dd)
+	rra
+	ld c,8
+	jr nc,.sg1
+	ld a,$01
+	out ($de),a
+	in a,($dc)
+	rra
+	ld c,2
+	jr nc,.sg1
+	in a,($dd)
+	rra
+	ld c,9
+	jr nc,.sg1
+	ld a,$02
+	out ($de),a
+	in a,($dc)
+	rra
+	ld c,3
+	jr nc,.sg1
+	in a,($dd)
+	rra
+	ld c,0
+	jr nc,.sg1
+	ld a,$03
+	out ($de),a
+	in a,($dc)
+	bit 4,a
+	ld c,10
+	jr z,.sg1
+	rra
+	ld c,4
+	jr nc,.sg1
+	ld a,$04
+	out ($de),a
+	in a,($dc)
+	rra
+	ld c,5
+	jr nc,.sg1
+	ld a,$05
+	out ($de),a
+	in a,($dc)
+	bit 6,a
+	ld c,11
+	jr z,.sg1
+	rra
+	ld c,6
+	jr nc,.sg1
+	ld a,$06
+	out ($de),a
+	in a,($dc)
+	rra
+	ld c,7
+	jr nc,.sg1
+	ld c,15
+.sg1:	ld a,c
+	ld (key1_data),a
+
 	ld a,$04
 	out ($de),a
 	in a,($dc)

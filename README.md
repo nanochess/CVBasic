@@ -8,7 +8,7 @@ The CVBasic compiler can create programs up to 1 MB using the BANK statements (u
 
 Later it was extended to support the following platforms:
 
-* Sega SG-1000 (supporting bank switching with Sega mapper)
+* Sega SG-1000 / SC-3000  (supporting bank switching with Sega mapper)
 * MSX 1 (supporting bank switching with ASCII16 mapper)
 * Spectravideo SVI-318 / 328.
 * Sord M5.
@@ -64,7 +64,7 @@ Using CVBasic to compile a Colecovision program:
 
 You need to assemble the output file using Gasm80 available from [http://github.com/nanochess/gasm80](http://github.com/nanochess/gasm80) (this assembler serves for all the platforms, including Creativision based on 6502 CPU)
 
-Using CVBasic to compile a Sega SG1000 program:
+Using CVBasic to compile a Sega SG1000/SC3000 program:
 
     cvbasic --sg1000 game.bas game.asm
     gasm80 game.asm -o game.rom
@@ -127,17 +127,17 @@ The current official version is v0.6.0.
 All platforms have been tested in emulation.
 
 * Colecovision and MSX have been tested in real hardware by myself.
-* Sega SG1000 tested in real hardware by aotta.
+* Sega SG1000/SC3000 tested in real hardware by aotta.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
 
-The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD)
+The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD) and for CONT1.KEY using the keys 0-9, Delete and CR.
 
 The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad (CONT1.KEY only) using the keys 0-9, Backspace and Return.
 
-The Sord M5 can only use binaries up to 16 kb, both joysticks are handled as controllers, and the keyboard emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Backslahs/Del and Return.
+The Sord M5 can only use binaries up to 16 kb, both joysticks are handled as controllers, and the keyboard emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Backslash/Del and Return.
 
 The Memotech can only use binaries up to 32 kb, keyboard is handled as controller 1, and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, BS and Ret.
 
