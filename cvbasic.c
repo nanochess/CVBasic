@@ -3233,9 +3233,9 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("ROL", "pointer+1");
                             cpu6502_1op("STA", "pointer");
                         } else if (target == CPU_9900) {
-                            // TODO: this is for unpack which is not defined - might not be correct calling convention
-                            cpu9900_2op("sla","r2","5");
-                            cpu9900_2op("ai","r2",">3800");
+                            cpu9900_2op("mov","r0","r4");
+                            cpu9900_2op("sla","r4","5");
+                            cpu9900_2op("ai","r4",">3800");
                         } else {
                             cpuz80_2op("ADD", "HL", "HL");
                             cpuz80_2op("ADD", "HL", "HL");
@@ -3266,10 +3266,10 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("STA", "temp");
                                 cpu6502_1op("STY", "temp+1");
                             } else if (target == CPU_9900) {
-                                // TODO: this is for unpack which is not defined - might not be correct calling convention
                                 strcpy(temp, LABEL_PREFIX);
                                 strcat(temp, name);
-                                cpu9900_2op("li", "r0", temp);
+                                cpu9900_2op("li", "r2", temp);
+                                cpu9900_2op("mov","r4","r1");
                             } else {
                                 strcpy(temp, LABEL_PREFIX);
                                 strcat(temp, name);
@@ -3566,6 +3566,9 @@ void compile_statement(int check_for_else)
                         get_lex();
                     }
                     if (pletter) {
+                        if (target == CPU_9900) {
+                            cpu9900_2op("mov","r0","r1");
+                        }
                         generic_call("unpack");
                         compression_used = 1;
                     } else {
