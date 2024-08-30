@@ -104,6 +104,7 @@ static struct console {
         "Casio PV-2000",
         0x7600, 0x8000, 0x0a00,0x4000, 0x4000, 0x40, CPU_Z80},
     {"ti994a",  "",         "Texas Instruments TI-99/4A (32K RAM)",
+        "TI-99/4A",
         0x2080, 0x4000, 0x1f80, 0x8800, 0x8c00,0xff, CPU_9900},
 };
 
@@ -3084,7 +3085,6 @@ void compile_statement(int check_for_else)
                                     cpu6502_1op("STY", "cursor+1");
                                 }
                             }
->>>>>>> d9f460206b496ccaa4de57bb6a2e2f01ff590b8d
                         }
                         get_lex();
                     } else if (lex == C_LESS || lex == C_NOTEQUAL) {
