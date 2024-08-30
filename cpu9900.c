@@ -28,6 +28,8 @@ static char cpu9900_lastline4[MAX_LINE_SIZE] = "";
 static char last_r0_load[MAX_LINE_SIZE] = "";
 static size_t pushpos = 0;
 static size_t loadr0pos = 0;
+static size_t lastclr = 0;
+static size_t movtor0 = 0;
 static char op1[128],op2[128],op3[128],op4[128];
 static char s1[128],s2[128],s3[128],s4[128],s5[128],s6[128],s7[128],s8[128];
 
@@ -136,6 +138,8 @@ void cpu9900_emit_line(void)
         // Replace immediate operations for select cases
         if ((0 == strcmp(op1,"li")) && (s1[0] == 'r') && (0 == strcmp(s2,"0"))) {
             sprintf(buf, "\tclr %s\n", s1);
+            fflush(output);
+            lastclr = ftell(output);
         } else if ((0 == strcmp(op1,"ai")) && (0 == strcmp(s1,"r0")) && (0 == strcmp(s2,"0"))) {
 #ifdef DEBUGPEEP
             fprintf(output, "\t;PEEP: don't add zero\n");
@@ -173,6 +177,25 @@ void cpu9900_emit_line(void)
             }
         }
         
+        // check for mov[b] xxx,r0 / clr r1 / c[b] r1,r0 - the mov[b] is enough
+        if ((0 == strncmp(op3,"mov",3)) && (0 == strcmp(op2,"clr")) && (op1[0] == 'c')
+           && (0 == strcmp(s2,s6)) && (0 == strcmp(s1,s3)) && (op3[3] == op1[1])) {
+            // all three opcodes match, the registers compared match, and byte/word matches
+            // We can drop the clr and compare
+            fseek(output, lastclr, SEEK_SET);
+#ifdef DEBUGPEEP
+            fprintf(output, "\t;PEEP: skip clr and compare for zero test after move\n");
+            fprintf(output, "\t;%s %s\n",op2,s3);
+            fprintf(output, "\t;%s %s,%s\n",op1,s1,s2);
+#endif
+            // remove one line from history
+            strcpy(cpu9900_lastline, cpu9900_lastline2);
+            strcpy(cpu9900_lastline2, cpu9900_lastline3);
+            strcpy(cpu9900_lastline3, cpu9900_lastline4);
+            strcpy(cpu9900_lastline4, "");
+            return;
+        }
+        
         // look for push/pop - happens sometimes, mostly around immediates due to the
         // simplified process handling I coded. But it's an easy fix. We remember where
         // we saw the dect r10 which might indicate the start of the sequence. If it completes,
@@ -193,7 +216,7 @@ void cpu9900_emit_line(void)
             strcpy(cpu9900_lastline4, "");
 #ifdef DEBUGPEEP
             fprintf(output, "\t;PEEP: skip push/pop r1\n");
-            fprintf(output, "\t;ect r10\n\t;ov r1,*r10\n\t;ov *r10+,r1\n");
+            fprintf(output, "\t;dect r10\n\t;mov r1,*r10\n\t;mov *r10+,r1\n");
 #endif
             return;
         } else if ( ((0 == strcmp(op3,"dect")) && (0 == strcmp(s5,"r10"))) && 
@@ -282,10 +305,10 @@ void cpu9900_emit_line(void)
                 char tmp[MAX_LINE_SIZE];
                 char old = cpu9900_lastline[1];
                 strcpy(tmp, buf);
-                cpu9900_lastline[1]=';';
-                tmp[1] = ';';
+                cpu9900_lastline[0]=';';
+                tmp[0] = ';';
                 fprintf(output, "\t;PEEP: simplify load r0 / mov r0,rx\n");
-                fprintf(output, "%s%s", cpu9900_lastline, tmp);
+                fprintf(output, "\t%s\t%s", cpu9900_lastline, tmp);
                 cpu9900_lastline[1]=old;
 #endif
                 // remove one line from history
@@ -304,6 +327,30 @@ void cpu9900_emit_line(void)
                     }
                 }
             }
+        }
+        
+        // check for mov rx,r0 / sla r0,8 / movb r0,rx (reduce 16 bit to 8 bit) - we can sla directly
+        if ((0 == strcmp(op1,"mov")) && (s1[0]=='r') && (0 == strcmp(s2,"r0"))) {
+            fflush(output);
+            movtor0 = ftell(output);
+        } else if ((0 == strcmp(op1,"movb")) && (0 == strcmp(op2,"sla")) && (0 == strcmp(op3,"mov")) 
+            && (0 == strcmp(s5,s2)) && (0 == strcmp(s6,"r0")) && (0 == strcmp(s3,"r0"))
+            && (0 == strcmp(s4,"8")) && (0 == strcmp(s1,"r0"))) {
+            // roll back and replace the first mov with the sla
+            fseek(output, movtor0, SEEK_SET);
+#ifdef DEBUGPEEP
+            fprintf(output,"\t;PEEP: simplify demotion from 16 bit to 8 bit\n");
+            fprintf(output,"\t;%s %s,%s\n", op3,s5,s6);
+            fprintf(output,"\t;%s %s,%s\n", op2,s3,s4);
+            fprintf(output,"\t;%s %s,%s\n", op1,s1,s2);
+#endif
+            // remove one line from history
+            strcpy(cpu9900_lastline, cpu9900_lastline2);
+            strcpy(cpu9900_lastline2, cpu9900_lastline3);
+            strcpy(cpu9900_lastline3, cpu9900_lastline4);
+            strcpy(cpu9900_lastline4, "");
+            // new line
+            sprintf(buf,"\tsla %s,8\n", s2);
         }
         
         // specifically test for clr r0, then mov to an address (not movb!), we can then clear directly
@@ -567,7 +614,7 @@ void cpu9900_node_generate(struct node *node, int decision)
             cpu9900_2op("mov", temp, "r0");
             break;
         case N_NUM8:    /* Load 8-bit constant */
-            sprintf(temp, "%d", (node->value)*256);
+            sprintf(temp, "%d   ; %d*256", (node->value)*256, (node->value));
             cpu9900_2op("li", "r0", temp);
             break;
         case N_NUM16:   /* Load 16-bit constant */
@@ -718,7 +765,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 if (node->left->type == N_NUM8) {
                     cpu9900_noop("; Unclear code - N_LESSEQUAL8 || N_GREATER8 left=N_NUM8");
                     cpu9900_node_generate(node->right, 0);
-                    sprintf(temp,"%d",(node->left->value&0xff)*256);
+                    sprintf(temp,"%d   ; %d*256",(node->left->value&0xff)*256, (node->left->value&0xff));
                     cpu9900_2op("li","r1",temp);
                     cpu9900_1op("dect","r10");
                     cpu9900_2op("mov","r1","*r10");
@@ -742,14 +789,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                 int c;
                 c = node->right->value & 0xff;
                 cpu9900_node_generate(node->left, 0);
-                sprintf(temp, "%d", c*256);
+                sprintf(temp, "%d   ; %d*256", c*256, c);
                 cpu9900_2op("li","r1",temp);
                 cpu9900_1op("dect","r10");
                 cpu9900_2op("mov","r1","*r10");
                 strcpy(temp, ">>COMPILER ERROR<<");
             } else {
-                cpu9900_noop("; Unclear code - node->right->type != N_NUM8 - SWAPPED");
-                // again, why this order? TODO: can we just reverse the node_generate order?
+                // again, why this order? can we just reverse the node_generate order? I think so!
 #if 0                
                 cpu9900_node_generate(node->left, 0);
                 cpu9900_2op("mov","r0","r2");
@@ -838,7 +884,6 @@ void cpu9900_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_LESS8) {
                 cpu9900_2op("mov","*r10+","r1");
-                cpu9900_noop("; TODO: check the next line compare order1");
                 cpu9900_2op("cb","r0","r1");
                 if (decision) {
                     // TODO: unsigned??
@@ -1129,21 +1174,20 @@ void cpu9900_node_generate(struct node *node, int decision)
                 }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
+                cpu9900_noop(";unclear - node->type == N_LESSEQUAL16 || node->type == N_GREATER16");
                 cpu9900_node_generate(node->left, 0);   
-                cpu9900_2op("mov","r0","r2");           // temp
-                cpu9900_node_generate(node->right, 0);
                 cpu9900_1op("dect","r10");
                 cpu9900_2op("mov","r0","*r10");
+                cpu9900_node_generate(node->right, 0);
             } else {
                 cpu9900_node_generate(node->right, 0);
-                cpu9900_2op("mov","r0","r2");           // temp
-                cpu9900_node_generate(node->left, 0);
                 cpu9900_1op("dect","r10");
                 cpu9900_2op("mov","r0","*r10");
+                cpu9900_node_generate(node->left, 0);
             }
             if (node->type == N_OR16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("soc","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("soc","r1","r0");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1153,8 +1197,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_XOR16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("xor","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("xor","r1","r0");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1164,9 +1208,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_AND16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_1op("inv","r2");
-                cpu9900_2op("szc","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_1op("inv","r1");
+                cpu9900_2op("szc","r1","r0");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1176,8 +1220,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("c","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("c","r0","r1");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1195,8 +1239,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_NOTEQUAL16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("c","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("c","r0","r1");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1214,9 +1258,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_noop("; TODO check order of compare1");
-                cpu9900_2op("c","r0","r2");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("c","r0","r1");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1234,8 +1277,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("c","r0","r2");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_noop("; TODO check order of compare2");
+                cpu9900_2op("c","r0","r1");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1253,35 +1297,36 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_PLUS16) {
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("a","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("a","r1","r0");
             } else if (node->type == N_MINUS16) {
-                cpu9900_noop("; TODO: check order of subtraction");
-                cpu9900_2op("mov","*r10+","r0");
-                cpu9900_2op("s","r2","r0");
+                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("s","r1","r0");
             } else if (node->type == N_MUL16) {
                 cpu9900_2op("mov","*r10+","r1");
                 cpu9900_2op("mpy","r1","r2");   // r1 * r2 => r2_r3 (32 bit)
                 cpu9900_2op("mov","r3","r0");
             } else if (node->type == N_DIV16) {
-                cpu9900_noop("; TODO: check order of division - assume r1/r2");
-                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("mov","r0","r1");
+                cpu9900_2op("mov","*r10+","r2");
                 cpu9900_1op("clr","r0");
                 cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
             } else if (node->type == N_MOD16) {
-                cpu9900_noop("; TODO: check order of mod - assume r1%r2");
-                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_2op("mov","r0","r1");
+                cpu9900_2op("mov","*r10+","r2");
                 cpu9900_1op("clr","r0");
                 cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
                 cpu9900_2op("mov","r1","r0");   // get remainder
             } else if (node->type == N_DIV16S) {
-                cpu9900_noop("; TODO: check order of division - assume r1/r2");
-                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_noop("; TODO: check order of division - assume r0/r2");
+                cpu9900_2op("mov","r0","r1");
+                cpu9900_2op("mov","*r10+","r2");
                 cpu9900_1op("bl","@JSR");
                 cpu9900_1op("data", "_div16s");
             } else if (node->type == N_MOD16S) {
-                cpu9900_noop("; TODO: check order of mod - assume r1%r2");
-                cpu9900_2op("mov","*r10+","r1");
+                cpu9900_noop("; TODO: check order of mod - assume r0%r2");
+                cpu9900_2op("mov","r0","r1");
+                cpu9900_2op("mov","*r10+","r2");
                 cpu9900_1op("bl","@JSR");
                 cpu9900_1op("data", "_mod16s");
             }

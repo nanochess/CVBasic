@@ -4042,7 +4042,7 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("LDA", temp);
                         cpu6502_1op("STA", "music_mode");
                     } else if (target == CPU_9900) {
-                        sprintf(temp, "%d", c*256);
+                        sprintf(temp, "%d   ; %d*256", c*256, c);
                         cpu9900_2op("li","r0",temp);
                         cpu9900_2op("movb","r0","@music_mode");
                     } else {
@@ -4067,7 +4067,7 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("LDA", temp);
                         cpu6502_1op("STA", "music_mode");
                     } else if (target == CPU_9900) {
-                        sprintf(temp, "%d", c*256);
+                        sprintf(temp, "%d   ; %d*256", c*256, c);
                         cpu9900_2op("li","r0",temp);
                         cpu9900_2op("movb","r0","@music_mode");
                     } else {
@@ -4305,7 +4305,7 @@ void compile_statement(int check_for_else)
                             cpu6502_label(temp + 100);
                         } else if (target == CPU_9900) {
                             if ((type & MAIN_TYPE) == TYPE_8) {
-                                sprintf(temp, "%d", max_value*256);
+                                sprintf(temp, "%d   ; %d*256", max_value*256, max_value);
                                 cpu9900_2op("ci","r0",temp);
                             } else {
                                 sprintf(temp, "%d", max_value);
@@ -4993,7 +4993,7 @@ void compile_statement(int check_for_else)
                     cpu6502_noop("CLI");
                 } else if (target == CPU_9900) {
                     // simpler to do inline
-                    sprintf(temp, "%d", vdp_reg*256+0x8000);
+                    sprintf(temp, "%d   ; %d*256+0x8000", vdp_reg*256+0x8000, vdp_reg);
                     cpu9900_2op("li","r1",temp);
                     cpu9900_2op("movb","r1","@VDPWADR");
                     cpu9900_2op("movb","r0","@VDPWADR");

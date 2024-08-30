@@ -525,7 +525,7 @@ _div16s
 !2
     b *r11
 
-; Random number generator - return in R0, uses R3,R4
+; Random number generator - return in R0, (complex one uses R3,R4, simpler one only R0)
 ; Original output into YYAA
 random
     .ifne OLD_RND
@@ -1425,55 +1425,56 @@ music_silence
 
 
     .ifne CVBASIC_COMPRESSION
-; TODO: Not implemented    
-;**; not sure how badly I want to tackle this - seems to be
-;**; no reference code besides the Z80 and 6502. Wonder which
-;**; one would be easier to port? Probably Z80? 
-
+    
     .error COMPRESSION NOT IMPLEMENTED
-
-; TODO: must use same calling syntax as define_char
+    
+; Load compressed character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
+; Original: pointer = char number, temp = CPU address, a = number chars
 define_char_unpack
-    andi r3,>00ff
-    sla r3,4
-    movb @mode,r0
-    andi r0,>0400
-    jeq unpack3
-    jmp unpack
+    andi r1,>00ff   ; mask off to 0-255
+    sla r1,3        ; times 8
+    movb @mode,r0   ; get mode
+    andi r0,>0400   ; check bitmap bit
+    jeq unpack3     ; 3 times if yes
+    jmp unpack      ; once if no
 
-; TODO: must use same calling syntax as define_color
+; Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
+; Original: pointer = char number, temp = CPU address, a = number chars
 define_color_unpack
-    li r0,>0400
-    movb r0,r3
-    sla r3,3
+    andi r1,>00ff   ; mask off to 0-255
+    sla r1,3        ; char times 8
+    li r0,>2000     ; base of color table
+    a r0,r1         ; set base for color then fall through
 
+; entered from one of the above two functions    
 unpack3
     mov r11,r6      ; save return address
     bl @unpack
-    ai r3,8
+    ai r3,>800
     bl @unpack
-    ai r3,8
+    ai r3,>800
     bl @unpack
-    ai r3,8
     b *r6
 
 ;
 ; Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
-; Ported from 6502 port
-; (r3) pointer = Pointer to target VRAM
-; (r4) temp = Pointer to source data 
-; (r5) temp2
-; (r6) result
-; pletter_off
-;
+; Ported by hand from https://gitea.zaclys.com/Mokona/Unpletter/src/branch/main/pletter.cpp
+; Unpack data to VDP: VDP address in R1, CPU data in R2, count in R3 (MSB)
+; Original: pointer = char number, temp = CPU address, a = number chars
+
+; The challenge with porting is the 8 bit vs 16-bit registers, and the behaviour of rotate
+; 9900 shifts and rotates are always 16 bits wide, and do not include the carry bit
+; rather, shifted out bits are /copied/ to carry, but carry is never copied in. This makes
+; most of the optimized code difficult to port - but if we knew the original intent, it
+; wouldn't be so bad. In addition, the 9900 has very few instructions that preserve
+; status flags, meaning we can't execute an instruction and then check status for the
+; instruction before it in nearly any case, the code uses this too. 
+; I've not been able to locate any C code for the unpacker which would probably be easier to port.
+
 unpack
 ; Initialization
-    clr r5
-    movb @r4+,r0
-    
-;**; 
-    ldy #0
-    sty temp2
+	ldy #0
+	sty temp2
     lda (temp),y
     inc temp
     bne $+4
