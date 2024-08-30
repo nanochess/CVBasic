@@ -20,19 +20,22 @@
 
 ;
 ; Platforms supported:
-; o TI-99/4A. (/4 supported if bitmap not used)
 ; o TI-99/4A with 32k Memory Expansion
 
 ; this is intended to be assembled by xdt99, no console ROM dependencies
 ;   cvbasic --ti994a test1.bas test1.a99
 ;   xas99.py -R test1.a99
 
+; When looking at this - remember that JUMP and BRANCH have the /opposite/
+; meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
+
 ;
 ; CVBasic variables in scratchpad.
 ;
 
-; When looking at this - remember that JUMP and BRANCH have the /opposite/
-; meanings to the 6502 - JUMP is the short relative one, and BRANCH is absolute.
+; don't warn on branch/jump optimizations or unused variables
+;: warn-opts = off
+;: warn-symbols = off
 
 ; use original (possibly incorrectly ported) random
 OLD_RND equ 0
@@ -1018,7 +1021,6 @@ music_play
     movb r2,@music_note_counter     ; store in the counter
     movb *r0+,r2                    ; fetch the first byte of the music and increment
     mov r0,@music_pointer           ; store the updated address
-    ai r2,>0100                     ; TODO HACK: why do I seem to need this?
     movb r2,@music_timing           ; store fetched byte in timing
     li r2,>0100
     movb r2,@music_playing          ; needs to be a 1 for BASIC

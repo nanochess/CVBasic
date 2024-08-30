@@ -1304,8 +1304,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_2op("s","r1","r0");
             } else if (node->type == N_MUL16) {
                 cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("mpy","r1","r2");   // r1 * r2 => r2_r3 (32 bit)
-                cpu9900_2op("mov","r3","r0");
+                cpu9900_2op("mpy","r0","r1");   // r0 * r1 => r1_r2 (32 bit)
+                cpu9900_2op("mov","r2","r0");
             } else if (node->type == N_DIV16) {
                 cpu9900_2op("mov","r0","r1");
                 cpu9900_2op("mov","*r10+","r2");
