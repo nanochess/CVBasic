@@ -34,6 +34,8 @@
 	;                             for Casio PV-2000.
 	; Revision date: Aug/21/2024. Added keypad support for Memotech, Tatung Einstein,
 	;                             and Casio PV-2000.
+	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
+	;                             with flicker flag).
 	;
 
 JOYSEL:	equ $c0
@@ -563,7 +565,7 @@ define_char:
 	ex de,hl
 	call nmi_off
 	ld a,(mode)
-	and 4
+	and 8
 	jr nz,.1
 	call LDIRVM3
 	jp nmi_on
@@ -1035,7 +1037,7 @@ vdp_generic_mode:
 
 mode_0:
 	ld hl,mode
-	res 2,(hl)
+	res 3,(hl)
 	ld bc,$0200
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1085,7 +1087,7 @@ vdp_generic_sprites:
 
 mode_1:
 	ld hl,mode
-	res 2,(hl)
+	res 3,(hl)
 	ld bc,$0200
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1115,7 +1117,7 @@ mode_1:
 
 mode_2:
 	ld hl,mode
-	set 2,(hl)
+	set 3,(hl)
 	ld bc,$0000
 	ld de,$8000	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -3089,13 +3091,13 @@ define_char_unpack:
 	ex de,hl
 	pop af
 	pop hl
-	push af
+	push afs
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
 	ex de,hl
 	ld a,(mode)
-	and 4
+	and 8
 	jp z,unpack3
 	jp unpack
 

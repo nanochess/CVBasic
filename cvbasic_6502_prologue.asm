@@ -10,6 +10,8 @@
 	;                             Added VDP delays.
 	; Revision date: Aug/16/2024. Corrected bug in define_char_unpack.
 	; Revision date: Aug/21/2024. Added support for keypad.
+	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
+	;                             with flicker flag).
 	;
 
 	CPU 6502
@@ -506,7 +508,7 @@ define_char:
 	sta temp2
 	sei
 	lda mode
-	and #$04
+	and #$08
 	bne .1
 	jsr LDIRVM3
 	cli
@@ -942,7 +944,7 @@ vdp_generic_mode:
 
 mode_0:
 	LDA mode
-	AND #$FB
+	AND #$F7
 	STA mode
 	LDY #$ff	; $2000 for color table.
 	LDA #$03	; $0000 for bitmaps
@@ -990,7 +992,7 @@ vdp_generic_sprites:
 
 mode_1:
 	LDA mode
-	AND #$FB
+	AND #$F7
 	STA mode
 	LDY #$ff	; $2000 for color table.
 	LDA #$03	; $0000 for bitmaps
@@ -1051,7 +1053,7 @@ mode_1:
 
 mode_2:
 	LDA mode
-	ORA #$04
+	ORA #$08
 	STA mode
 	LDY #$80	; $2000 for color table.
 	LDA #$00	; $0000 for bitmaps
@@ -1768,7 +1770,7 @@ define_char_unpack:
 	rol pointer+1
 	sta pointer
 	lda mode
-	and #$04
+	and #$08
 	beq unpack3
 	bne unpack
 
