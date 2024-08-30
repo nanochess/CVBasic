@@ -3091,7 +3091,7 @@ define_char_unpack:
 	ex de,hl
 	pop af
 	pop hl
-	push afs
+	push af
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
