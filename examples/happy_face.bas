@@ -1,3 +1,12 @@
+	'
+	' Bouncing happy face (demo for CVBasic)
+	'
+	' by Oscar Toledo G.
+	' https://nanochess.org/
+	'
+	' Creation date: Feb/28/2024.
+	'
+
 	DEFINE SPRITE 0,1,happy_face
 
 	PRINT AT 36,"Happy face!"

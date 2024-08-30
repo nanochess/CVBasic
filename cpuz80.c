@@ -114,8 +114,12 @@ void cpuz80_noop(char *mnemonic)
     sprintf(z80_line, "\t%s\n", mnemonic);
     z80_emit_line();
     z80_a_content[0] = '\0';
-    z80_hl_content[0] = '\0';
-    z80_flag_z_valid = 0;
+    if (strcmp(mnemonic, "NEG") != 0 && strcmp(mnemonic, "CPL") != 0)
+        z80_hl_content[0] = '\0';
+    if (strcmp(mnemonic, "NEG") == 0)
+        z80_flag_z_valid = 1;
+    else
+        z80_flag_z_valid = 0;
 }
 
 /*
@@ -224,19 +228,37 @@ void cpuz80_1op(char *mnemonic, char *operand)
  */
 void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
 {
+    int special;
     
     /*
      ** Optimize constant expressions (both constants and access to memory variables)
      */
+    special = 0;
     if (strcmp(mnemonic, "LD") == 0) {
         if (strcmp(operand1, "A") == 0) {
             if (strcmp(operand2, z80_a_content) == 0)
                 return;
-            if (strcmp(operand2, z80_hl_content) == 0)
+            if (strcmp(operand2, z80_hl_content) == 0) {
                 operand2 = "L";
+            /* Reading from memory address, and HL already has the address */
+            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_content, strlen(operand2) - 2) == 0) {
+                /* Generate subexpression info and mark as previously processed */
+                z80_flag_z_valid = 0;
+                strcpy(z80_a_content, operand2);
+                special = 1;    /* Mark as processed */
+                operand2 = "(HL)";
+            }
         } else if (strcmp(operand1, "HL") == 0) {
             if (strcmp(operand2, z80_hl_content) == 0)
                 return;
+        } else if (strcmp(operand2, "A") == 0) {
+            /* Writing to memory address, and HL already has the address */
+            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_content, strlen(operand1) - 2) == 0) {
+                /* Generate subexpression info and mark as previously processed */
+                strcpy(z80_a_content, operand1);
+                special = 1;    /* Mark as processed */
+                operand1 = "(HL)";
+            }
         }
     }
     
@@ -254,7 +276,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
     } else if (strcmp(mnemonic, "IN") == 0) {
         z80_a_content[0] = '\0';
         z80_flag_z_valid = 0;
-    } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "SBC") == 0) {
+    } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "ADC") == 0 || strcmp(mnemonic, "SBC") == 0) {
         if (strcmp(operand1, "A") == 0) {
             z80_a_content[0] = '\0';
             z80_flag_z_valid = 1;
@@ -263,6 +285,8 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
             z80_flag_z_valid = 0;
         }
     } else if (strcmp(mnemonic, "LD") == 0) {
+        if (special != 0)
+            return;
         if (strcmp(operand1, "A") == 0)  /* Read value into accumulator */
             z80_flag_z_valid = 0;       /* Z status isn't valid */
         if (strcmp(operand1, "L") == 0 || strcmp(operand1, "H") == 0)
@@ -296,6 +320,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
 void cpuz80_node_label(struct node *node)
 {
     struct node *explore;
+    int c;
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
@@ -438,8 +463,6 @@ void cpuz80_node_label(struct node *node)
                 break;
             }
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
-                int c;
-                
                 cpuz80_node_label(node->left);
                 node->regs = node->left->regs;
                 c = node->right->value;
@@ -448,8 +471,6 @@ void cpuz80_node_label(struct node *node)
                 break;
             }
             if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
-                int c;
-                
                 cpuz80_node_label(node->left);
                 node->regs = node->left->regs;
                 c = node->right->value;
@@ -471,8 +492,6 @@ void cpuz80_node_label(struct node *node)
                     }
                 }
             } else if (node->right->type == N_NUM8) {
-                int c;
-                
                 c = node->right->value & 0xff;
                 cpuz80_node_label(node->left);
                 node->regs = node->left->regs;
@@ -487,6 +506,19 @@ void cpuz80_node_label(struct node *node)
             }
             break;
         case N_ASSIGN8: /* 8-bit assignment */
+            if ((node->left->type == N_PLUS8 || node->left->type == N_MINUS8 || node->left->type == N_OR8 || node->left->type == N_AND8 || node->left->type == N_XOR8)
+                && (node->left->right->type == N_NUM8 || node->left->right->type == N_LOAD8)
+                && node_same_address(node->left->left, node->right)) {
+                if (node->right->type == N_ADDR) {
+                    node->regs = REG_HL | REG_AF;
+                } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                    node->regs = REG_HL | REG_AF;
+                } else {
+                    cpuz80_node_label(node->right);
+                    node->regs = node->right->regs | REG_AF;
+                }
+                break;
+            }
             if (node->right->type == N_ADDR) {
                 cpuz80_node_label(node->left);
                 node->regs = node->left->regs;
@@ -536,8 +568,6 @@ void cpuz80_node_label(struct node *node)
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
-                    int c;
-                    
                     if (node->left->type == N_NUM16)
                         explore = node->left;
                     else
@@ -596,8 +626,7 @@ void cpuz80_node_label(struct node *node)
                 else
                     explore = NULL;
                 if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
-                    int c = explore->value;
-                    
+                    c = explore->value;
                     cpuz80_node_label(node->left);
                     cpuz80_node_label(node->right);
                     if (c == 0) {
@@ -653,6 +682,8 @@ void cpuz80_node_label(struct node *node)
 void cpuz80_node_generate(struct node *node, int decision)
 {
     struct node *explore;
+    int c;
+    char *p;
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
@@ -788,8 +819,6 @@ void cpuz80_node_generate(struct node *node, int decision)
             if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
                 && node->left->left->type == N_ADDR
                 && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
-                char *p;
-                
                 node_get_label(node->left->left, 1);
                 p = temp;
                 while (*p)
@@ -815,8 +844,6 @@ void cpuz80_node_generate(struct node *node, int decision)
             if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
                 && node->left->left->type == N_ADDR
                 && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
-                char *p;
-                
                 node_get_label(node->left->left, 1);
                 p = temp;
                 while (*p)
@@ -897,8 +924,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                 break;
             }
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
-                int c;
-                
                 cpuz80_node_generate(node->left, 0);
                 c = node->right->value;
                 while (c > 1) {
@@ -908,8 +933,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                 break;
             }
             if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
-                int c;
-                
                 cpuz80_node_generate(node->left, 0);
                 c = node->right->value;
                 if (c == 2) {
@@ -960,8 +983,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                     strcpy(temp, "B");
                 }
             } else if (node->right->type == N_NUM8) {
-                int c;
-                
                 c = node->right->value & 0xff;
                 cpuz80_node_generate(node->left, 0);
                 if ((node->type == N_PLUS8 && c == 1) || (node->type == N_MINUS8 && c == 255)) {
@@ -1041,7 +1062,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_1op("DEC", "A");
                     cpuz80_empty();
                 }
-            } else if (node->type == N_LESS8) {
+            } else if (node->type == N_LESS8 || node->type == N_GREATER8) {
                 if (strcmp(temp, "0") == 0)
                     cpuz80_1op("AND", "A");
                 else
@@ -1052,11 +1073,9 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_2op("JP", "NC", temp);
                 } else {
                     cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("SBC", "A", "A");
                 }
-            } else if (node->type == N_LESSEQUAL8) {
+            } else if (node->type == N_LESSEQUAL8 || node->type == N_GREATEREQUAL8) {
                 if (strcmp(temp, "0") == 0)
                     cpuz80_1op("AND", "A");
                 else
@@ -1066,40 +1085,8 @@ void cpuz80_node_generate(struct node *node, int decision)
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     cpuz80_2op("JP", "C", temp);
                 } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATER8) {
-                if (strcmp(temp, "0") == 0)
-                    cpuz80_1op("AND", "A");
-                else
-                    cpuz80_1op("CP", temp);
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "NC", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATEREQUAL8) {
-                if (strcmp(temp, "0") == 0)
-                    cpuz80_1op("AND", "A");
-                else
-                    cpuz80_1op("CP", temp);
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "C", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("LD", "A", "255");
+                    cpuz80_2op("ADC", "A", "0");
                 }
             } else if (node->type == N_PLUS8) {
                 cpuz80_2op("ADD", "A", temp);
@@ -1108,6 +1095,62 @@ void cpuz80_node_generate(struct node *node, int decision)
             }
             break;
         case N_ASSIGN8: /* 8-bit assignment */
+            if ((node->left->type == N_PLUS8 || node->left->type == N_MINUS8 || node->left->type == N_OR8 || node->left->type == N_AND8 || node->left->type == N_XOR8)
+                && (node->left->right->type == N_NUM8 || node->left->right->type == N_LOAD8)
+                && node_same_address(node->left->left, node->right)) {
+                if (node->right->type == N_ADDR) {
+                    node_get_label(node->right, 0);
+                    cpuz80_2op("LD", "HL", temp);
+                } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                    node_get_label(node->right->left, 0);
+                    p = temp;
+                    while (*p)
+                        p++;
+                    if (node->right->type == N_PLUS16)
+                        *p++ = '+';
+                    else
+                        *p++ = '-';
+                    sprintf(p, "%d", node->right->right->value);
+                    cpuz80_2op("LD", "HL", temp);
+                } else {
+                    cpuz80_node_generate(node->right, 0);
+                }
+                if ((node->left->type == N_PLUS8 || node->left->type == N_MINUS8) && node->left->right->type == N_NUM8 && node->left->right->value < 4) {
+                    c = node->left->right->value;
+                    do {
+                        if (node->left->type == N_PLUS8)
+                            cpuz80_1op("INC", "(HL)");
+                        else
+                            cpuz80_1op("DEC", "(HL)");
+                    } while (--c) ;
+                } else {
+                    if (node->left->right->type == N_NUM8) {
+                        if (node->left->type == N_MINUS8)
+                            sprintf(temp, "%d", (0 - node->left->right->value) & 0xff);
+                        else
+                            sprintf(temp, "%d", node->left->right->value);
+                        cpuz80_2op("LD", "A", temp);
+                    } else if (node->left->right->type == N_LOAD8) {
+                        node_get_label(node->left->right, 1);
+                        cpuz80_2op("LD", "A", temp);
+                        if (node->left->type == N_MINUS8)
+                            cpuz80_noop("NEG");
+                    }
+                    if (node->left->type == N_PLUS8) {
+                        cpuz80_2op("ADD", "A", "(HL)");
+                    } else if (node->left->type == N_MINUS8) {
+                        cpuz80_2op("ADD", "A", "(HL)");
+                    } else if (node->left->type == N_OR8) {
+                        cpuz80_1op("OR", "(HL)");
+                    } else if (node->left->type == N_AND8) {
+                        cpuz80_1op("AND", "(HL)");
+                    } else if (node->left->type == N_XOR8) {
+                        cpuz80_1op("XOR", "(HL)");
+                    }
+                    cpuz80_2op("LD", "(HL)", "A");
+                }
+                break;
+            }
             if (node->right->type == N_ADDR) {
                 cpuz80_node_generate(node->left, 0);
                 node_get_label(node->right, 1);
@@ -1115,8 +1158,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
-                char *p;
-                
                 cpuz80_node_generate(node->left, 0);
                 node_get_label(node->right->left, 1);
                 p = temp;
@@ -1154,8 +1195,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
-                char *p;
-                
                 cpuz80_node_generate(node->left, 0);
                 node_get_label(node->right->left, 1);
                 p = temp;
@@ -1190,7 +1229,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                 if ((node->left->type == N_ADDR || ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16) && node->left->left->type == N_ADDR && node->left->right->type == N_NUM16)) &&
                     (node->right->type == N_ADDR || ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) &&
                                                      node->right->left->type == N_ADDR && node->right->right->type == N_NUM16))) {
-                    int c;
                     char expression[MAX_LINE_SIZE * 2];
                     
                     if (node->left->type == N_PLUS16) {
@@ -1227,8 +1265,6 @@ void cpuz80_node_generate(struct node *node, int decision)
             if (node->type == N_PLUS16 || node->type == N_MINUS16) {
                 if (node->left->type == N_ADDR) {
                     if (node->right->type == N_NUM16) {
-                        char *p;
-                        
                         node_get_label(node->left, 0);
                         if (node->type == N_PLUS16)
                             strcat(temp, "+");
@@ -1252,8 +1288,6 @@ void cpuz80_node_generate(struct node *node, int decision)
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
-                    int c;
-                    
                     if (node->left->type == N_NUM16)
                         explore = node->left;
                     else
@@ -1314,8 +1348,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                 else
                     explore = NULL;
                 if (explore != NULL && (explore->value == 0 || explore->value == 1 || explore->value == 2 || explore->value == 3)) {
-                    int c = explore->value;
-                    
+                    c = explore->value;
                     cpuz80_node_generate(node->left, 0);
                     while (c) {
                         cpuz80_1op("DEC", "HL");
@@ -1324,8 +1357,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                     break;
                 }
                 if (explore != NULL && (explore->value == 0xffff || explore->value == 0xfffe || explore->value == 0xfffd)) {
-                    int c = explore->value;
-                    
+                    c = explore->value;
                     cpuz80_node_generate(node->left, 0);
                     while (c < 0x10000) {
                         cpuz80_1op("INC", "HL");
@@ -1411,8 +1443,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                 else
                     explore = NULL;
                 if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
-                    int c = explore->value;
-                    
+                    c = explore->value;
                     if (c == 0) {
                         cpuz80_2op("LD", "HL", "0");
                     } else {
@@ -1444,8 +1475,6 @@ void cpuz80_node_generate(struct node *node, int decision)
             }
             if (node->type == N_DIV16) {
                 if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
-                    int c;
-                    
                     cpuz80_node_generate(node->left, 0);
                     c = node->right->value;
                     do {
@@ -1606,7 +1635,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_1op("DEC", "A");
                     cpuz80_empty();
                 }
-            } else if (node->type == N_LESS16) {
+            } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
                 cpuz80_1op("OR", "A");
                 cpuz80_2op("SBC", "HL", "DE");
                 if (decision) {
@@ -1615,11 +1644,9 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_2op("JP", "NC", temp);
                 } else {
                     cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("SBC", "A", "A");
                 }
-            } else if (node->type == N_LESSEQUAL16) {
+            } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
                 cpuz80_1op("OR", "A");
                 cpuz80_2op("SBC", "HL", "DE");
                 if (decision) {
@@ -1627,36 +1654,8 @@ void cpuz80_node_generate(struct node *node, int decision)
                     sprintf(temp, INTERNAL_PREFIX "%d", decision);
                     cpuz80_2op("JP", "C", temp);
                 } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATER16) {
-                cpuz80_1op("OR", "A");
-                cpuz80_2op("SBC", "HL", "DE");
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "NC", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "NC", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
-                }
-            } else if (node->type == N_GREATEREQUAL16) {
-                cpuz80_1op("OR", "A");
-                cpuz80_2op("SBC", "HL", "DE");
-                if (decision) {
-                    optimized = 1;
-                    sprintf(temp, INTERNAL_PREFIX "%d", decision);
-                    cpuz80_2op("JP", "C", temp);
-                } else {
-                    cpuz80_2op("LD", "A", "0");
-                    cpuz80_2op("JR", "C", "$+3");
-                    cpuz80_1op("DEC", "A");
-                    cpuz80_empty();
+                    cpuz80_2op("LD", "A", "255");
+                    cpuz80_2op("ADC", "A", "0");
                 }
             } else if (node->type == N_PLUS16) {
                 cpuz80_2op("ADD", "HL", "DE");

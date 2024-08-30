@@ -7,8 +7,6 @@
 */
 
 extern void generic_dump(void);
-extern void generic_write_8(char *);
-extern void generic_write_16(char *);
 extern void generic_test_8(void);
 extern void generic_test_16(void);
 extern void generic_label(char *);

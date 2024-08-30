@@ -26,55 +26,6 @@ void generic_dump(void)
 }
 
 /*
- ** Write to address
- */
-void generic_write_8(char *name)
-{
-    if (target == CPU_6502) {
-        cpu6502_1op("STA", name);
-    }
-    if (target == CPU_9900) {
-        char buf[64];
-        strcpy(buf,"@");
-        strncat(buf, name, 63);
-        buf[63]='\0';
-        cpu9900_2op("movb","r0",buf);
-    }
-    if (target == CPU_Z80) {
-        strcpy(driver_temp, "(");
-        strcat(driver_temp, name);
-        strcat(driver_temp, ")");
-        cpuz80_2op("LD", driver_temp, "A");
-    }
-}
-
-/*
- ** Write to address
- */
-void generic_write_16(char *name)
-{
-    if (target == CPU_6502) {
-        strcpy(driver_temp, name);
-        cpu6502_1op("STA", driver_temp);
-        strcat(driver_temp, "+1");
-        cpu6502_1op("STY", driver_temp);
-    }
-    if (target == CPU_9900) {
-        char buf[64];
-        strcpy(buf,"@");
-        strncat(buf, name, 63);
-        buf[63]='\0';
-        cpu9900_2op("mov","r0",buf);
-    }
-    if (target == CPU_Z80) {
-        strcpy(driver_temp, "(");
-        strcat(driver_temp, name);
-        strcat(driver_temp, ")");
-        cpuz80_2op("LD", driver_temp, "HL");
-    }
-}
-
-/*
  ** 8-bit test
  */
 void generic_test_8(void)
@@ -172,15 +123,8 @@ void generic_jump(char *label)
  */
 void generic_jump_zero(char *label)
 {
-    if (target == CPU_6502) {
-        char internal_label[256];
-        int number = next_local++;
-        
-        sprintf(internal_label, INTERNAL_PREFIX "%d", number);
-        cpu6502_1op("BNE", internal_label);
-        cpu6502_1op("JMP", label);
-        cpu6502_label(internal_label);
-    }
+    if (target == CPU_6502)
+        cpu6502_1op("BEQ.L", label);
     if (target == CPU_9900) {
         char internal_label[256], internal_label2[256];
         int number = next_local++;

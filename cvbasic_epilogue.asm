@@ -17,14 +17,19 @@
 	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
 	;                             can remain accessible in bank 0 (bank switching).
 	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
+	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
 	;
 
 rom_end:
 
-    if MEMOTECH
+    if MEMOTECH+EINSTEIN
 	; Align following data to a 256-byte page.
         TIMES $100-($&$ff) DB $4f
-    else
+    endif
+    if PV2000
+	TIMES $10000-$ DB $ff
+    endif
+    if COLECO+SG1000+MSX+SVI+SORD+PV2000
 	org BASE_RAM
     endif
 ram_start:

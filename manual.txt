@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Aug/07/2024.
+Last revision: Aug/15/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -21,6 +21,11 @@ All trademarks are property of their respective owners.
 
 
 >>>>>>>>>>>>>>  Changes in this version
+
+v0.6.1 Aug/15/2024  o Added suppprt for Hanimex/Soundic Pencil II using --pencil
+                    o Added support for Tatung Einstein using --einstein
+                    o Added support for Casio PV-2000 using --pv2000
+                    o Added automatic protection code for mixer register (AY-3-8910)
 
 v0.6.0 Aug/07/2024  o Added support for Creativision / Dick Smith's Wizzard (6502
                       processors!) using --creativision
@@ -79,6 +84,8 @@ Usage:
   cvbasic --memotech in.bas output.asm
   cvbasic --memotech -cpm in.bas output.asm
   cvbasic --creativision in.bas output.asm
+  cvbasic --pencil in.bas output.asm
+  cvbasic --einstein in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
@@ -90,6 +97,8 @@ Afterwards, you should assemble your program using the included Gasm80 assembler
   gasm80 output.asm -o output.rom
 
 For Memotech you should use the .run extension or .com extension (if used -cpm option)
+
+The Creativision port uses cvbasic_6502_prologue.asm and cvbasic_6502_epilogue.asm
 
 And finally, you can test the generated output.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
 

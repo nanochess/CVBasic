@@ -18,6 +18,64 @@
 #include "cpu6502.h"
 #include "cpu9900.h"
 
+/*
+ ** Comparison of tree nodes.
+ */
+int node_same_tree(struct node *node1, struct node *node2)
+{
+    if (node1->type != node2->type)
+        return 0;
+    if (node1->value != node2->value)
+        return 0;
+    if (node1->label != node2->label)
+        return 0;
+    if (node1->left != NULL && node2->left != NULL) {
+        if (node_same_tree(node1->left, node2->left) == 0)
+            return 0;
+    } else if (node1->left != NULL || node2->left != NULL) {
+        return 0;
+    }
+    if (node1->right != NULL && node2->right != NULL) {
+        if (node_same_tree(node1->right, node2->right) == 0)
+            return 0;
+    } else if (node1->right != NULL || node2->right != NULL) {
+        return 0;
+    }
+    return 1;
+}
+
+/*
+ ** Comparison of node addresses.
+ **
+ ** node1 is a read node.
+ ** node2 is a write node (address).
+ */
+int node_same_address(struct node *node1, struct node *node2)
+{
+    if (node1->type == N_LOAD8) {
+        if (node2->type != N_ADDR)
+            return 0;
+        if (node1->label != node2->label)
+            return 0;
+        return 1;
+    }
+    if (node1->type == N_LOAD16) {
+        if (node2->type != N_ADDR)
+            return 0;
+        if (node1->label != node2->label)
+            return 0;
+        return 1;
+    }
+    if (node1->type == N_PEEK8) {
+        node1 = node1->left;
+    } else if (node1->type == N_PEEK16) {
+        node1 = node1->left;
+    } else {
+        return 0;
+    }
+    return node_same_tree(node1, node2);
+}
+
 static char *node_types[] = {
     "N_OR8", "N_OR16",
     "N_XOR8", "N_XOR16",

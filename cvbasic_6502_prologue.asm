@@ -9,8 +9,11 @@
 	; Revision date: Aug/07/2024. Ported Pletter decompressor from Z80 CVBasic.
 	;                             Added VDP delays.
 	; Revision date: Aug/16/2024. Corrected bug in define_char_unpack.
+	; Revision date: Aug/21/2024. Added support for keypad.
+	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
+	;                             with flicker flag).
 	;
-	
+
 	CPU 6502
 
 BIOS_NMI_RESET_ADDR:	EQU $F808
@@ -87,7 +90,7 @@ music_mode:		EQU $4e
 
 sprites:	equ $0180
 
-	ORG $4000
+	ORG $4000+$4000*SMALL_ROM
 	
 WRTVDP:
 	STA $3001
@@ -288,11 +291,55 @@ cls:
 	cli
 	rts
 
-print_string:
+print_string_cursor_constant:
+	PLA
 	STA temp
-	STY temp+1
-	STX temp2
-	TXA
+	PLA
+	STA temp+1
+	LDY #1
+	LDA (temp),Y
+	STA cursor
+	INY
+	LDA (temp),Y
+	STA cursor+1
+	INY
+	LDA (temp),Y
+	STA temp2
+	TYA
+	CLC
+	ADC temp
+	STA temp
+	BCC $+4
+	INC temp+1
+	LDA temp2
+	BNE print_string.2
+
+print_string_cursor:
+	STA cursor
+	STY cursor+1
+print_string:
+	PLA
+	STA temp
+	PLA
+	STA temp+1
+	LDY #1
+	LDA (temp),Y
+	STA temp2
+	INC temp
+	BNE $+4
+	INC temp+1
+.2:	CLC
+	ADC temp
+	TAY
+	LDA #0
+	ADC temp+1
+	PHA
+	TYA
+	PHA
+	INC temp
+	BNE $+4
+	INC temp+1
+	LDA temp2
 	PHA
 	LDA #0
 	STA temp2+1
@@ -311,7 +358,7 @@ print_string:
 	STA cursor
 	BCC .1
 	INC cursor+1
-.1:
+.1:	
 	RTS
 
 print_number:
@@ -461,7 +508,7 @@ define_char:
 	sta temp2
 	sei
 	lda mode
-	and #$04
+	and #$08
 	bne .1
 	jsr LDIRVM3
 	cli
@@ -805,10 +852,10 @@ random:
 	LDA #$78
 	STA lfsr+1
 .0:	LDA lfsr+1
-	ROR A
-	ROR A
-	ROR A
-	EOR lfsr+1
+	ROR A	
+	ROR A		
+	ROR A		
+	EOR lfsr+1	
 	STA temp
 	LDA lfsr+1
 	ROR A
@@ -859,40 +906,29 @@ sn76489_control:
 
 vdp_generic_mode:
 	SEI
+	LDX #$00
 	JSR WRTVDP
 	LDA #$A2
-	LDX #$01
+	INX
 	JSR WRTVDP
 	LDA #$06	; $1800 for pattern table.
-	LDX #$02
+	INX
 	JSR WRTVDP
-	LDA temp
-	LDX #$03	; for color table.
+	TYA
+	INX		; for color table.
 	JSR WRTVDP
 	LDA temp+1
-	LDX #$04	; for bitmap table.
+	INX		; for bitmap table.
 	JSR WRTVDP
 	LDA #$36	; $1b00 for sprite attribute table.
-	LDX #$05
+	INX
 	JSR WRTVDP
 	LDA #$07	; $3800 for sprites bitmaps.
-	LDX #$06
+	INX
 	JSR WRTVDP
 	LDA #$01
-	LDX #$07
-	JMP WRTVDP
-
-mode_0:
-	LDA mode
-	AND #$FB
-	STA mode
-	LDA #$ff	; $2000 for color table.
-	STA temp
-	LDA #$03	; $0000 for bitmaps
-	STA temp+1
-	LDA #$02
-	LDX #$00
-	JSR vdp_generic_mode
+	INX
+	JSR WRTVDP
 	LDA #font_bitmaps
 	LDY #font_bitmaps>>8
 	STA temp
@@ -904,6 +940,17 @@ mode_0:
 	STA pointer+1
 	LDA #$03
 	STA temp2+1
+	RTS
+
+mode_0:
+	LDA mode
+	AND #$F7
+	STA mode
+	LDY #$ff	; $2000 for color table.
+	LDA #$03	; $0000 for bitmaps
+	STA temp+1
+	LDA #$02
+	JSR vdp_generic_mode
 	JSR LDIRVM3
 	CLI
 	SEI
@@ -945,14 +992,12 @@ vdp_generic_sprites:
 
 mode_1:
 	LDA mode
-	AND #$FB
+	AND #$F7
 	STA mode
-	LDA #$ff	; $2000 for color table.
-	STA temp
+	LDY #$ff	; $2000 for color table.
 	LDA #$03	; $0000 for bitmaps
 	STA temp+1
 	LDA #$02
-	LDX #$00
 	JSR vdp_generic_mode
 	LDA #$00
 	STA temp
@@ -1008,26 +1053,13 @@ mode_1:
 
 mode_2:
 	LDA mode
-	ORA #$04
+	ORA #$08
 	STA mode
-	LDA #$80	; $2000 for color table.
-	STA temp
+	LDY #$80	; $2000 for color table.
 	LDA #$00	; $0000 for bitmaps
 	STA temp+1
 	LDA #$00
-	LDX #$00
 	JSR vdp_generic_mode
-	LDA #font_bitmaps
-	LDY #font_bitmaps>>8
-	STA temp
-	STY temp+1
-	LDA #$00
-	STA pointer
-	STA temp2
-	LDY #$0100>>8
-	STY pointer+1
-	LDY #$0300>>8
-	STY temp2+1
 	JSR LDIRVM
 	CLI
 	SEI
@@ -1124,6 +1156,49 @@ int_handler:
 	JSR convert_joystick
 	STA joy2_data
 
+	LDX #1
+	LDA $18
+	CMP #$0C
+	BEQ .11
+	INX
+	LDA $19
+	CMP #$30
+	BEQ .11
+	INX
+	CMP #$60
+	BEQ .11
+	INX
+	CMP #$28
+	BEQ .11
+	INX
+	CMP #$48
+	BEQ .11
+	INX
+	CMP #$50
+	BEQ .11
+	INX
+	LDA $1B
+	CMP #$06
+	BEQ .11
+	INX
+	CMP #$42
+	BEQ .11
+	INX
+	CMP #$22
+	BEQ .11
+	LDX #0
+	CMP #$12
+	BEQ .11
+	LDX #11
+	CMP #$09
+	BEQ .11
+	LDA $19
+	LDX #10
+	CMP #$09
+	BEQ .11
+	LDX #$0f
+.11:	STX key1_data
+
     if CVBASIC_MUSIC_PLAYER
 	LDA music_mode
 	BEQ .10
@@ -1197,16 +1272,16 @@ convert_joystick:
 	BEQ .1
 	AND #$0F
 	TAX
-	LDA FRAME
-	AND #1
-	BEQ .2
+;	LDA FRAME
+;	AND #1
+;	BEQ .2
 	TYA
 	ORA joystick_table,X
 	RTS
-.2:
-	TYA
-	ORA joystick_table+16,X
-	RTS
+;.2:
+;	TYA
+;	ORA joystick_table+16,X
+;	RTS
 
 .1:	TYA
 	RTS
@@ -1215,8 +1290,8 @@ joystick_table:
 	DB $04,$04,$06,$06,$02,$02,$03,$03
 	DB $01,$01,$09,$09,$08,$08,$0C,$0C
 
-	DB $0C,$04,$04,$06,$06,$02,$02,$03
-	DB $03,$01,$01,$09,$09,$08,$08,$0C
+;	DB $0C,$04,$04,$06,$06,$02,$02,$03
+;	DB $03,$01,$01,$09,$09,$08,$08,$0C
 
 wait:
 	LDA frame
@@ -1684,8 +1759,8 @@ music_silence:
 
     if CVBASIC_COMPRESSION
 define_char_unpack:
-    lda #0
-    sta pointer+1
+	lda #0
+	sta pointer+1
 	lda pointer
 	asl a
 	rol pointer+1
@@ -1695,7 +1770,7 @@ define_char_unpack:
 	rol pointer+1
 	sta pointer
 	lda mode
-	and #$04
+	and #$08
 	beq unpack3
 	bne unpack
 
@@ -2049,6 +2124,15 @@ font_bitmaps:
 START:
 	SEI
 	CLD
+
+	LDX #$00
+	LDA #$00
+.1:	STA $0100,X
+	STA $0200,X
+	STA $0300,X
+	INX
+	BNE .1
+
 	LDX #STACK
 	TXS
 	LDA $2001
