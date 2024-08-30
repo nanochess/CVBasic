@@ -736,7 +736,7 @@ mode_1
 ; Set up VDP mode 2
 mode_2
     mov r11,r8      ; careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     ; bit we want to set
+    li r0,>0800     ; bit we want to set
     socb r0,@mode
 
     li r2,>8000	    ; $2000 for color table.
