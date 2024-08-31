@@ -10,7 +10,7 @@
  ** Revision date: Feb/28/2024. Implemented WHILE/WEND, DO/LOOP, FOR/NEXT, and EXIT.
  ** Revision date: Feb/29/2024. Implemented controller support. Added arrays, SOUND,
  **                             RESTORE/READ/DATA. Added small local optimization.
- ** Revision date: Aug/23/2024. Added TI-99/4A
+ ** Revision date: Aug/23/2024. Added TI-99/4A.
   */
 
 #include <stdio.h>
@@ -25,7 +25,7 @@
 #include "cpu6502.h"
 #include "cpu9900.h"
 
-#define VERSION "v0.6.1 Aug/26/2024 + TI unofficial"
+#define VERSION "v0.7.0 Aug/30/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -103,8 +103,8 @@ static struct console {
     {"pv2000",  "",         "Casio PV-2000",
         "Casio PV-2000",
         0x7600, 0x8000, 0x0a00,0x4000, 0x4000, 0x40, CPU_Z80},
-    {"ti994a",  "",         "Texas Instruments TI-99/4A (32K RAM)",
-        "TI-99/4A",
+    {"ti994a",  "",         "Texas Instruments TI-99/4A (32K RAM). Support by tursilion",
+        "TI-99/4A (support by tursilion)",
         0x2080, 0x4000, 0x1f80, 0x8800, 0x8c00,0xff, CPU_9900},
 };
 
@@ -293,7 +293,7 @@ void emit_warning(char *string)
  */
 void bank_finish(void)
 {
-    // TODO: not implemented for TI99 yet
+    /* TODO: not implemented for TI99 yet */
     if (machine == SG1000) {
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $3fff-$\n");
@@ -1532,7 +1532,7 @@ struct node *evaluate_level_7(int *type)
                 emit_error("missing variable name for VARPTR");
                 return node_create(N_NUM16, 0, NULL, NULL);
             }
-            if (lex_sneak_peek() == '(') {  // Indexed access
+            if (lex_sneak_peek() == '(') {  /* Indexed access */
                 int type2;
                 struct node *addr;
 
@@ -1617,7 +1617,7 @@ struct node *evaluate_level_7(int *type)
                 get_lex();
             return node_create(N_NUM16, c, NULL, NULL);
         }
-        if (strcmp(name, "POS") == 0) { // Access to current screen position
+        if (strcmp(name, "POS") == 0) { /* Access to current screen position */
             int type2;
             
             get_lex();
@@ -1634,7 +1634,7 @@ struct node *evaluate_level_7(int *type)
             *type = TYPE_16;
             return node_create(N_MINUS16, 0, node_create(N_POS, 0, NULL, NULL), node_create(N_NUM16, 0x1800, NULL, NULL));
         }
-        if (macro_search(name) != NULL) {  // Function (macro)
+        if (macro_search(name) != NULL) {  /* Function (macro) */
             if (replace_macro())
                 return node_create(N_NUM8, 0, NULL, NULL);
             return evaluate_level_0(type);
@@ -1844,7 +1844,7 @@ int replace_macro(void)
             while (1) {
                 if (level == 0 && (lex == C_RPAREN || lex == C_COMMA))
                     break;
-                if (lex == C_END)   // Avoid possibility of being stuck
+                if (lex == C_END)   /* Avoid possibility of being stuck */
                     break;
                 if (lex == C_LPAREN)
                     level++;
@@ -2775,7 +2775,7 @@ void compile_statement(int check_for_else)
                             if (lex != C_NAME) {
                                 emit_error("missing variable name for VARPTR");
                             } else {
-                                if (lex_sneak_peek() == '(') {  // Indexed access
+                                if (lex_sneak_peek() == '(') {  /* Indexed access */
                                     struct node *tree;
                                     int index;
                                     struct label *label;
@@ -2920,13 +2920,15 @@ void compile_statement(int check_for_else)
                 if (target == CPU_6502) {
                     emit_warning("Ignoring OUT (not supported in target)");
                 } else if (target == CPU_9900) {
-                    // we don't have ports (though we could map this to CRU)
-                    // however, since it seems OUT is the CVBasic way to directly
-                    // access the sound chip, we'll check for OUT $FF and map that
-                    // over.
-                    if (port->value == 0xff) {
+                    /*
+                     ** We don't have ports (though we could map this to CRU)
+                     ** however, since it seems OUT is the CVBasic way to directly
+                     ** access the sound chip, we'll check for OUT $FF and map that
+                     ** over.
+                     */
+                    if (port->type == N_NUM8 && port->value == 0xff) {
                         node_generate(value, 0);
-                        cpu9900_2op("movb","r0","@SOUND");
+                        cpu9900_2op("movb", "r0", "@SOUND");
                     } else {
                         emit_warning("OUT to 0xff for audio is the only supported use.");
                     }
@@ -3021,7 +3023,7 @@ void compile_statement(int check_for_else)
                                 sprintf(temp, INTERNAL_PREFIX "%d", label);
                                 cpu9900_2op("li","r2",temp);
                                 sprintf(temp, "%d", name_size);
-                                cpu9900_2op("li","r3",temp);    // yes, as 16 bit
+                                cpu9900_2op("li","r3",temp);    /* yes, as 16 bit */
                                 generic_call("print_string");
                                 sprintf(temp, INTERNAL_PREFIX "%d", label2);
                                 generic_jump(temp);
@@ -3161,13 +3163,13 @@ void compile_statement(int check_for_else)
                                 cpu9900_1op("data","print_number");
                             } else if (format == 1) {
                                 // TODO: I don't quite follow this - are we literally printing $220 and $230?
-                                cpu9900_1op("limi","0");        // print_number will turn it back on
+                                cpu9900_1op("limi","0");        /* print_number will turn it back on */
                                 cpu9900_2op("li","r0",">0220");
                                 sprintf(temp, "print_number%d", size);
                                 cpu9900_1op("bl","@JSR");
                                 cpu9900_1op("data",temp);
                             } else if (format == 2) {
-                                cpu9900_1op("limi","0");        // print_number will turn it back on
+                                cpu9900_1op("limi","0");        /* print_number will turn it back on */
                                 cpu9900_2op("li","r0",">0230");
                                 sprintf(temp, "print_number%d", size);
                                 cpu9900_1op("bl","@JSR");
@@ -3283,7 +3285,7 @@ void compile_statement(int check_for_else)
                         struct node *length;
                         struct node *source = NULL;
                         
-                        type = evaluate_expression(1, TYPE_16, 0);  // char number
+                        type = evaluate_expression(1, TYPE_16, 0);  /* char number */
                         if (target == CPU_6502) {
                             cpu6502_1op("STA", "pointer");
                         } else if (target == CPU_9900) {
@@ -3295,7 +3297,7 @@ void compile_statement(int check_for_else)
                             get_lex();
                         else
                             emit_error("missing comma in DEFINE");
-                        length = evaluate_save_expression(1, TYPE_8);   // count
+                        length = evaluate_save_expression(1, TYPE_8);   /* count */
                         if (lex == C_COMMA)
                             get_lex();
                         else
@@ -3303,7 +3305,7 @@ void compile_statement(int check_for_else)
                         if (lex != C_NAME) {
                             emit_error("missing label in DEFINE");
                         } else if (strcmp(name, "VARPTR") == 0) {
-                            source = evaluate_save_expression(1, TYPE_16);  // CPU address (Variable)
+                            source = evaluate_save_expression(1, TYPE_16);  /* CPU address (variable) */
                             node_generate(length, 0);
                             if (target == CPU_6502) {
                                 cpu6502_noop("PHA");
@@ -3323,7 +3325,7 @@ void compile_statement(int check_for_else)
                                     cpuz80_1op("POP", "AF");
                             }
                         } else {
-                            node_generate(length, 0);   // CPU address (immediate)
+                            node_generate(length, 0);   /* CPU address (immediate) */
                             if (target == CPU_6502) {
                                 cpu6502_noop("PHA");
                                 strcpy(temp, "#" LABEL_PREFIX);
@@ -3368,7 +3370,7 @@ void compile_statement(int check_for_else)
                     if (target == CPU_6502) {
                         cpu6502_1op("STA", "pointer");
                     } else if (target == CPU_9900) {
-                        // char in r1, data in r2, count in r3
+                        /* char in r1, data in r2, count in r3 */
                         cpu9900_2op("mov","r0","r1");
                     } else {
                         cpuz80_1op("PUSH", "HL");
@@ -3394,7 +3396,7 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STY", "temp+1");
                             cpu6502_noop("PLA");
                         } else if (target == CPU_9900) {
-                            // char in r1, data in r2, count in r3
+                            /* char in r1, data in r2, count in r3 */
                             cpu9900_2op("mov","r0","r3");
                             node_generate(source, 0);
                             cpu9900_2op("mov","r0","r2");
@@ -3418,7 +3420,7 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA", "temp+1");
                             cpu6502_noop("PLA");
                         } else if (target == CPU_9900) {
-                            // char in r1, data in r2, count in r3
+                            /* char in r1, data in r2, count in r3 */
                             cpu9900_2op("mov","r0","r3");
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
@@ -3480,7 +3482,7 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA", "temp2");
                         } else if (target == CPU_9900) {
                             node_generate(target2, 0);
-                            cpu9900_2op("mov","r0","r1");   // save it off, cause we need it at the end in r0
+                            cpu9900_2op("mov","r0","r1");   /* save it off, cause we need it at the end in r0 */
                             node_generate(length, 0);
                             cpu9900_2op("mov","r0","r3");
                             node_generate(source, 0);
@@ -3549,7 +3551,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("STA", "temp2");
                             }
                         } else if (target == CPU_9900) {
-                            // r0 is already loaded by node_generate
+                            /* r0 is already loaded by node_generate */
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
                             cpu9900_2op("li","r2",temp);
@@ -3751,7 +3753,7 @@ void compile_statement(int check_for_else)
                     cpu6502_1op("JSR", "WRTVDP");
                     cpu6502_noop("CLI");
                 } else if (target == CPU_9900) {
-                    // this is just a lot faster inline than jumping through hoops...
+                    /* this is just a lot faster inline than jumping through hoops... */
                     cpu9900_2op("srl","r0","8");
                     cpu9900_2op("ori","r0",">8700");
                     cpu9900_1op("swpb","r0");
@@ -4041,7 +4043,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("LDY", "#0");   /* ...as stride width */
                             } else if (target == CPU_9900) {
                                 cpu9900_2op("mov","r0","r4");
-                                cpu9900_2op("mov","r3","r5");   // copy width as stride width
+                                cpu9900_2op("mov","r3","r5");   /* copy width as stride width */
                             } else {
                                 cpuz80_2op("LD", "B", "A");
                                 cpuz80_1op("POP", "AF");   /* Extract previous width */
@@ -4054,7 +4056,7 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA","temp+1");
                             cpu6502_noop("PLA");
                             cpu6502_1op("STA","temp");
-                        }   // 9900 already covered
+                        }   /* 9900 already covered */
                         generic_call("CPYBLK");
                     } else {
                         if (target == CPU_6502) {
@@ -4439,7 +4441,7 @@ void compile_statement(int check_for_else)
                         } else if (target == CPU_9900) {
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
                             cpu9900_2op("li","r1",temp);
-                            cpu9900_1op("dect","r10");   // stack manip
+                            cpu9900_1op("dect","r10");   /* stack manipulation */
                             cpu9900_2op("mov","r1","*r10");
                         } else {
                             sprintf(temp, INTERNAL_PREFIX "%d", new_label);
@@ -4805,7 +4807,7 @@ void compile_statement(int check_for_else)
                             break;
                     }
                 }
-            } else if (strcmp(name, "CALL") == 0) {        // Call assembly language
+            } else if (strcmp(name, "CALL") == 0) {        /* Call assembly language */
                 struct node *tree;
                 
                 get_lex();
@@ -4825,8 +4827,8 @@ void compile_statement(int check_for_else)
                 if (line[c - 1] == ':')
                     lex_skip_spaces();
                 if (target == CPU_9900) {
-                    // check for and remap INCBIN
-                    if (0 == strncmp(&line[line_pos]," INCBIN", 7)) {
+                    /* check for and remap INCBIN */
+                    if (strncmp(&line[line_pos]," INCBIN", 7) == 0) {
                         memcpy(&line[line_pos],"  bcopy", 7);
                     }
                 }
@@ -5096,13 +5098,15 @@ void compile_statement(int check_for_else)
                     cpu6502_1op("JSR", "WRTVDP");
                     cpu6502_noop("CLI");
                 } else if (target == CPU_9900) {
-                    // simpler to do inline
+                    /* Simpler to do inline */
                     sprintf(temp, "%d   ; %d*256+0x8000", vdp_reg*256+0x8000, vdp_reg);
                     cpu9900_2op("li","r1",temp);
                     cpu9900_2op("movb","r1","@VDPWADR");
                     cpu9900_2op("movb","r0","@VDPWADR");
-                    // only timing critical in scratchpad with register indirect addressing,
-                    // even then probably safe on the 99/4A
+                    /*
+                     ** only timing critical in scratchpad with register indirect addressing,
+                     ** even then probably safe on the 99/4A
+                     */
                 } else {
                     cpuz80_2op("LD", "B", "A");
                     sprintf(temp, "%d", vdp_reg);
@@ -5111,7 +5115,7 @@ void compile_statement(int check_for_else)
                     cpuz80_1op("CALL", "WRTVDP");
                     cpuz80_1op("CALL", "nmi_on");
                 }
-            } else if (macro_search(name) != NULL) {  // Function (macro)
+            } else if (macro_search(name) != NULL) {  /* Function (macro) */
                 if (!replace_macro()) {
                     compile_statement(check_for_else);
                     return;
@@ -5295,8 +5299,8 @@ int process_variables(void)
                     }
                     fprintf(output, "%s\n", temp);
                 } else if (target == CPU_9900) {
-                    // using the cpu9900_xxop() functions to get the character remapping
-                    if (((label->used & MAIN_TYPE) != TYPE_8) && (bytes_used&1)) {
+                    /* using the cpu9900_xxop() functions to get the character remapping */
+                    if ((label->used & MAIN_TYPE) == TYPE_16 && (bytes_used & 1) != 0) {
                         cpu9900_noop("even");
                         ++bytes_used;
                     }
@@ -5399,6 +5403,7 @@ int main(int argc, char *argv[])
     int small_rom;
     int cpm_option;
     int pencil;
+    char hex;
     
     actual = time(0);
     date = localtime(&actual);
@@ -5431,7 +5436,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, atari2600land,\n");
         fprintf(stderr, "carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
         fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, SiRioKD, Tarzilla,\n");
-        fprintf(stderr, "Tony Cruise, wavemotion, and youki.\n");
+        fprintf(stderr, "Tony Cruise, tursilion, wavemotion, and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }
@@ -5563,63 +5568,63 @@ int main(int argc, char *argv[])
             strcat(library_path, "/");
 #endif
     }
-    {
-        char hex = '$';
-        if (target == CPU_9900) {
-            // Texas Instruments is a free spirit...
-            hex = '>';
-        }
     
-        fprintf(output, "\t; CVBasic compiler " VERSION "\n");
-        fprintf(output, "\t; Command: ");
-        for (c = 0; c < argc; c++) {
-            char *b;
-            
-            b = strchr(argv[c], ' ');
-            if (b != NULL)
-                fprintf(output, "\"%s\" ", argv[c]);
-            else
-                fprintf(output, "%s ", argv[c]);
-        }
-        fprintf(output, "\n");
-
-        fprintf(output, "\t; Created: %s\n", asctime(date));
-        fprintf(output, "COLECO:\tequ %d\n",
-                (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
-        fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
-        fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
-        fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
-        fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
-        fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
-        fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
-        fprintf(output, "EINSTEIN:\tequ %d\n", (machine == EINSTEIN) ? 1 : 0);
-        fprintf(output, "CPM:\tequ %d\n", cpm_option);
-        fprintf(output, "PENCIL:\tequ %d\n", pencil);
-        fprintf(output, "PV2000:\tequ %d\n", (machine == PV2000) ? 1 : 0);
-        fprintf(output, "TI99:\tequ %d\n", (machine == TI994A) ? 1 : 0);
-        fprintf(output, "\n");
-        fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
-        fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
-        fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
-        fprintf(output, "\n");
-        fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].base_ram - extra_ram);
-        if ((machine == MEMOTECH || machine == EINSTEIN) && cpm_option != 0)
-            fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, 0xe000);
-        else
-            fprintf(output, "STACK:\tequ %C%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
-        fprintf(output, "VDP:\tequ %c%02x\t; VDP port (write)\n", hex, consoles[machine].vdp_port_write);
-        fprintf(output, "VDPR:\tequ %c%02x\t; VDP port (read)\n", hex, consoles[machine].vdp_port_read);
-        fprintf(output, "PSG:\tequ %c%02x\t; PSG port (write)\n", hex, consoles[machine].psg_port);
-        if (machine == CREATIVISION) {
-            fprintf(output, "SMALL_ROM:\tequ %d\n", small_rom);
-        }
+    hex = '$';
+    if (target == CPU_9900) {
+        /* Texas Instruments is a free spirit... */
+        hex = '>';
     }
+    
+    fprintf(output, "\t; CVBasic compiler " VERSION "\n");
+    fprintf(output, "\t; Command: ");
+    for (c = 0; c < argc; c++) {
+        char *b;
+        
+        b = strchr(argv[c], ' ');
+        if (b != NULL)
+            fprintf(output, "\"%s\" ", argv[c]);
+        else
+            fprintf(output, "%s ", argv[c]);
+    }
+    fprintf(output, "\n");
+    
+    fprintf(output, "\t; Created: %s\n", asctime(date));
+    fprintf(output, "COLECO:\tequ %d\n",
+            (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
+    fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
+    fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
+    fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
+    fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
+    fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
+    fprintf(output, "MEMOTECH:\tequ %d\n", (machine == MEMOTECH) ? 1 : 0);
+    fprintf(output, "EINSTEIN:\tequ %d\n", (machine == EINSTEIN) ? 1 : 0);
+    fprintf(output, "CPM:\tequ %d\n", cpm_option);
+    fprintf(output, "PENCIL:\tequ %d\n", pencil);
+    fprintf(output, "PV2000:\tequ %d\n", (machine == PV2000) ? 1 : 0);
+    fprintf(output, "TI99:\tequ %d\n", (machine == TI994A) ? 1 : 0);
+    fprintf(output, "\n");
+    fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
+    fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
+    fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
+    fprintf(output, "\n");
+    fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].base_ram - extra_ram);
+    if ((machine == MEMOTECH || machine == EINSTEIN) && cpm_option != 0)
+        fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, 0xe000);
+    else
+        fprintf(output, "STACK:\tequ %C%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
+    fprintf(output, "VDP:\tequ %c%02x\t; VDP port (write)\n", hex, consoles[machine].vdp_port_write);
+    fprintf(output, "VDPR:\tequ %c%02x\t; VDP port (read)\n", hex, consoles[machine].vdp_port_read);
+    fprintf(output, "PSG:\tequ %c%02x\t; PSG port (write)\n", hex, consoles[machine].psg_port);
+    if (machine == CREATIVISION) {
+        fprintf(output, "SMALL_ROM:\tequ %d\n", small_rom);
+    }
+
     fprintf(output, "\n");
     if (bank_switching) {
         if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
             fprintf(output, "\tforg $%05x\n", bank_rom_size * 0x0400 - 0x4000);
         } else if (machine == TI994A) {
-            // not implemented yet anyway...
+            /* not implemented yet anyway... */
             fprintf(output, "\taorg >6000\n");
         } else {
             fprintf(output, "\tforg $00000\n");
@@ -5634,7 +5639,7 @@ int main(int argc, char *argv[])
         strcat(path, "cvbasic_prologue.asm");
     prologue = fopen(path, "r");
     if (prologue == NULL) {
-        fprintf(stderr, "Unable to open %s.\n", path);
+        fprintf(stderr, "Unable to open '%s'.\n", path);
         exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
@@ -5646,7 +5651,7 @@ int main(int argc, char *argv[])
                 if (target == CPU_6502)
                     fprintf(output, "\tJSR " LABEL_PREFIX "%s\n", frame_drive->name);
                 else if (target == CPU_9900) {
-                    // to call compiled code, we need the stack pointer and we need to jsr it
+                    /* To call compiled code, we need the stack pointer and we need to jsr it */
                     fprintf(output, "\tmov @>8314,r10\n");
                     fprintf(output, "\tbl @jsr\n");
                     fprintf(output, "\tdata " LABEL_PREFIX "%s\n", frame_drive->name);
@@ -5684,7 +5689,7 @@ int main(int argc, char *argv[])
         strcat(path, "cvbasic_epilogue.asm");
     prologue = fopen(path, "r");
     if (prologue == NULL) {
-        fprintf(stderr, "Unable to open cvbasic_epilogue.asm.\n");
+        fprintf(stderr, "Unable to open '%s'.\n", path);
         exit(2);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
@@ -5692,7 +5697,7 @@ int main(int argc, char *argv[])
     }
     fclose(prologue);
     
-    if ((target == CPU_Z80)||(target == CPU_9900)) {
+    if (target == CPU_Z80 || target == CPU_9900) {
         bytes_used = process_variables();
     }
     fclose(output);

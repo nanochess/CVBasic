@@ -32,9 +32,8 @@ void generic_test_8(void)
 {
     if (target == CPU_6502)
         cpu6502_1op("CMP", "#0");
-    if (target == CPU_9900) {
-        cpu9900_2op("movb","r0","r0");
-    }
+    if (target == CPU_9900)
+        cpu9900_2op("movb", "r0", "r0");
     if (target == CPU_Z80)
         cpuz80_1op("OR", "A");
 }
@@ -49,7 +48,7 @@ void generic_test_16(void)
         cpu6502_1op("ORA", "temp");
     }
     if (target == CPU_9900) {
-        cpu9900_2op("mov","r0","r0");
+        cpu9900_2op("mov", "r0", "r0");
     }
     if (target == CPU_Z80) {
         cpuz80_2op("LD", "A", "H");
@@ -78,8 +77,8 @@ void generic_call(char *label)
     if (target == CPU_6502)
         cpu6502_1op("JSR", label);
     if (target == CPU_9900) {
-        cpu9900_1op("bl","@jsr");
-        cpu9900_1op("data",label);
+        cpu9900_1op("bl", "@jsr");
+        cpu9900_1op("data", label);
     }
     if (target == CPU_Z80)
         cpuz80_1op("CALL", label);
@@ -93,9 +92,9 @@ void generic_return(void)
     if (target == CPU_6502)
         cpu6502_noop("RTS");
     if (target == CPU_9900) {
-        // we don't presume r11 was preserved - it probably wasn't!
-        cpu9900_2op("mov","*r10+","r0");
-        cpu9900_1op("b","*r0");
+        /* we don't presume r11 was preserved - it probably wasn't! */
+        cpu9900_2op("mov", "*r10+", "r0");
+        cpu9900_1op("b", "*r0");
     }
     if (target == CPU_Z80)
         cpuz80_noop("RET");
@@ -110,8 +109,8 @@ void generic_jump(char *label)
         cpu6502_1op("JMP", label);
     if (target == CPU_9900) {
         char temp[256];
-        snprintf(temp, 256, "@%s", label);
-        temp[255]='\0';
+        
+        sprintf(temp, "@%s", label);
         cpu9900_1op("b", temp);
     }
     if (target == CPU_Z80)

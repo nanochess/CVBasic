@@ -115,9 +115,10 @@ void cpu9900_emit_line(void)
 {
     // xdt99 doesn't like '#' in labels, it has meaning, so map it to _
     char buf[MAX_LINE_SIZE];
+    char *p = buf;
+
     strncpy(buf, cpu9900_line, MAX_LINE_SIZE);
     buf[MAX_LINE_SIZE-1]='\0';
-    char *p = buf;
     while (p != NULL) {
         p = strchr(p, '#');
         if (NULL != p) {
@@ -1145,8 +1146,10 @@ void cpu9900_node_generate(struct node *node, int decision)
                     } else if (c == 1) {
                         // nothing to do
                     } else {
+                        int cnt;
+                        
                         cpu9900_node_generate(node, 0);
-                        int cnt = 0;
+                        cnt = 0;
                         while (c>1) {
                             ++cnt;
                             c/=2;
@@ -1159,11 +1162,12 @@ void cpu9900_node_generate(struct node *node, int decision)
             }
             if (node->type == N_DIV16) {
                 if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                    int cnt;
                     int c;
                     
                     cpu9900_node_generate(node->left, 0);
                     c = node->right->value;
-                    int cnt = 0;
+                    cnt = 0;
                     while (c>1) {
                         ++cnt;
                         c/=2;
