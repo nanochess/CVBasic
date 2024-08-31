@@ -419,7 +419,7 @@ define_char
     srl r3,8            ; make word
     sla r3,3            ; count times 8
     movb @mode,r5       ; get mode flags
-    andi r5,>0400
+    andi r5,>0800
     jne !1              ; not in bitmap mode, do a single copy
 
     limi 0              ; ints off
@@ -630,7 +630,7 @@ vdp_generic_mode
 ; set up VDP mode 0
 mode_0
     mov r11,r8      ; careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     ; bit we want to clear
+    li r0,>0800     ; bit we want to clear
     szcb r0,@mode
 
     li r2,>ff00	    ; $2000 for color table.
@@ -682,7 +682,7 @@ vdp_generic_sprites
 ; set up VDP mode 1
 mode_1
     mov r11,r8      ; careful - we call vdp_generic_mode and LDIRVM3
-    li r0,>0400     ; bit we want to clear
+    li r0,>0800     ; bit we want to clear
     szcb r0,@mode
 
     li r2,>ff00	    ; $2000 for color table.
@@ -1435,7 +1435,7 @@ define_char_unpack
     andi r1,>00ff   ; mask off to 0-255
     sla r1,3        ; times 8
     movb @mode,r0   ; get mode
-    andi r0,>0400   ; check bitmap bit
+    andi r0,>0800   ; check bitmap bit
     jeq unpack3     ; 3 times if yes
     jmp unpack      ; once if no
 
@@ -1494,40 +1494,36 @@ unpack
     
     clr r5              ; ldy #0
     mov r5,r6           ; sty temp2
-    mov r2,r0
-    srl r5,8
-    a r5,r0
-    swpb r5
-    movb *r0,r3        ; lda (temp),y (we don't care about losing the count in a?)
-    inc r2             ; inc temp, bne$+4, inc temp+1
-    inc r2             ; inc temp, bne$+4, inc temp+1
+    clr r3
+    movb *r2+,r3       ; lda (temp),y (we don't care about losing the count in a?)
 
-    movb r3,@r6lsb
-    src r6,15           ; 1 bit circular left (via 15 bits circular right) ; asl a / rol temp2 / adc #1
-    sla r6,2            ; 2 more bit non-circular left ; asl a / rol temp2 / asl a / rol temp2
-    jnc !up1
-    ori r6,>0100        ; final rol temp2
-!up1    
+    sla r3,1
+    jnc !up14
+    inc r5
+!up14
+    inc r5
+    sla r5,1
+    sla r3,1
+    jnc !up15
+    inc r5
+!up15
+    sla r5,1
+    sla r3,1
+    jnc !up16
+    inc r5
+!up16
+    sla r5,1
 
-    movb @r6lsb,r7      ; sta pletter_bit
-    andi r6,>ff00       ; get back to byte
+    mov r3,r7      
 
     li r3,!modes        ; lda #.modes / lda #.modes>>8
-    a r3,r6             ; adc temp2, sta temp2, adc #0, sta temp2+1
-    srl r5,8
-    a r5,r6
-    swpb r5
-    mov *r6,r6          ; lda (temp2),y / tax /iny / lda(temp2),y / stx temp2 / sta temp2+1
+    a r5,r3          
+    mov *r3,r6          
     mov r7,r3           ; lda pletter_bit
 
 !literal
-    mov r3,r7           ; sta pletter_bit
-    clr r5              ; ldy #0
-    mov r2,r3
-    a r5,r3
-    movb *r3,r3         ; lda (temp),y
-    inc r2              ; inc temp / bne $+4 / inc temp+1
-    mov r3,r4           ; tax 
+    mov r3,r7      
+    movb *r2+,r3
     
     mov r1,r0
     ori r0,>4000
@@ -1550,7 +1546,6 @@ unpack
     jnc -!literal       ; bcc .literal
 
     ; Compressed data
-    clr r4
     li r13,>0001        ; ldx #1 / stx result / dex / stx result+1
     
 !getlen
@@ -1609,20 +1604,16 @@ unpack
 !lenok
     inc r13             ; inc result / bne $+4 / inc result+1
     mov r3,r7           ; sta pletter_bit
-    clr r5              ; ldy #0
-    andi r8,>00ff       ; sty pletter_off+1
+    clr r8
 
     mov r2,r0
     a r5,r0
-    movb *r0,r3         ; lda (temp),y
-    inc r2              ; inc temp / bne $+4 / inc temp+1
-    
-    swpb r8
-    movb r3,r8
+    movb *r2+,r8        ; lda (temp),y
+        
     swpb r8             ; sta pletter_off / lda pletter_off
     
-    jgt !offsok
-    jeq !offsok         ; bpl .offsok
+    ci r8,>0080
+    jl !offsok
 
     mov r7,r3           ; lda pletter_bit
     clr r0
@@ -1754,9 +1745,8 @@ unpack
     b @-!loop           ; jmp .loop
 
 !getbit
-    clr r5              ; ldy #0
+    clr r3              ; ldy #0
     movb *r2+,r3        ; lda (temp),y / inc temp / bne $+4 / inc temp+1
-    mov r3,r0           ; making a copy for carry
     joc !gb1
     sla r3,1            ; rol a with no carry
     jmp !gb2
