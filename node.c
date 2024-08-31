@@ -16,6 +16,7 @@
 #include "node.h"
 #include "cpuz80.h"
 #include "cpu6502.h"
+#include "cpu9900.h"
 
 /*
  ** Comparison of tree nodes.
@@ -782,6 +783,11 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
 
 /*
  ** Get the assembler label for the CVBasic label.
+ ** parenthesis:
+        1 - open and close ()
+        2 - #
+        3 - open only (
+        4 - @
  */
 void node_get_label(struct node *node, int parenthesis)
 {
@@ -790,6 +796,8 @@ void node_get_label(struct node *node, int parenthesis)
         strcat(temp, "(");
     else if (parenthesis == 2)
         strcat(temp, "#");
+    else if (parenthesis == 4)
+        strcat(temp, "@");
     if (node->label->length) {
         strcat(temp, ARRAY_PREFIX);
     } else {
@@ -811,6 +819,8 @@ void node_label(struct node *node)
         cpuz80_node_label(node);
     if (target == CPU_6502)
         cpu6502_node_label(node);
+    if (target == CPU_9900)
+        cpu9900_node_label(node);
 }
 
 /*
@@ -822,6 +832,8 @@ void node_generate(struct node *node, int decision)
         cpuz80_node_generate(node, decision);
     if (target == CPU_6502)
         cpu6502_node_generate(node, decision);
+    if (target == CPU_9900)
+        cpu9900_node_generate(node, decision);
 }
 
 /*

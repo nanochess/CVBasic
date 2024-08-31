@@ -17,6 +17,7 @@
 enum cpu_target {
     CPU_Z80,
     CPU_6502,
+    CPU_9900
 };
 
 extern enum cpu_target target;

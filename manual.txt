@@ -1033,6 +1033,50 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT2.BUTTON2     Non-zero if the controller right button is pressed.
   CONT2.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
 
+
+            if (lex == C_PERIOD) {
+                get_lex();
+                if (lex != C_NAME) {
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    emit_error("CONT1 syntax error");
+                } else if (strcmp(name, "UP") == 0) {
+                    get_lex();
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 1, NULL, NULL));
+                } else if (strcmp(name, "RIGHT") == 0) {
+                    get_lex();
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 2, NULL, NULL));
+                } else if (strcmp(name, "DOWN") == 0) {
+                    get_lex();
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 4, NULL, NULL));
+                } else if (strcmp(name, "LEFT") == 0) {
+                    get_lex();
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 8, NULL, NULL));
+                } else if (strcmp(name, "BUTTON") == 0) {
+                    get_lex();
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x40, NULL, NULL));
+                } else if (strcmp(name, "BUTTON2") == 0) {
+                    get_lex();
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                    tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x80, NULL, NULL));
+                } else if (strcmp(name, "KEY") == 0) {
+                    get_lex();
+                    tree = node_create(N_KEY1, 0, NULL, NULL);
+                } else {
+                    emit_error("Wrong field for CONT1");
+                    tree = node_create(N_JOY1, 0, NULL, NULL);
+                }
+            } else {
+                tree = node_create(N_JOY1, 0, NULL, NULL);
+            }
+            *type = TYPE_8;
+            return tree;
+
+
   RANDOM
     Produces a pseudo-random value between 0 and 65535.
     The value produced is different each time.
