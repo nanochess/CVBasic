@@ -726,7 +726,7 @@ void cpu9900_node_generate(struct node *node, int decision)
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 int c,cnt;
                 
-                // power of 2 multiply
+                /* Power of 2 multiply */
                 cpu9900_node_generate(node->left, 0);
                 c = node->right->value;
                 cnt = 0;
@@ -734,19 +734,15 @@ void cpu9900_node_generate(struct node *node, int decision)
                     ++cnt;
                     c /= 2;
                 }
-                // not sure if treating full 16 bit here is okay? we'll see... should be!
-                if (cnt >= 16) {
-                    cpu9900_1op("clr","r0");
-                } else {
-                    sprintf(temp, "%d", cnt);
-                    cpu9900_2op("sla","r0",temp);
-                }
+                cpu9900_2op("andi", "r0", ">ff00"); /* Avoid trash bits 7-0 getting into */
+                sprintf(temp, "%d", cnt);
+                cpu9900_2op("sla", "r0", temp);
                 break;
             }
             if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 int c, cnt;
                 
-                // power of 2 divide
+                /* Power of 2 divide */
                 cpu9900_node_generate(node->left, 0);
                 c = node->right->value;
                 cnt = 0;
@@ -754,12 +750,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     ++cnt;
                     c /= 2;
                 }
-                if (cnt >= 16) {
-                    cpu9900_1op("clr","r0");
-                } else {
-                    sprintf(temp, "%d", cnt);
-                    cpu9900_2op("srl","r0",temp);
-                }
+                sprintf(temp, "%d", cnt);
+                cpu9900_2op("srl", "r0", temp);
                 break;
             }
             if (node->type == N_LESSEQUAL8 || node->type == N_GREATER8) {
