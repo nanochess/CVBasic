@@ -857,7 +857,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                    cpu9900_1op("beq", temp);
+                    cpu9900_1op("jeq", temp);
                     cpu9900_1op("clr", "r0");
                     cpu9900_1op("jmp", "$+4");
                     cpu9900_label(temp);

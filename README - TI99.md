@@ -20,9 +20,11 @@ The program supports FCTN-= (Alt-= on PC emulation) to reset.
 
 The program is stored in the 24k memory expansion starting at >A000. The 8k RAM block at >2000 is used for variables and stack. (This is significantly more than most projects require.)
 
+    cvbasic --ti994a test2.bas test2.a99
+
 The output of the compiler is an assembly file, it can be assembled like so:
 
-xas99.py -R test2.bas -L test2.txt
+    xas99.py -R test2.a99 -L test2.txt
 
 Consult the xas99 manual for details, but in short you need the -R switch to define registers for this code. -L provides a listing file if the assembly was successful.
 
