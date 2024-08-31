@@ -1913,7 +1913,7 @@ START
 stlp1
     clr *r0+
     ci r0,lastsp
-    jne stlp1
+    jl stlp1
     
     li r0,>2000         ; clear lower 8k RAM
 stlp2
