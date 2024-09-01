@@ -109,10 +109,10 @@ audio_noise 		bss 1
 audio_control		bss 1
 
 music_mode	    	bss 1
-    even
     .endif
 
 ; used to track scratchpad variables
+    even
 lastsp              equ $
 
 ; While we don't mean to USE the console ROM, for interrupts we
