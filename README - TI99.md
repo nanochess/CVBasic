@@ -1,10 +1,7 @@
 The TI99 support is still experimental and in development.
 
 Currently the following demos work:
-test1, happy_face, example, face_joystick, vgm, test2, demo, music, portrait, oscar, space_attack
-
-The following require pletter compression which is not implemented:
-viboritas, oscar_compressed
+test1, happy_face, example, face_joystick, vgm, test2, demo, music, portrait, oscar, space_attack, viboritas, oscar_compressed
 
 The following require bank switching which is not implemented:
 bank
@@ -40,6 +37,11 @@ To do this:
 - After the program loads, press enter to finish loading
 - Enter 'START' as the run program name.
 
+You can also build a disk image for Js99er.net (online TI-99/4A emulator):
+
+    xdm99.py -X sssd work.dsk -a test2.obj -f df80
+    
+For Js99er.net, select the three lines icon and select Editor/Assembler, then select the disk icon and select the work.dsk file. Follow the previous list of instructions to load the program.
+
 TODO:
-- implement pletter decompression
 - implement cartridge target (plan is a 24k loader cartridge with ROM support - so 24k fixed code space, 8k pages, and 8k RAM.)
