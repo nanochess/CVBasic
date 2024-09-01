@@ -1427,8 +1427,6 @@ music_silence
 
     .ifne CVBASIC_COMPRESSION
 
-    .error Compression does not work for TI-99 yet
-    
 ; Load compressed character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 define_char_unpack
@@ -1451,12 +1449,15 @@ define_color_unpack
 unpack3
     mov r11,r9      ; save return address
     mov r1,r10      ; save VDP address
+    mov r2,r4
     bl @unpack
     ai r10,>800
     mov r10,r1
+    mov r4,r2
     bl @unpack
     ai r10,>800
     mov r10,r1
+    mov r4,r2
     bl @unpack
     b *r9
 
@@ -1475,8 +1476,6 @@ unpack3
 ; instruction before it in nearly any case, the code uses this too. 
 ; I've not been able to locate any C code for the unpacker which would probably be easier to port.
 
-; this is a very naive port... and it does not work.
-
 r0lsb   equ mywp+1
 r1lsb   equ mywp+3
 r2lsb   equ mywp+5
@@ -1492,16 +1491,15 @@ unpack
 ; Initialization
     mov r11,r12         ; save return
     
-    clr r5              ; ldy #0
-    mov r5,r6           ; sty temp2
     clr r3
-    movb *r2+,r3       ; lda (temp),y (we don't care about losing the count in a?)
+    movb *r2+,r3       ; lda (temp),y
 
+    clr r5              ; ldy #0
     sla r3,1
     jnc !up14
     inc r5
 !up14
-    inc r5
+    ai r3,>0100
     sla r5,1
     sla r3,1
     jnc !up15
@@ -1514,12 +1512,8 @@ unpack
 !up16
     sla r5,1
 
-    mov r3,r7      
-
-    li r3,!modes        ; lda #.modes / lda #.modes>>8
-    a r5,r3          
-    mov *r3,r6          
-    mov r7,r3           ; lda pletter_bit
+    ai r5,!modes          
+    mov *r5,r6          
 
 !literal
     mov r3,r7      
@@ -1556,21 +1550,16 @@ unpack
     jnc !lenok          ; bcc .lenok
     
 !lus
+    sla r13,1
+    jnc !up5
+    b *r12
+!up5
     sla r3,1            ; asl a
     jne !up4            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !up4
-    joc !up5            ; need to check carry now...
-    sla r13,1           ; rol result (nc) / rol result+1 
-    jnc !up6            ; bcc $+3
-    b *r12              ; rts (real return?)
-
-!up5
-    sla r13,1           ; rol result (nc) / rol result+1 
-    ori r13,1           ; but get the carry bit in there (does not change carry bit)
-    jnc !up6            ; bcc $+4
-    b *r12              ; ret
-    
+    jnc !up6            ; need to check carry now...
+    inc r13    
 !up6
     sla r3,1            ; asl a
     jne !up7            ; bne $+5
@@ -1578,126 +1567,102 @@ unpack
 !up7
     jnc !lenok          ; bcc .lenok
 
+    sla r13,1
+    jnc !up9
+    b *r12
+!up9
     sla r3,1            ; asl a
     jne !up8            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !up8
-
-    joc !up9            ; need to check carry now...
-    sla r13,1           ; rol result (nc) / rol result+1 
     jnc !up10           ; bcc $+3
-    b *r12              ; rts (real return?)
-
-!up9
-    sla r13,1           ; rol result (nc) / rol result+1 
-    ori r13,1           ; but get the carry bit in there (does not change carry bit)
-    jnc !up10           ; bcc $+4
-    b *r12              ; ret
-
+    inc r13
 !up10
-    sla r13,1           ; asl a
+    sla r3,1            ; asl a
     jne !up11           ; bne $+5
     bl @!getbit         ; jsr .getbit
 !up11
-    joc -!lus            ; bcs .lus
+    joc -!lus           ; bcs .lus
     
 !lenok
     inc r13             ; inc result / bne $+4 / inc result+1
     mov r3,r7           ; sta pletter_bit
-    clr r8
 
-    mov r2,r0
-    a r5,r0
+    clr r8
     movb *r2+,r8        ; lda (temp),y
-        
     swpb r8             ; sta pletter_off / lda pletter_off
     
     ci r8,>0080
     jl !offsok
 
     mov r7,r3           ; lda pletter_bit
-    clr r0
     b *r6               ; jmp (temp2)
     
 !mode6
-    mov r3,r0
     sla r3,1            ; asl a
     jne !m6p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m6p
-    andi r0,>8000
+    clr r0
+    jnc !m6p2
+    li r0,>8000
+!m6p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode5
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m5p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m5p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m5p2
+    li r0,>8000
+!m5p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode4
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m4p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m4p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m4p2
+    li r0,>8000
+!m4p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode3
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m3p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m3p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m3p2
+    li r0,>8000
+!m3p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode2
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m2p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m2p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m2p2
+    li r0,>8000
+!m2p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
-    jne !m2p2           ; bne $+5
+    sla r3,1            ; asl a
+    jne !m2p3           ; bne $+5
     bl @!getbit         ; jsr .getbit
-!m2p2
+!m2p3
 
     mov r3,r7           ; sta pletter_bit (no touch carry)
     jnc !offsok         ; bcc .offsok
@@ -1708,17 +1673,12 @@ unpack
 !offsok
     inc r8              ; inc pletter_off / bne $+4 / inc pletter_off+1
     
-    movb @r13lsb,r3     ; lda result
-    jeq !offok1         ; beq $+4
-    ai r13,>0100        ; inc result+1
-!offok1    
-
     mov r1,r0
     s r8,r0
     mov r0,r8           ; lda pointer / sec / sbc pletter_off / sta pletter_off / lda pointer+1 / sbc pletter_off+1 / sta pletter_off+1
+    ori r1,>4000        ; do this outside the loop
     
 !loop2
-    ori r1,>4000        ; do this outside the loop
     limi 0              ; sei
     
     swpb r8
@@ -1749,11 +1709,10 @@ unpack
     movb *r2+,r3        ; lda (temp),y / inc temp / bne $+4 / inc temp+1
     joc !gb1
     sla r3,1            ; rol a with no carry
-    jmp !gb2
+    b *r11
 !gb1
     sla r3,1
     ori r3,>0100        ; rol a with carry
-!gb2
     b *r11
 
 !modes
