@@ -898,7 +898,6 @@ void cpu9900_node_generate(struct node *node, int decision)
             } else if (node->type == N_LESS8 || node->type == N_GREATER8) {
                 cpu9900_2op("cb", "r0", temp);
                 if (decision) {
-                    // TODO: unsigned??
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                     sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
@@ -962,8 +961,10 @@ void cpu9900_node_generate(struct node *node, int decision)
                 break;
             }
             cpu9900_node_generate(node->left, 0);
-            cpu9900_2op("movb","r0","r1");
+            cpu9900_1op("dect", "r10");
+            cpu9900_2op("mov", "r0", "*r10");
             cpu9900_node_generate(node->right, 0);
+            cpu9900_2op("mov", "*r10+", "r1");
             cpu9900_2op("movb", "r1", "*r0");
             break;
         case N_ASSIGN16:    /* 16-bit assignment */
@@ -990,9 +991,11 @@ void cpu9900_node_generate(struct node *node, int decision)
                 break;
             }
             cpu9900_node_generate(node->left, 0);
-            cpu9900_2op("mov","r0","r1");
+            cpu9900_1op("dect", "r10");
+            cpu9900_2op("mov", "r0", "*r10");
             cpu9900_node_generate(node->right, 0);
-            cpu9900_2op("mov","r1","*r0");
+            cpu9900_2op("mov", "*r10+", "r1");
+            cpu9900_2op("movb", "r1", "*r0");
             break;
         default:    /* Every other node, all remaining are 16-bit operations */
             /* Optimization of address plus/minus constant */
@@ -1019,7 +1022,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 if (node->left->type == N_ADDR) {
                     cpu9900_node_generate(node->right, 0);
                     node_get_label(node->left, 0);
-                    cpu9900_2op("ai","r0",temp);
+                    cpu9900_2op("ai", "r0", temp);
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
@@ -1035,7 +1038,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                         cpu9900_node_generate(node->right, 0);
                     c = explore->value;
                     sprintf(temp, "%d", c);
-                    cpu9900_2op("ai","r0",temp);
+                    cpu9900_2op("ai", "r0", temp);
                     break;
                 }
             }
@@ -1049,7 +1052,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     
                     cpu9900_node_generate(node->left, 0);
                     sprintf(temp, "-%d", c);
-                    cpu9900_2op("ai","r0",temp);
+                    cpu9900_2op("ai", "r0", temp);
                     break;
                 }
             }
@@ -1062,7 +1065,6 @@ void cpu9900_node_generate(struct node *node, int decision)
                     int value = explore->value;
                     char *mnemonic;
                     
-                    // TODO: we probably need to differentiate immediates...?
                     if (node->type == N_OR16) {
                         mnemonic = "ori";
                     } else if (node->type == N_AND16) {
@@ -1085,9 +1087,9 @@ void cpu9900_node_generate(struct node *node, int decision)
                     } else {
                         sprintf(temp, "%d", value);
                         if (node->type == N_XOR16) {
-                            // there's no immediate xor
-                            cpu9900_2op("li","r1",temp);
-                            cpu9900_2op("xor","r1","r0");
+                            /* There's no immediate xor */
+                            cpu9900_2op("li", "r1", temp);
+                            cpu9900_2op("xor", "r1", "r0");
                         } else {
                             cpu9900_2op(mnemonic, "r0", temp);
                         }
@@ -1118,48 +1120,62 @@ void cpu9900_node_generate(struct node *node, int decision)
                         
                         cpu9900_node_generate(node, 0);
                         cnt = 0;
-                        while (c>1) {
+                        while (c > 1) {
                             ++cnt;
-                            c/=2;
+                            c /= 2;
                         }
-                        sprintf(temp,"%d",cnt);
-                        cpu9900_2op("sla","r0",temp);
+                        sprintf(temp, "%d", cnt);
+                        cpu9900_2op("sla", "r0", temp);
                     }
                     break;
                 }
             }
             if (node->type == N_DIV16) {
-                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                if (node->right->type == N_NUM16 && is_power_of_two(node->right->value)) {
                     int cnt;
                     int c;
                     
                     cpu9900_node_generate(node->left, 0);
                     c = node->right->value;
                     cnt = 0;
-                    while (c>1) {
+                    while (c > 1) {
                         ++cnt;
-                        c/=2;
+                        c /= 2;
                     }
-                    sprintf(temp,"%d",cnt);
-                    cpu9900_2op("srl","r0",temp);
+                    sprintf(temp, "%d", cnt);
+                    cpu9900_2op("srl", "r0", temp);
                     break;
                 }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
-                cpu9900_noop(";unclear - node->type == N_LESSEQUAL16 || node->type == N_GREATER16");
-                cpu9900_node_generate(node->left, 0);   
-                cpu9900_1op("dect","r10");
-                cpu9900_2op("mov","r0","*r10");
-                cpu9900_node_generate(node->right, 0);
+                if (node->left->type == N_LOAD16) {
+                    cpu9900_node_generate(node->right, 0);
+                    node_get_label(node->left, ADDRESS);
+                } else {
+                    cpu9900_node_generate(node->left, 0);
+                    cpu9900_1op("dect", "r10");
+                    cpu9900_2op("mov", "r0", "*r10");
+                    cpu9900_node_generate(node->right, 0);
+                    cpu9900_2op("mov", "*r10+", "r1");
+                    strcpy(temp, "r1");
+                }
+            } else if (node->type != N_AND16 && node->right->type == N_LOAD16) {
+                /*
+                 ** Cannot be optimized:
+                 ** o AND requires to invert the source operand (i.e alter the variable)
+                 */
+                cpu9900_node_generate(node->left, 0);
+                node_get_label(node->right, ADDRESS);
             } else {
                 cpu9900_node_generate(node->right, 0);
-                cpu9900_1op("dect","r10");
-                cpu9900_2op("mov","r0","*r10");
+                cpu9900_1op("dect", "r10");
+                cpu9900_2op("mov", "r0", "*r10");
                 cpu9900_node_generate(node->left, 0);
+                cpu9900_2op("mov", "*r10+", "r1");
+                strcpy(temp, "r1");
             }
             if (node->type == N_OR16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("soc","r1","r0");
+                cpu9900_2op("soc", temp, "r0");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1169,8 +1185,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_XOR16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("xor","r1","r0");
+                cpu9900_2op("xor", temp, "r0");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1180,9 +1195,8 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_AND16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_1op("inv","r1");
-                cpu9900_2op("szc","r1","r0");
+                cpu9900_1op("inv", temp);
+                cpu9900_2op("szc", temp, "r0");
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1192,8 +1206,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_EQUAL16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("c","r0","r1");
+                cpu9900_2op("c", "r0", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1211,8 +1224,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_NOTEQUAL16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("c","r0","r1");
+                cpu9900_2op("c", "r0", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1230,8 +1242,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("c","r0","r1");
+                cpu9900_2op("c", "r0", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1249,9 +1260,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_noop("; TODO check order of compare2");
-                cpu9900_2op("c","r0","r1");
+                cpu9900_2op("c", "r0", temp);
                 if (decision) {
                     optimized = 1;
                     sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
@@ -1269,37 +1278,32 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_empty();
                 }
             } else if (node->type == N_PLUS16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("a","r1","r0");
+                cpu9900_2op("a", temp, "r0");
             } else if (node->type == N_MINUS16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("s","r1","r0");
+                cpu9900_2op("s", temp, "r0");
             } else if (node->type == N_MUL16) {
-                cpu9900_2op("mov","*r10+","r1");
-                cpu9900_2op("mpy","r0","r1");   // r0 * r1 => r1_r2 (32 bit)
-                cpu9900_2op("mov","r2","r0");
+                cpu9900_2op("mpy", temp, "r0");   /* r1 * r0 => r0_r1 (32 bit) */
+                cpu9900_2op("mov", "r1", "r0");
             } else if (node->type == N_DIV16) {
-                cpu9900_2op("mov","r0","r1");
-                cpu9900_2op("mov","*r10+","r2");
-                cpu9900_1op("clr","r0");
-                cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
+                cpu9900_2op("mov", temp, "r2");
+                cpu9900_2op("mov", "r0", "r1");
+                cpu9900_1op("clr", "r0");
+                cpu9900_2op("div", "r2", "r0");   /* r0_r1 / r2 => r0, rem r1 */
             } else if (node->type == N_MOD16) {
-                cpu9900_2op("mov","r0","r1");
-                cpu9900_2op("mov","*r10+","r2");
-                cpu9900_1op("clr","r0");
-                cpu9900_2op("div","r2","r0");   // r0_r1 / r2 => r0, rem r1
-                cpu9900_2op("mov","r1","r0");   // get remainder
+                cpu9900_2op("mov", temp, "r2");
+                cpu9900_2op("mov", "r0", "r1");
+                cpu9900_1op("clr", "r0");
+                cpu9900_2op("div", "r2", "r0");   /* r0_r1 / r2 => r0, rem r1 */
+                cpu9900_2op("mov", "r1", "r0");   /* Get remainder */
             } else if (node->type == N_DIV16S) {
-                cpu9900_noop("; TODO: check order of division - assume r0/r2");
-                cpu9900_2op("mov","r0","r1");
-                cpu9900_2op("mov","*r10+","r2");
-                cpu9900_1op("bl","@JSR");
+                cpu9900_2op("mov", temp, "r2");
+                cpu9900_2op("mov", "r0", "r1");
+                cpu9900_1op("bl", "@JSR");
                 cpu9900_1op("data", "_div16s");
             } else if (node->type == N_MOD16S) {
-                cpu9900_noop("; TODO: check order of mod - assume r0%r2");
-                cpu9900_2op("mov","r0","r1");
-                cpu9900_2op("mov","*r10+","r2");
-                cpu9900_1op("bl","@JSR");
+                cpu9900_2op("mov", temp, "r2");
+                cpu9900_2op("mov", "r0", "r1");
+                cpu9900_1op("bl", "@JSR");
                 cpu9900_1op("data", "_mod16s");
             }
             break;
