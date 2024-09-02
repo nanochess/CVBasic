@@ -14,6 +14,12 @@
 #include "node.h"
 
 /*
+ ** Conventions of register usage:
+ ** r0-r3 Available for expression evaluation and support subroutines (div16s/mod16s)
+ ** r4-r7 Used to pass arguments to support statements (DEFINE/SPRITE)
+ */
+
+/*
  ** Constant for node_get_label to give us labels with '@' prefix
  */
 #define ADDRESS 4
@@ -21,7 +27,7 @@
 /*
  ** If enabled, replaced code from emit_line will be commented out in the assembler output
  */
-/*#define DEBUGPEEP*/
+#define DEBUGPEEP
 
 /*
  ** Some tracking for peepholes
@@ -264,7 +270,7 @@ void cpu9900_emit_line(void)
 #endif
             return;
         }
-        
+ 
         // similar case, but push/pop to different regs - only seen r0->r1 so I'll just code for that
         if ( ((0 == strcmp(op3,"dect")) && (0 == strcmp(s5,"r10"))) && 
                     ((0 == strcmp(op2,"mov")) && (0 == strcmp(s3,"r0")) && (0 == strcmp(s4,"*r10"))) &&
@@ -282,7 +288,7 @@ void cpu9900_emit_line(void)
 #endif
             strcpy(buf,"\tmov r0,r1\n");
         }        
-
+        
         // check for repeated absolute loads. Doesn't happen very often, but the savings is worth it
         // first check - labels cancels all bets. We can try to get smarter with the registers like
         // the other ports later...
@@ -290,7 +296,7 @@ void cpu9900_emit_line(void)
             strcpy(last_r0_load,"");
         } else {
             // is r0 the target?
-            if (0 == strcmp(s2,"r0")) {
+            if (strcmp(op1, "mov") == 0 && strcmp(s2, "r0") == 0) {
                 // is the source the same as remembered?
                 if ((0 == strcmp(s1,last_r0_load)) && (last_r0_load[0] != '\0')) {
                     // then never mind this one
@@ -309,9 +315,12 @@ void cpu9900_emit_line(void)
                 } else {
                     strcpy(last_r0_load, "");
                 }
+            } else if (strcmp(s2, "r0") == 0) {
+                if (strcmp(op1, "c") != 0 && strcmp(op1, "cb") != 0)
+                    strcpy(last_r0_load, "");
             } else {
                 // also check for ai
-                if (0 == strcmp(op1,"ai") && (0 == strcmp(s1,"r0"))) {
+                if ((strcmp(op1, "ai") == 0 || strcmp(op1, "andi") == 0 || strcmp(op1, "ori") == 0) && strcmp(s1,"r0") == 0) {
                     strcpy(last_r0_load, "");
                 }
                 // and bl - all bets are off

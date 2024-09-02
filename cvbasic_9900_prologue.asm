@@ -330,7 +330,7 @@ print_number
     limi 0              ; interrupts off so we can hold the VDP address
     mov r0,r3           ; save value off
     mov @cursor,r0      ; get cursor
-    andi r0,>07ff       ; enforce position - pretty large range though? 80 column support maybe?
+    andi r0,>07ff       ; enforce position - large range for two screen pages
     ai r0,>1800         ; add is safer than OR, and we have that option
     bl @SETWRT          ; set write address
     clr r5              ; leading zero flag
@@ -392,21 +392,23 @@ print_number1
     limi 2              ; ints on
     b *r4               ; back to caller
 
-; Load sprite definitions: Sprite number in R1, CPU data in R2, count of sprites in R3 (MSB)
+; Load sprite definitions: Sprite number in R4, CPU data in R0, count of sprites in R5 (MSB)
 ; Original: pointer = sprite number, temp = CPU address, a = number sprites
 ; Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
 ; Sprite pattern table at >3800
 define_sprite
-    mov r11,r4          ; save return
-    mov r1,r0           ; copy it into r0 for LDIRVM
+    mov r11,r8          ; save return
+    mov r0,r2           ; Source data.
+    mov r4,r0           ; VRAM target.
     sla r0,5            ; sprite number times 32 for bytes
     ai r0,>3800         ; add VDP base
+    mov r5,r3		; Length.
     srl r3,8            ; make int
     sla r3,5            ; count times 32
     limi 0              ; ints off
     bl @LDIRVM          ; do the copy
     limi 2              ; ints on
-    b *r4               ; back to caller
+    b *r8               ; back to caller
 
 ; Load character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
@@ -414,8 +416,10 @@ define_sprite
 ; Pattern table at >0000
 define_char
     mov r11,r8          ; save return
-    mov r1,r0           ; move input to scratch
+    mov r0,r2           ; source data
+    mov r4,r0           ; move input to scratch
     sla r0,3            ; char number times 8 (VDP base is 0, so already there)
+    mov r5,r3
     srl r3,8            ; make word
     sla r3,3            ; count times 8
     movb @mode,r5       ; get mode flags
@@ -438,9 +442,11 @@ define_char
 ; Note: always does the triple copy. Color table at >2000
 define_color
     mov r11,r8          ; save return
-    mov r1,r0           ; move input to scratch
+    mov r0,r2           ; source data
+    mov r4,r0           ; move input to scratch
     sla r0,3            ; char number times 8
     ai r0,>2000         ; add base address
+    mov r5,r3
     srl r3,8            ; make word
     sla r3,3            ; count times 8
     limi 0              ; ints off
@@ -449,16 +455,16 @@ define_color
     b *r8               ; back to caller
 
 ; Update sprite entry - copy data (4 bytes) to sprite table mirror at sprites
-; R2 = sprite number, R3 = byte 1, r4 = byte 2, r5 = byte 3, r6 = byte 4 (all MSB)
+; R4 = sprite number, R5 = byte 1, r6 = byte 2, r7 = byte 3, r0 = byte 4 (all MSB)
 ; Original: A = sprite number, source data at sprite_data
 update_sprite
-    srl r2,8            ; make word
-    sla r2,2            ; x4 for address
-    ai r2,sprites       ; sprite mirror address
-    movb r3,*r2+        ; move bytes
-    movb r4,*r2+        ; move bytes
-    movb r5,*r2+        ; move bytes
-    movb r6,*r2+        ; move bytes
+    srl r4,8            ; make word
+    sla r4,2            ; x4 for address
+    ai r4,sprites       ; sprite mirror address
+    movb r5,*r4+        ; move bytes
+    movb r6,*r4+        ; move bytes
+    movb r7,*r4+        ; move bytes
+    movb r0,*r4+        ; move bytes
     b *r11
 
 ; SGN R0 - return 1, -1 or 0 as 16 bit
@@ -512,15 +518,13 @@ _div16s
     b *r11          ; return
 
 !1
-    mov r2,r4       ; make working copies
-    mov r1,r5
-    andi r4,>8000   ; mask out sign bit
-    andi r5,>8000
+    mov r2,r3       ; make working copies
+    xor r1,r3
     abs r2
     abs r1          ; might as well make them positive now that we have copies
     clr r0          ; make dividend 32-bit
     div r2,r0       ; do the divide => r0=quotient, r1=remainder
-    c r4,r5         ; compare the original sign bits
+    andi r3,>8000   ; mask out sign bit
     jeq !2          ; skip ahead to positive version
 
     neg r0          ; negate the result
@@ -1427,28 +1431,30 @@ music_silence
 
     .ifne CVBASIC_COMPRESSION
 
-; Load compressed character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
+; Load compressed character definitions: Char number in R4, CPU data in R0, count in R5 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 define_char_unpack
-    andi r1,>00ff   ; mask off to 0-255
-    sla r1,3        ; times 8
+    mov r0,r2
+    andi r4,>00ff   ; mask off to 0-255
+    sla r4,3        ; times 8
     movb @mode,r0   ; get mode
     andi r0,>0800   ; check bitmap bit
     jeq unpack3     ; 3 times if yes
     jmp unpack      ; once if no
 
-; Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
+; Load bitmap color definitions: Char number in R4, CPU data in R0, count in R5 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 define_color_unpack
-    andi r1,>00ff   ; mask off to 0-255
-    sla r1,3        ; char times 8
-    li r0,>2000     ; base of color table
-    a r0,r1         ; set base for color then fall through
+    mov r0,r2
+    andi r4,>00ff   ; mask off to 0-255
+    sla r4,3        ; char times 8
+    li r0,>4000     ; base of color table
+    a r0,r4         ; set base for color then fall through
 
 ; entered from one of the above two functions    
 unpack3
     mov r11,r9      ; save return address
-    mov r1,r10      ; save VDP address
+    mov r4,r10      ; save VDP address
     mov r2,r4
     bl @unpack
     ai r10,>800
