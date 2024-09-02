@@ -255,7 +255,7 @@ LDIRVM3
 ; Disable screen by setting VDP register 1 to >a2
 DISSCR
     limi 0
-    li r0,>a281
+    li r0,>81a2
 DISSCR2
     swpb r0
     movb r0,@VDPWADR
@@ -267,23 +267,18 @@ DISSCR2
 ; enable screen by setting VDP register 1 to >E2
 ENASCR
     limi 0
-    li r0,>e281
+    li r0,>81e2
     jmp DISSCR2
 
 ; copy a set of blocks of data to VDP, offset by 32 bytes each
-; address in R1, CPU data at R2, count per row in R3 (MSB), number rows in R4 (MSB), CPU stride in R5 (MSB) (VDP stride fixed at 32)
+; address in R8, CPU data at R9, count per row in R6 (MSB), number rows in R4 (MSB), CPU stride in R5 (MSB) (VDP stride fixed at 32)
 ; original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
 CPYBLK
     limi 0
     mov r11,r7      ; save return
-    srl r3,8
+    srl r6,8
     srl r4,8
     srl r5,8        ; bytes to words
-    mov r1,r0
-    mov r0,r8       ; save vdp address
-    mov r2,r9       ; save cpu address
-    mov r3,r6       ; save count per row
-    jmp !2          ; skip over the restore step
 !1
     mov r8,r0       ; get vdp address
     mov r9,r2       ; get cpu address

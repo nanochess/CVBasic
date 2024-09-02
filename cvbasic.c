@@ -3955,7 +3955,7 @@ void compile_statement(int check_for_else)
                             cpu6502_noop("TYA");
                             cpu6502_noop("PHA");
                         } else if (target == CPU_9900) {
-                            cpu9900_2op("mov","r0","r2");
+                            cpu9900_2op("mov","r0","r9");
                         } else {
                             cpuz80_1op("PUSH", "HL");
                         }
@@ -3975,7 +3975,7 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA", "pointer");
                             cpu6502_1op("STY", "pointer+1");
                         } else if (target == CPU_9900) {
-                            cpu9900_2op("mov","r0","r1");
+                            cpu9900_2op("mov","r0","r8");
                         } else {
                             cpuz80_1op("PUSH", "HL");
                         }
@@ -3993,7 +3993,7 @@ void compile_statement(int check_for_else)
                         if (target == CPU_6502) {
                             cpu6502_noop("PHA");
                         } else if (target == CPU_9900) {
-                            cpu9900_2op("mov","r0","r3");
+                            cpu9900_2op("mov","r0","r6");
                         } else {
                             cpuz80_1op("PUSH", "AF");
                         }
@@ -4046,7 +4046,7 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("LDY", "#0");   /* ...as stride width */
                             } else if (target == CPU_9900) {
                                 cpu9900_2op("mov","r0","r4");
-                                cpu9900_2op("mov","r3","r5");   /* copy width as stride width */
+                                cpu9900_2op("mov","r6","r5");   /* copy width as stride width */
                             } else {
                                 cpuz80_2op("LD", "B", "A");
                                 cpuz80_1op("POP", "AF");   /* Extract previous width */
