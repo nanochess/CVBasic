@@ -3167,7 +3167,6 @@ void compile_statement(int check_for_else)
                                 cpu9900_1op("bl", "@JSR");
                                 cpu9900_1op("data", "print_number");
                             } else if (format == 1) {
-                                // TODO: I don't quite follow this - are we literally printing $220 and $230?
                                 cpu9900_1op("limi","0");        /* print_number will turn it back on */
                                 cpu9900_2op("li", "r5", ">0220");
                                 sprintf(temp, "print_number%d", size);
