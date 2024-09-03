@@ -322,71 +322,66 @@ print_string
 ; R0 - number to print
 ; original number in YYAA?
 print_number
-    mov r11,r4          ; save return address
     limi 0              ; interrupts off so we can hold the VDP address
-    mov r0,r3           ; save value off
+    clr r5              ; leading zero flag
+print_number5
+    li r1,10000         ; divisor
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
+print_number4
+    li r1,1000          ; divisor
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
+print_number3
+    li r1,100           ; divisor
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
+print_number2
+    li r1,10
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
+print_number1
+    li r1,1
+    andi r5,>00ff
+    ori r5,>0100
+    mov r11,r4
+    bl @print_digit
+    limi 2              ; ints on
+    b *r4               ; back to caller
+
+print_digit
+    mov r11,r6
+    clr r2
+    div r1,r2
+    ai r2,>30
+    ci r2,>30
+    jne !3
+    ci r5,>0100
+    jhe !4
+    b *r6
+!4
+    ci r5,>0200
+    jl !6
+    mov r5,r2
+    jne !5
+!6
+    li r2,>30
+!3
+    andi r5,>00ff
+    ori r5,>0100
+!5
     mov @cursor,r0      ; get cursor
     andi r0,>07ff       ; enforce position - large range for two screen pages
     ai r0,>1800         ; add is safer than OR, and we have that option
     bl @SETWRT          ; set write address
-    clr r5              ; leading zero flag
-
-print_number5
-    clr r2              ; make r2/r3 a 32-bit value
-    li r1,10000         ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    mov r2,r2           ; check for zero
-    jeq print_number4   ; skip ahead if so
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; OR in the ASCII
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
+    swpb r2
+    movb r2,@VDPWDATA
     inc @cursor         ; track it
-
-print_number4
-    clr r2              ; make r2/r3 a 32-bit value
-    li r1,1000          ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    soc r5,r2           ; OR in the leading flags
-    jeq print_number3   ; if result was 0 and leading flags are zero, skip
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
-print_number3
-    clr r2              ; make r2/r3 a 32-bit value
-    li r1,100           ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    soc r5,r2           ; OR in the leading flags
-    jeq print_number2   ; if result was 0 and leading flags are zero, skip
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
-print_number2
-    clr r2              ; make r2/r3 a 32-bit value
-    li r1,10            ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    soc r5,r2           ; OR in the leading flags
-    jeq print_number1   ; if result was 0 and leading flags are zero, skip
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
-print_number1
-    ori r3,>0030        ; we know we always print this one
-    swpb r3             ; get value into MSB
-    movb r3,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
-    limi 2              ; ints on
-    b *r4               ; back to caller
+    b *r6
 
 ; Load sprite definitions: Sprite number in R4, CPU data in R0, count of sprites in R5 (MSB)
 ; Original: pointer = sprite number, temp = CPU address, a = number sprites

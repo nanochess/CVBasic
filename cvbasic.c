@@ -25,7 +25,7 @@
 #include "cpu6502.h"
 #include "cpu9900.h"
 
-#define VERSION "v0.7.0 Sep/02/2024"
+#define VERSION "v0.7.0 Sep/03/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -3162,22 +3162,23 @@ void compile_statement(int check_for_else)
                                 cpu6502_1op("JSR", temp);
                             }
                         } else if (target == CPU_9900) {
+                            cpu9900_2op("mov", "r0", "r3");
                             if (format == 0) {
-                                cpu9900_1op("bl","@JSR");
-                                cpu9900_1op("data","print_number");
+                                cpu9900_1op("bl", "@JSR");
+                                cpu9900_1op("data", "print_number");
                             } else if (format == 1) {
                                 // TODO: I don't quite follow this - are we literally printing $220 and $230?
                                 cpu9900_1op("limi","0");        /* print_number will turn it back on */
-                                cpu9900_2op("li","r0",">0220");
+                                cpu9900_2op("li", "r5", ">0220");
                                 sprintf(temp, "print_number%d", size);
-                                cpu9900_1op("bl","@JSR");
-                                cpu9900_1op("data",temp);
+                                cpu9900_1op("bl", "@JSR");
+                                cpu9900_1op("data", temp);
                             } else if (format == 2) {
                                 cpu9900_1op("limi","0");        /* print_number will turn it back on */
-                                cpu9900_2op("li","r0",">0230");
+                                cpu9900_2op("li", "r5", ">0230");
                                 sprintf(temp, "print_number%d", size);
-                                cpu9900_1op("bl","@JSR");
-                                cpu9900_1op("data",temp);
+                                cpu9900_1op("bl", "@JSR");
+                                cpu9900_1op("data", temp);
                             }
                         } else {
                             if (format == 0) {
@@ -3208,6 +3209,9 @@ void compile_statement(int check_for_else)
                             }
                         }
                         type = evaluate_expression(1, TYPE_16, 0);
+                        if (target == CPU_9900) {
+                            cpu9900_2op("mov", "r0", "r3");
+                        }
                         generic_call("print_number");
                     }
                     cursor_value = 0;

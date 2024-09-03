@@ -1,4 +1,4 @@
-# CVBasic compiler v0.6.0
+# CVBasic compiler v0.7.0
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -17,14 +17,18 @@ Later it was extended to support the following platforms:
 * Tatung Einstein.
 * Casio PV2000.
 * Hanimex/Soundic Pencil II.
+* Texas Instruments TI-99/4A (courtesy of @tursilion)
 
-One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
+One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
 
 The following files compose the compiler:
 
-    CVBasic.c                   The CVBasic compiler C language source code.
+    cvbasic.h                   The CVBasic compiler global definitions.
+    cvbasic.c                   The CVBasic compiler C language source code.
     cpu6502.h                   6502 code headers.
     cpu6502.c                   6502 code generation.
+    cpu9900.h                   TMS9900 code headers.
+    cpu9900.c                   TMS9900 code generation.
     cpuz80.h                    Z80 code headers.
     cpuz80.c                    Z80 code generation.
     driver.h                    Driver headers.
@@ -35,6 +39,10 @@ The following files compose the compiler:
 
     cvbasic_prologue.asm        Prologue file needed for compiled programs.
     cvbasic_epilogue.asm        Epilogue file needed for compiled programs.
+    cvbasic_6502_prologue.asm   Prologue file needed for 6502 compiled programs.
+    cvbasic_6502_epilogue.asm   Epilogue file needed for 6502 compiled programs.
+    cvbasic_9900_prologue.asm   Prologue file needed for TMS9900 compiled programs.
+    cvbasic_9900_epilogue.asm   Epilogue file needed for TMS9900 compiled programs.
 
     manual.txt                  English manual for CVBasic
 
@@ -120,9 +128,19 @@ Using CVBasic to compile a Casio PV-2000 program:
     cvbasic --pv2000 game.bas game.asm
     gasm80 game.asm -o game.rom
     
+Using CVBasic to compile a Texas Instruments TI-99/4A program:
+
+    cvbasic --ti994a game.bas game.a99
+    xas99.py -R game.a99
+    xdm99.py -X sssd game.dsk -a game.obj -f df80
+    
+You require the utilities from the xdt99 tool suite: [https://github.com/endlos99/xdt99](https://github.com/endlos99/xdt99)
+    
+The target is a stock TI-99/4A system with 32k memory expansion and joysticks. You can execute the dsk or obj file directly with the onlne emulator [js99er.net](js99er.net), or put it the obj file into a DSK directory for Classic99.
+
 ### Notes
 
-The current official version is v0.6.0.
+The current official version is v0.7.0.
 
 All platforms have been tested in emulation.
 
@@ -146,6 +164,8 @@ The Tatung Einstein can only use binaries up to 32 kb, keyboard is handled as co
 The Casio PV-2000 can only use binaries up to 16 kb, the keyboard and joystick are controller 1, and it can emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Home/Cls and Return.
 
 The Creativision can only use binaries up to 32 kb, the joysticks are controller 1 and controller 2, and it can emulate the Coleocovision keypad (CONT1.KEY only) using the keys 0-9, Left and RETN.
+
+The TI-99/4A can only generate binaries up to 24 kb. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick. The program supports FCTN-= (Alt-= on PC emulation) to reset.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 

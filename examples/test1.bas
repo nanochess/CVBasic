@@ -14,11 +14,15 @@
 	NEXT c
 
 	WHILE 1
+		PRINT AT 2,FRAME
+		PRINT AT 12,".",<5>FRAME,"."
+		PRINT AT 22,":",<.5>FRAME,":"
+
 		WAIT
 		FOR c = 0 TO 23
 			VPOKE $1800 + #stars(c), 32
 			#stars(c) = #stars(c) + 32
-			IF #stars(c) >= 768 THEN #stars(c) = #stars(c) - 768
+			IF #stars(c) >= 768 THEN #stars(c) = #stars(c) - 736
 			VPOKE $1800 + #stars(c), 42
 		NEXT c
 	WEND

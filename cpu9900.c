@@ -27,7 +27,7 @@
 /*
  ** If enabled, replaced code from emit_line will be commented out in the assembler output
  */
-#define DEBUGPEEP
+/*#define DEBUGPEEP*/
 
 /*
  ** Some tracking for peepholes
@@ -984,7 +984,7 @@ void cpu9900_node_generate(struct node *node, int decision)
             if (node->right->type == N_ADDR) {
                 cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right, ADDRESS);
-                cpu9900_2op("mov","r0",temp);
+                cpu9900_2op("mov", "r0", temp);
                 break;
             }
             if ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16) {
@@ -1000,7 +1000,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                 else
                     *p++ = '-';
                 sprintf(p, "%d", node->right->right->value);
-                cpu9900_2op("mov","r0",temp);
+                cpu9900_2op("mov", "r0", temp);
                 break;
             }
             cpu9900_node_generate(node->left, 0);
@@ -1008,7 +1008,7 @@ void cpu9900_node_generate(struct node *node, int decision)
             cpu9900_2op("mov", "r0", "*r10");
             cpu9900_node_generate(node->right, 0);
             cpu9900_2op("mov", "*r10+", "r1");
-            cpu9900_2op("movb", "r1", "*r0");
+            cpu9900_2op("mov", "r1", "*r0");
             break;
         default:    /* Every other node, all remaining are 16-bit operations */
             /* Optimization of address plus/minus constant */
