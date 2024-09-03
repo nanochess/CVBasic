@@ -73,11 +73,15 @@ ntsc            bss 1
 
     .ifne CVBASIC_MUSIC_PLAYER
 music_playing		bss 1
+
+music_start		    bss 2   ; word MUST BE EVEN ALIGNED
+music_pointer		bss 2   ; word MUST BE EVEN ALIGNED
+
+audio_freq1		    bss 2   ; word MUST BE EVEN ALIGNED
+audio_freq2		    bss 2   ; word MUST BE EVEN ALIGNED
+audio_freq3		    bss 2   ; word MUST BE EVEN ALIGNED
+
 music_timing		bss 1       
-
-music_start		    bss 2   ; word
-music_pointer		bss 2   ; word
-
 music_note_counter	bss 1
 music_instrument_1	bss 1
 
@@ -96,10 +100,6 @@ music_counter_3	    bss 1
 music_drum		    bss 1
 music_counter_4	    bss 1
 
-audio_freq1		    bss 2   ; word
-audio_freq2		    bss 2   ; word
-audio_freq3		    bss 2   ; word
-
 audio_vol1  		bss 1
 audio_vol2	    	bss 1
 audio_vol3		    bss 1
@@ -109,6 +109,7 @@ audio_noise 		bss 1
 audio_control		bss 1
 
 music_mode	    	bss 1
+music_frame             bss 1
     .endif
 
 ; used to track scratchpad variables
@@ -481,12 +482,7 @@ _sgn16
 _mod16s
     clr r0          ; make dividend 32-bit
     mov r2,r2       ; check divisor for zero
-    jne !1          ; continue if not
-
-    clr r2          ; result is zero
-    b *r11          ; return
-
-!1
+    jeq !1
     abs r2          ; make sure divisor is positive
     mov r1,r1       ; check sign of dividend
     jgt !2          ; go do the faster positive version
@@ -500,30 +496,25 @@ _mod16s
 !2
     div r2,r0       ; do the division => r2=quotient, r3=remainder
     mov r1,r0       ; into r0
+!1
     b *r11
 
 ; 16-bit signed divide. R1 / R2 = R0 - 9900 doesn't do signed divide
 ; original was stack/stack=YYAA
 ; Remainder is negative if the signs differ
 _div16s
-    mov r2,r2       ; check divisor for zero
-    jne !1          ; continue if not
-
-    clr r2          ; result is zero (maybe should be max_int?)
-    b *r11          ; return
-
-!1
-    mov r2,r3       ; make working copies
+    clr r0          ; make dividend 32-bit
+    mov r2,r3       ; check divisor for zero
+    jeq !1          ; 
     xor r1,r3
     abs r2
     abs r1          ; might as well make them positive now that we have copies
-    clr r0          ; make dividend 32-bit
     div r2,r0       ; do the divide => r0=quotient, r1=remainder
     andi r3,>8000   ; mask out sign bit
-    jeq !2          ; skip ahead to positive version
+    jeq !1          ; skip ahead to positive version
 
     neg r0          ; negate the result
-!2
+!1
     b *r11
 
 ; Random number generator - return in R0, (complex one uses R3,R4, simpler one only R0)
@@ -917,6 +908,15 @@ int_handler
     .ifne CVBASIC_MUSIC_PLAYER
     movb @music_mode,r0
     jeq !9
+    movb @music_frame,r0
+    ai r0,>0100
+    ci r0,>0500
+    jl !11
+    clr r0
+    movb r0,@music_frame
+    jhe !9
+
+!11 movb r0,@music_frame
     bl @music_generate
 !9
     .endif
@@ -961,12 +961,12 @@ joystick_table
 ; By columns, then rows. 8 Rows per column. No shift states - converted to the Coleco returns
 ; for numbers, , and . become ; and #. Control is control1 button2, and Fctn is control2 button2
 keyboard_table
-    byte 61,32,13,15,254,15,255,15  ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
-    byte 11,76,79,9,2,83,87,88      ; '.','L','O','9','2','S','W','X'
-    byte 10,75,73,8,3,68,69,67      ; ',','K','I','8','3','D','E','C'
+    byte 61,32,11,15,254,15,255,15  ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
+    byte 46,76,79,9,2,83,87,88      ; '.','L','O','9','2','S','W','X'
+    byte 44,75,73,8,3,68,69,67      ; ',','K','I','8','3','D','E','C'
     byte 77,74,85,7,4,70,82,86      ; 'M','J','U','7','4','F','R','V'
     byte 78,72,89,6,5,71,84,66      ; 'N','H','Y','6','5','G','T','B'
-    byte 47,59,80,0,1,65,81,90      ; '/',';','P','0','1','A','Q','Z'
+    byte 10,59,80,0,1,65,81,90      ; '/',';','P','0','1','A','Q','Z'
 
 masktable
     data >0100,>0200,>0400,>0800,>1000,>2000,>4000,>8000
@@ -1058,7 +1058,6 @@ music_generate
     movb @music_timing,r0
     andi r0,>3f00                   ; restart note time
     movb r0,@music_note_counter
-    clr r0
     movb *r1+,r0                    ; fetch byte and increment
     ci r0,>3f00                     ; sustain?
     jeq !5
@@ -1092,11 +1091,10 @@ music_generate
     movb r4,@music_counter_3
     
 !7
-    movb *r1,r0                     ; fetch drum byte - no need to increment
+    movb *r1+,r0                    ; fetch drum byte and increment
     movb r0,@music_drum
     movb r4,@music_counter_4
-    li r0,4
-    a r0,@music_pointer             ; this brings music_pointer up to date - done with r1
+    mov r1,@music_pointer           ; this brings music_pointer up to date - done with r1
     
 !2
     clr r2
@@ -1201,7 +1199,7 @@ music_generate
 music_flute
     mov @music_notes_table(r2),r0
     movb @flutenote2(r1),r2
-    srl r2,8
+    sra r2,8
     a r2,r0
     movb @flutevol1(r1),r1
     b *r11
@@ -1272,8 +1270,12 @@ pianovol1
 ;
 music_clarinet
     mov @music_notes_table(r2),r0
+    srl r0,1
+    jnc !1
+    inc r0
+!1
     movb @clarinetnote2(r1),r2
-    srl r2,8
+    sra r2,8
     a r2,r0
     movb @clarinetvol1(r1),r1   ; msb only?
     b *r11

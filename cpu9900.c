@@ -320,7 +320,7 @@ void cpu9900_emit_line(void)
                     strcpy(last_r0_load, "");
             } else {
                 // also check for ai
-                if ((strcmp(op1, "ai") == 0 || strcmp(op1, "andi") == 0 || strcmp(op1, "ori") == 0) && strcmp(s1,"r0") == 0) {
+                if ((strcmp(op1, "ai") == 0 || strcmp(op1, "andi") == 0 || strcmp(op1, "ori") == 0 || strcmp(op1, "sla") == 0 || strcmp(op1, "srl") == 0 || strcmp(op1, "src") == 0 || strcmp(op1, "sra") == 0) && strcmp(s1,"r0") == 0) {
                     strcpy(last_r0_load, "");
                 }
                 // and bl - all bets are off
@@ -598,6 +598,10 @@ void cpu9900_node_generate(struct node *node, int decision)
             cpu9900_2op("li", "r0", temp);
             break;
         case N_NEG8:    /* Negate 8-bit value in r0 */
+            cpu9900_node_generate(node->left, 0);
+            cpu9900_2op("andi", "r0", ">ff00"); /* Avoid trash bits 7-0 getting into */
+            cpu9900_1op("neg", "r0");
+            break;
         case N_NEG16:   /* Negate 16-bit value */
             cpu9900_node_generate(node->left, 0);
             cpu9900_1op("neg", "r0");
