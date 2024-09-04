@@ -73,11 +73,15 @@ ntsc            bss 1
 
     .ifne CVBASIC_MUSIC_PLAYER
 music_playing		bss 1
+
+music_start		    bss 2   ; word MUST BE EVEN ALIGNED
+music_pointer		bss 2   ; word MUST BE EVEN ALIGNED
+
+audio_freq1		    bss 2   ; word MUST BE EVEN ALIGNED
+audio_freq2		    bss 2   ; word MUST BE EVEN ALIGNED
+audio_freq3		    bss 2   ; word MUST BE EVEN ALIGNED
+
 music_timing		bss 1       
-
-music_start		    bss 2   ; word
-music_pointer		bss 2   ; word
-
 music_note_counter	bss 1
 music_instrument_1	bss 1
 
@@ -96,10 +100,6 @@ music_counter_3	    bss 1
 music_drum		    bss 1
 music_counter_4	    bss 1
 
-audio_freq1		    bss 2   ; word
-audio_freq2		    bss 2   ; word
-audio_freq3		    bss 2   ; word
-
 audio_vol1  		bss 1
 audio_vol2	    	bss 1
 audio_vol3		    bss 1
@@ -109,6 +109,7 @@ audio_noise 		bss 1
 audio_control		bss 1
 
 music_mode	    	bss 1
+music_frame             bss 1
     .endif
 
 ; used to track scratchpad variables
@@ -255,7 +256,7 @@ LDIRVM3
 ; Disable screen by setting VDP register 1 to >a2
 DISSCR
     limi 0
-    li r0,>a281
+    li r0,>81a2
 DISSCR2
     swpb r0
     movb r0,@VDPWADR
@@ -267,23 +268,18 @@ DISSCR2
 ; enable screen by setting VDP register 1 to >E2
 ENASCR
     limi 0
-    li r0,>e281
+    li r0,>81e2
     jmp DISSCR2
 
 ; copy a set of blocks of data to VDP, offset by 32 bytes each
-; address in R1, CPU data at R2, count per row in R3 (MSB), number rows in R4 (MSB), CPU stride in R5 (MSB) (VDP stride fixed at 32)
+; address in R8, CPU data at R9, count per row in R6 (MSB), number rows in R4 (MSB), CPU stride in R5 (MSB) (VDP stride fixed at 32)
 ; original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
 CPYBLK
     limi 0
     mov r11,r7      ; save return
-    srl r3,8
+    srl r6,8
     srl r4,8
     srl r5,8        ; bytes to words
-    mov r1,r0
-    mov r0,r8       ; save vdp address
-    mov r2,r9       ; save cpu address
-    mov r3,r6       ; save count per row
-    jmp !2          ; skip over the restore step
 !1
     mov r8,r0       ; get vdp address
     mov r9,r2       ; get cpu address
@@ -326,87 +322,84 @@ print_string
 ; R0 - number to print
 ; original number in YYAA?
 print_number
-    mov r11,r4          ; save return address
     limi 0              ; interrupts off so we can hold the VDP address
-    mov r0,r3           ; save value off
-    mov @cursor,r0      ; get cursor
-    andi r0,>07ff       ; enforce position - pretty large range though? 80 column support maybe?
-    ai r0,>1800         ; add is safer than OR, and we have that option
-    bl @SETWRT          ; set write address
     clr r5              ; leading zero flag
-
 print_number5
-    clr r2              ; make r2/r3 a 32-bit value
     li r1,10000         ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    mov r2,r2           ; check for zero
-    jeq print_number4   ; skip ahead if so
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; OR in the ASCII
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
 print_number4
-    clr r2              ; make r2/r3 a 32-bit value
     li r1,1000          ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    soc r5,r2           ; OR in the leading flags
-    jeq print_number3   ; if result was 0 and leading flags are zero, skip
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
 print_number3
-    clr r2              ; make r2/r3 a 32-bit value
     li r1,100           ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    soc r5,r2           ; OR in the leading flags
-    jeq print_number2   ; if result was 0 and leading flags are zero, skip
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
 print_number2
-    clr r2              ; make r2/r3 a 32-bit value
-    li r1,10            ; divisor
-    div r1,r2           ; yields quotient(r2), remainder(r3)
-    soc r5,r2           ; OR in the leading flags
-    jeq print_number1   ; if result was 0 and leading flags are zero, skip
-    li r5,>0030         ; ascii 48 to OR in so we can make a single test instead of 2
-    soc r5,r2           ; we have to OR again, but it's a net wash compared to an extra test and jump
-    swpb r2             ; get value into MSB
-    movb r2,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
+    li r1,10
+    mov r11,r4
+    bl @print_digit
+    mov r4,r11
 print_number1
-    ori r3,>0030        ; we know we always print this one
-    swpb r3             ; get value into MSB
-    movb r3,@VDPWDATA   ; write it
-    inc @cursor         ; track it
-
+    li r1,1
+    andi r5,>00ff
+    ori r5,>0100
+    mov r11,r4
+    bl @print_digit
     limi 2              ; ints on
     b *r4               ; back to caller
 
-; Load sprite definitions: Sprite number in R1, CPU data in R2, count of sprites in R3 (MSB)
+print_digit
+    mov r11,r6
+    clr r2
+    div r1,r2
+    ai r2,>30
+    ci r2,>30
+    jne !3
+    ci r5,>0100
+    jhe !4
+    b *r6
+!4
+    ci r5,>0200
+    jl !6
+    mov r5,r2
+    jne !5
+!6
+    li r2,>30
+!3
+    andi r5,>00ff
+    ori r5,>0100
+!5
+    mov @cursor,r0      ; get cursor
+    andi r0,>07ff       ; enforce position - large range for two screen pages
+    ai r0,>1800         ; add is safer than OR, and we have that option
+    bl @SETWRT          ; set write address
+    swpb r2
+    movb r2,@VDPWDATA
+    inc @cursor         ; track it
+    b *r6
+
+; Load sprite definitions: Sprite number in R4, CPU data in R0, count of sprites in R5 (MSB)
 ; Original: pointer = sprite number, temp = CPU address, a = number sprites
 ; Note: sprites are all expected to be double-size 16x16, 32 bytes each, so sprite char 1 is character 4
 ; Sprite pattern table at >3800
 define_sprite
-    mov r11,r4          ; save return
-    mov r1,r0           ; copy it into r0 for LDIRVM
+    mov r11,r8          ; save return
+    mov r0,r2           ; Source data.
+    mov r4,r0           ; VRAM target.
     sla r0,5            ; sprite number times 32 for bytes
     ai r0,>3800         ; add VDP base
+    mov r5,r3		; Length.
     srl r3,8            ; make int
     sla r3,5            ; count times 32
     limi 0              ; ints off
     bl @LDIRVM          ; do the copy
     limi 2              ; ints on
-    b *r4               ; back to caller
+    b *r8               ; back to caller
 
 ; Load character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
@@ -414,8 +407,10 @@ define_sprite
 ; Pattern table at >0000
 define_char
     mov r11,r8          ; save return
-    mov r1,r0           ; move input to scratch
+    mov r0,r2           ; source data
+    mov r4,r0           ; move input to scratch
     sla r0,3            ; char number times 8 (VDP base is 0, so already there)
+    mov r5,r3
     srl r3,8            ; make word
     sla r3,3            ; count times 8
     movb @mode,r5       ; get mode flags
@@ -438,9 +433,11 @@ define_char
 ; Note: always does the triple copy. Color table at >2000
 define_color
     mov r11,r8          ; save return
-    mov r1,r0           ; move input to scratch
+    mov r0,r2           ; source data
+    mov r4,r0           ; move input to scratch
     sla r0,3            ; char number times 8
     ai r0,>2000         ; add base address
+    mov r5,r3
     srl r3,8            ; make word
     sla r3,3            ; count times 8
     limi 0              ; ints off
@@ -449,16 +446,16 @@ define_color
     b *r8               ; back to caller
 
 ; Update sprite entry - copy data (4 bytes) to sprite table mirror at sprites
-; R2 = sprite number, R3 = byte 1, r4 = byte 2, r5 = byte 3, r6 = byte 4 (all MSB)
+; R4 = sprite number, R5 = byte 1, r6 = byte 2, r7 = byte 3, r0 = byte 4 (all MSB)
 ; Original: A = sprite number, source data at sprite_data
 update_sprite
-    srl r2,8            ; make word
-    sla r2,2            ; x4 for address
-    ai r2,sprites       ; sprite mirror address
-    movb r3,*r2+        ; move bytes
-    movb r4,*r2+        ; move bytes
-    movb r5,*r2+        ; move bytes
-    movb r6,*r2+        ; move bytes
+    srl r4,8            ; make word
+    sla r4,2            ; x4 for address
+    ai r4,sprites       ; sprite mirror address
+    movb r5,*r4+        ; move bytes
+    movb r6,*r4+        ; move bytes
+    movb r7,*r4+        ; move bytes
+    movb r0,*r4+        ; move bytes
     b *r11
 
 ; SGN R0 - return 1, -1 or 0 as 16 bit
@@ -480,12 +477,7 @@ _sgn16
 _mod16s
     clr r0          ; make dividend 32-bit
     mov r2,r2       ; check divisor for zero
-    jne !1          ; continue if not
-
-    clr r2          ; result is zero
-    b *r11          ; return
-
-!1
+    jeq !1
     abs r2          ; make sure divisor is positive
     mov r1,r1       ; check sign of dividend
     jgt !2          ; go do the faster positive version
@@ -499,32 +491,25 @@ _mod16s
 !2
     div r2,r0       ; do the division => r2=quotient, r3=remainder
     mov r1,r0       ; into r0
+!1
     b *r11
 
 ; 16-bit signed divide. R1 / R2 = R0 - 9900 doesn't do signed divide
 ; original was stack/stack=YYAA
 ; Remainder is negative if the signs differ
 _div16s
-    mov r2,r2       ; check divisor for zero
-    jne !1          ; continue if not
-
-    clr r2          ; result is zero (maybe should be max_int?)
-    b *r11          ; return
-
-!1
-    mov r2,r4       ; make working copies
-    mov r1,r5
-    andi r4,>8000   ; mask out sign bit
-    andi r5,>8000
+    clr r0          ; make dividend 32-bit
+    mov r2,r3       ; check divisor for zero
+    jeq !1          ; 
+    xor r1,r3
     abs r2
     abs r1          ; might as well make them positive now that we have copies
-    clr r0          ; make dividend 32-bit
     div r2,r0       ; do the divide => r0=quotient, r1=remainder
-    c r4,r5         ; compare the original sign bits
-    jeq !2          ; skip ahead to positive version
+    andi r3,>8000   ; mask out sign bit
+    jeq !1          ; skip ahead to positive version
 
     neg r0          ; negate the result
-!2
+!1
     b *r11
 
 ; Random number generator - return in R0, (complex one uses R3,R4, simpler one only R0)
@@ -918,6 +903,15 @@ int_handler
     .ifne CVBASIC_MUSIC_PLAYER
     movb @music_mode,r0
     jeq !9
+    movb @music_frame,r0
+    ai r0,>0100
+    ci r0,>0500
+    jl !11
+    clr r0
+    movb r0,@music_frame
+    jhe !9
+
+!11 movb r0,@music_frame
     bl @music_generate
 !9
     .endif
@@ -962,12 +956,12 @@ joystick_table
 ; By columns, then rows. 8 Rows per column. No shift states - converted to the Coleco returns
 ; for numbers, , and . become ; and #. Control is control1 button2, and Fctn is control2 button2
 keyboard_table
-    byte 61,32,13,15,254,15,255,15  ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
-    byte 11,76,79,9,2,83,87,88      ; '.','L','O','9','2','S','W','X'
-    byte 10,75,73,8,3,68,69,67      ; ',','K','I','8','3','D','E','C'
+    byte 61,32,11,15,254,15,255,15  ; '=',' ',enter,n/a,fctn,shift,ctrl,n/a
+    byte 46,76,79,9,2,83,87,88      ; '.','L','O','9','2','S','W','X'
+    byte 44,75,73,8,3,68,69,67      ; ',','K','I','8','3','D','E','C'
     byte 77,74,85,7,4,70,82,86      ; 'M','J','U','7','4','F','R','V'
     byte 78,72,89,6,5,71,84,66      ; 'N','H','Y','6','5','G','T','B'
-    byte 47,59,80,0,1,65,81,90      ; '/',';','P','0','1','A','Q','Z'
+    byte 10,59,80,0,1,65,81,90      ; '/',';','P','0','1','A','Q','Z'
 
 masktable
     data >0100,>0200,>0400,>0800,>1000,>2000,>4000,>8000
@@ -1059,7 +1053,6 @@ music_generate
     movb @music_timing,r0
     andi r0,>3f00                   ; restart note time
     movb r0,@music_note_counter
-    clr r0
     movb *r1+,r0                    ; fetch byte and increment
     ci r0,>3f00                     ; sustain?
     jeq !5
@@ -1093,11 +1086,10 @@ music_generate
     movb r4,@music_counter_3
     
 !7
-    movb *r1,r0                     ; fetch drum byte - no need to increment
+    movb *r1+,r0                    ; fetch drum byte and increment
     movb r0,@music_drum
     movb r4,@music_counter_4
-    li r0,4
-    a r0,@music_pointer             ; this brings music_pointer up to date - done with r1
+    mov r1,@music_pointer           ; this brings music_pointer up to date - done with r1
     
 !2
     clr r2
@@ -1202,7 +1194,7 @@ music_generate
 music_flute
     mov @music_notes_table(r2),r0
     movb @flutenote2(r1),r2
-    srl r2,8
+    sra r2,8
     a r2,r0
     movb @flutevol1(r1),r1
     b *r11
@@ -1273,8 +1265,12 @@ pianovol1
 ;
 music_clarinet
     mov @music_notes_table(r2),r0
+    srl r0,1
+    jnc !1
+    inc r0
+!1
     movb @clarinetnote2(r1),r2
-    srl r2,8
+    sra r2,8
     a r2,r0
     movb @clarinetvol1(r1),r1   ; msb only?
     b *r11
@@ -1427,36 +1423,39 @@ music_silence
 
     .ifne CVBASIC_COMPRESSION
 
-    .error Compression does not work for TI-99 yet
-    
-; Load compressed character definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
+; Load compressed character definitions: Char number in R4, CPU data in R0, count in R5 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 define_char_unpack
-    andi r1,>00ff   ; mask off to 0-255
-    sla r1,3        ; times 8
+    mov r0,r2
+    andi r4,>00ff   ; mask off to 0-255
+    sla r4,3        ; times 8
     movb @mode,r0   ; get mode
     andi r0,>0800   ; check bitmap bit
     jeq unpack3     ; 3 times if yes
     jmp unpack      ; once if no
 
-; Load bitmap color definitions: Char number in R1, CPU data in R2, count in R3 (MSB)
+; Load bitmap color definitions: Char number in R4, CPU data in R0, count in R5 (MSB)
 ; Original: pointer = char number, temp = CPU address, a = number chars
 define_color_unpack
-    andi r1,>00ff   ; mask off to 0-255
-    sla r1,3        ; char times 8
-    li r0,>2000     ; base of color table
-    a r0,r1         ; set base for color then fall through
+    mov r0,r2
+    andi r4,>00ff   ; mask off to 0-255
+    sla r4,3        ; char times 8
+    li r0,>4000     ; base of color table
+    a r0,r4         ; set base for color then fall through
 
 ; entered from one of the above two functions    
 unpack3
     mov r11,r9      ; save return address
-    mov r1,r10      ; save VDP address
+    mov r4,r10      ; save VDP address
+    mov r2,r4
     bl @unpack
     ai r10,>800
     mov r10,r1
+    mov r4,r2
     bl @unpack
     ai r10,>800
     mov r10,r1
+    mov r4,r2
     bl @unpack
     b *r9
 
@@ -1475,8 +1474,6 @@ unpack3
 ; instruction before it in nearly any case, the code uses this too. 
 ; I've not been able to locate any C code for the unpacker which would probably be easier to port.
 
-; this is a very naive port... and it does not work.
-
 r0lsb   equ mywp+1
 r1lsb   equ mywp+3
 r2lsb   equ mywp+5
@@ -1492,16 +1489,15 @@ unpack
 ; Initialization
     mov r11,r12         ; save return
     
-    clr r5              ; ldy #0
-    mov r5,r6           ; sty temp2
     clr r3
-    movb *r2+,r3       ; lda (temp),y (we don't care about losing the count in a?)
+    movb *r2+,r3       ; lda (temp),y
 
+    clr r5              ; ldy #0
     sla r3,1
     jnc !up14
     inc r5
 !up14
-    inc r5
+    ai r3,>0100
     sla r5,1
     sla r3,1
     jnc !up15
@@ -1514,12 +1510,8 @@ unpack
 !up16
     sla r5,1
 
-    mov r3,r7      
-
-    li r3,!modes        ; lda #.modes / lda #.modes>>8
-    a r5,r3          
-    mov *r3,r6          
-    mov r7,r3           ; lda pletter_bit
+    ai r5,!modes          
+    mov *r5,r6          
 
 !literal
     mov r3,r7      
@@ -1556,21 +1548,16 @@ unpack
     jnc !lenok          ; bcc .lenok
     
 !lus
+    sla r13,1
+    jnc !up5
+    b *r12
+!up5
     sla r3,1            ; asl a
     jne !up4            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !up4
-    joc !up5            ; need to check carry now...
-    sla r13,1           ; rol result (nc) / rol result+1 
-    jnc !up6            ; bcc $+3
-    b *r12              ; rts (real return?)
-
-!up5
-    sla r13,1           ; rol result (nc) / rol result+1 
-    ori r13,1           ; but get the carry bit in there (does not change carry bit)
-    jnc !up6            ; bcc $+4
-    b *r12              ; ret
-    
+    jnc !up6            ; need to check carry now...
+    inc r13    
 !up6
     sla r3,1            ; asl a
     jne !up7            ; bne $+5
@@ -1578,126 +1565,102 @@ unpack
 !up7
     jnc !lenok          ; bcc .lenok
 
+    sla r13,1
+    jnc !up9
+    b *r12
+!up9
     sla r3,1            ; asl a
     jne !up8            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !up8
-
-    joc !up9            ; need to check carry now...
-    sla r13,1           ; rol result (nc) / rol result+1 
     jnc !up10           ; bcc $+3
-    b *r12              ; rts (real return?)
-
-!up9
-    sla r13,1           ; rol result (nc) / rol result+1 
-    ori r13,1           ; but get the carry bit in there (does not change carry bit)
-    jnc !up10           ; bcc $+4
-    b *r12              ; ret
-
+    inc r13
 !up10
-    sla r13,1           ; asl a
+    sla r3,1            ; asl a
     jne !up11           ; bne $+5
     bl @!getbit         ; jsr .getbit
 !up11
-    joc -!lus            ; bcs .lus
+    joc -!lus           ; bcs .lus
     
 !lenok
     inc r13             ; inc result / bne $+4 / inc result+1
     mov r3,r7           ; sta pletter_bit
-    clr r8
 
-    mov r2,r0
-    a r5,r0
+    clr r8
     movb *r2+,r8        ; lda (temp),y
-        
     swpb r8             ; sta pletter_off / lda pletter_off
     
     ci r8,>0080
     jl !offsok
 
     mov r7,r3           ; lda pletter_bit
-    clr r0
     b *r6               ; jmp (temp2)
     
 !mode6
-    mov r3,r0
     sla r3,1            ; asl a
     jne !m6p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m6p
-    andi r0,>8000
+    clr r0
+    jnc !m6p2
+    li r0,>8000
+!m6p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode5
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m5p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m5p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m5p2
+    li r0,>8000
+!m5p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode4
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m4p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m4p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m4p2
+    li r0,>8000
+!m4p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode3
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m3p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m3p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m3p2
+    li r0,>8000
+!m3p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 !mode2
-    andi r0,>8000
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
+    sla r3,1            ; asl a
     jne !m2p            ; bne $+5
     bl @!getbit         ; jsr .getbit
 !m2p
-    andi r0,>0100
-    sla r0,7
+    clr r0
+    jnc !m2p2
+    li r0,>8000
+!m2p2
     movb r8,@r0lsb
     src r0,15
     movb @r0lsb,r8      ; rol pletter_off+1
-    andi r0,>0100
-    sla r0,7
 
-    movb r3,@r0lsb
-    src r0,15
-    movb @r0lsb,r3      ; asl a
-    jne !m2p2           ; bne $+5
+    sla r3,1            ; asl a
+    jne !m2p3           ; bne $+5
     bl @!getbit         ; jsr .getbit
-!m2p2
+!m2p3
 
     mov r3,r7           ; sta pletter_bit (no touch carry)
     jnc !offsok         ; bcc .offsok
@@ -1708,17 +1671,12 @@ unpack
 !offsok
     inc r8              ; inc pletter_off / bne $+4 / inc pletter_off+1
     
-    movb @r13lsb,r3     ; lda result
-    jeq !offok1         ; beq $+4
-    ai r13,>0100        ; inc result+1
-!offok1    
-
     mov r1,r0
     s r8,r0
     mov r0,r8           ; lda pointer / sec / sbc pletter_off / sta pletter_off / lda pointer+1 / sbc pletter_off+1 / sta pletter_off+1
+    ori r1,>4000        ; do this outside the loop
     
 !loop2
-    ori r1,>4000        ; do this outside the loop
     limi 0              ; sei
     
     swpb r8
@@ -1749,11 +1707,10 @@ unpack
     movb *r2+,r3        ; lda (temp),y / inc temp / bne $+4 / inc temp+1
     joc !gb1
     sla r3,1            ; rol a with no carry
-    jmp !gb2
+    b *r11
 !gb1
     sla r3,1
     ori r3,>0100        ; rol a with carry
-!gb2
     b *r11
 
 !modes

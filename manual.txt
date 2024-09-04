@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Aug/30/2024.
+Last revision: Sep/03/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,7 +22,7 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.7.0 Aug/30/2024  o Added support for Texas Instruments TI-99/4A --ti994a
+v0.7.0 Sep/03/2024  o Added support for Texas Instruments TI-99/4A --ti994a
                       (contributed by tursilion)
                     o Added suppprt for Hanimex/Soundic Pencil II using --pencil
                     o Added support for Tatung Einstein using --einstein

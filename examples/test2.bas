@@ -6,6 +6,7 @@
 	'
 	' Creation date: Feb/29/2024.
 	' Revision date: Aug/06/2024. Updated with new tests.
+	' Revision date: Sep/01/2024. Added arithmetic tests.
 	'
 
 	DIM array(5), #array(5)
@@ -13,6 +14,44 @@
 	SIGNED #count, #value
 
 	WHILE 1
+
+	CLS
+
+	PRINT AT 0,"Arithmetic operations"
+
+	a = $5a
+	b = $a0
+
+	PRINT AT $0040, a + b
+	PRINT AT $0060, a - b
+	PRINT AT $0080, a OR b
+	PRINT AT $00a0, a AND b
+	PRINT AT $00c0, a XOR b
+	PRINT AT $00e0, a = b
+	PRINT AT $0100, a <> b
+	PRINT AT $0120, a < b
+	PRINT AT $0140, a > b
+	PRINT AT $0160, a <= b
+	PRINT AT $0180, a >= b
+
+	#a = $5a
+	#b = $a0
+
+	PRINT AT $0050, #a + #b
+	PRINT AT $0070, #a - #b
+	PRINT AT $0090, #a OR #b
+	PRINT AT $00b0, #a AND #b
+	PRINT AT $00d0, #a XOR #b
+	PRINT AT $00f0, #a = #b
+	PRINT AT $0110, #a <> #b
+	PRINT AT $0130, #a < #b
+	PRINT AT $0150, #a > #b
+	PRINT AT $0170, #a <= #b
+	PRINT AT $0190, #a >= #b
+
+	FOR c = 1 TO 180
+		WAIT
+	NEXT c
 
 	CLS
 
