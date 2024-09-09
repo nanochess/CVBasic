@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Sep/03/2024.
+Last revision: Sep/08/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -21,6 +21,8 @@ All trademarks are property of their respective owners.
 
 
 >>>>>>>>>>>>>>  Changes in this version
+
+v0.7.1 Sep/08/2024  o Added support for NABU PC using --nabu (with -cpm option)
 
 v0.7.0 Sep/03/2024  o Added support for Texas Instruments TI-99/4A --ti994a
                       (contributed by tursilion)
@@ -88,6 +90,8 @@ Usage:
   cvbasic --creativision in.bas output.asm
   cvbasic --pencil in.bas output.asm
   cvbasic --einstein in.bas output.asm
+  cvbasic --ti994a in.bas output.a99
+  cvbasic --nabu in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
@@ -101,6 +105,10 @@ Afterwards, you should assemble your program using the included Gasm80 assembler
 For Memotech you should use the .run extension or .com extension (if used -cpm option)
 
 The Creativision port uses cvbasic_6502_prologue.asm and cvbasic_6502_epilogue.asm
+
+The TI-99/4A port uses cvbasic_9900_prologue.asm and cvbasic_9900_epilogue.asm and it should be assembled using xdt tools. (xas99 with the -R option)
+
+The NABU port requires the gasm output file to be named 000001.nabu and you should ZIP it to test it with MAME. If you use the -cpm option you can use any .com file name.
 
 And finally, you can test the generated output.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
 

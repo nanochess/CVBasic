@@ -1,4 +1,4 @@
-# CVBasic compiler v0.7.0
+# CVBasic compiler v0.7.1
 *(c) Copyright 2024 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -18,6 +18,7 @@ Later it was extended to support the following platforms:
 * Casio PV2000.
 * Hanimex/Soundic Pencil II.
 * Texas Instruments TI-99/4A (courtesy of @tursilion)
+* NABU PC.
 
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
 
@@ -138,6 +139,19 @@ You require the utilities from the xdt99 tool suite: [https://github.com/endlos9
     
 The target is a stock TI-99/4A system with 32k memory expansion and joysticks. You can execute the dsk or obj file directly with the onlne emulator [js99er.net](js99er.net), or put it the obj file into a DSK directory for Classic99.
 
+Using CVBasic to compile a NABU PC program:
+
+    cvbasic --nabu game.bas game.asm
+    gasm80 game.asm -o 000001.nabu
+    zip game.npz 000001.nabu
+
+    cvbasic --nabu -cpm game.bas game.asm
+    gasm80 game.asm -o game.com
+
+The .npz file is directlty usable by [MAME NABU port](https://github.com/ontheslab/nabu-mame-builds/releases) (put it in the nabu directory). The 000001.nabu name is important or it doesn't work. I've used the script _boot-built-in-adapter-local.sh_
+
+I don't have tested the COM files for NABU CP/M yet.
+
 ### Notes
 
 The current official version is v0.7.0.
@@ -157,8 +171,6 @@ The Spectravideo SVI-328 only has one button in the joystick. The keyboard can b
 
 The Sord M5 can only use binaries up to 16 kb, both joysticks are handled as controllers, and the keyboard emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Backslash/Del and Return.
 
-The Memotech can only use binaries up to 32 kb, keyboard is handled as controller 1, and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, BS and Ret.
-
 The Tatung Einstein can only use binaries up to 32 kb, keyboard is handled as controller 1 (joystick not used), and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del/Ins and Enter.
 
 The Casio PV-2000 can only use binaries up to 16 kb, the keyboard and joystick are controller 1, and it can emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Home/Cls and Return.
@@ -166,6 +178,8 @@ The Casio PV-2000 can only use binaries up to 16 kb, the keyboard and joystick a
 The Creativision can only use binaries up to 32 kb, the joysticks are controller 1 and controller 2, and it can emulate the Coleocovision keypad (CONT1.KEY only) using the keys 0-9, Left and RETN.
 
 The TI-99/4A can only generate binaries up to 24 kb. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick. The program supports FCTN-= (Alt-= on PC emulation) to reset.
+
+The NABU PC can only use binaries up to 32 kb, joysticks can be used for both controllers, keyboard arrows are handled as controller 1, and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del and Enter.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
