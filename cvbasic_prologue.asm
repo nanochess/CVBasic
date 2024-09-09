@@ -155,6 +155,31 @@ rom_start:
 	dw $0000
 	dw $0000
     endif
+    if NABU
+      if CPM
+	org $0100
+      else
+	org $140d
+      endif
+	nop
+	nop
+	nop
+	jp START
+        times $100-($&255) db $ff
+nabu_int:
+	dw null_vector
+	dw null_vector
+	dw keyboard_handler
+	dw nmi_handler
+	dw null_vector
+	dw null_vector
+	dw null_vector
+	dw null_vector
+
+null_vector:
+	ei
+	reti
+    endif
 
     if SVI
 WRTPSG:	
@@ -187,6 +212,23 @@ RDPSG:
 	push af
 	pop af
 	in a,($02)
+	ret
+    endif
+
+    if NABU
+WRTPSG:	
+	out ($41),a
+	push af
+	ld a,e
+	out ($40),a
+	pop af
+	ret
+
+RDPSG:
+	out ($41),a
+	push af
+	pop af
+	in a,($40)
 	ret
     endif
 
@@ -412,7 +454,7 @@ nmi_off:
 	set 0,(hl)
 	pop hl
     endif
-    if SG1000+MSX+SVI+SORD+MEMOTECH
+    if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
         di
     endif
 	ret
@@ -429,7 +471,7 @@ nmi_on:
 	pop hl
 	pop af
     endif
-    if SG1000+MSX+SVI+SORD+MEMOTECH
+    if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
         ei
     endif
 	ret
@@ -826,26 +868,10 @@ ay3_reg:
     if SG1000+SORD+MEMOTECH+PV2000
         ret
     endif
-    if MSX
+    if MSX+SVI+EINSTEIN+NABU
 	ld e,a
 	ld a,b
 	jp WRTPSG
-    endif
-    if SVI
-	push af
-	ld a,b
-	out ($88),a
-	pop af
-	out ($8c),a
-	ret
-    endif
-    if EINSTEIN
-	push af
-	ld a,b
-	out ($02),a
-	pop af
-	out ($03),a
-	ret
     endif
 
 ay3_freq:
@@ -867,45 +893,15 @@ ay3_freq:
     if SG1000+SORD+MEMOTECH+PV2000
 	ret
     endif
-    if MSX
+    if MSX+SVI+EINSTEIN+NABU
 	ld e,l
 	call WRTPSG
 	ld e,h
 	inc a
 	jp WRTPSG
     endif
-    if SVI
-	out ($88),a
-	push af
-	ld a,l
-	out ($8c),a
-	pop af
-	inc a
-	out ($88),a
-	push af
-	ld a,h
-	and $0f
-	out ($8c),a
-	pop af
-	ret
-    endif
-    if EINSTEIN
-	out ($02),a
-	push af
-	ld a,l
-	out ($03),a
-	pop af
-	inc a
-	out ($02),a
-	push af
-	ld a,h
-	and $0f
-	out ($03),a
-	pop af
-	ret
-    endif
 
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
 	; Required for SG1000 as it doesn't have a BIOS
 	; Required for SVI because we don't have access to BIOS in cartridge.
 	; Required for Sord M5 because it doesn't provide an ASCII charset.
@@ -1050,7 +1046,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1130,7 +1126,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000
+    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1227,7 +1223,7 @@ nmi_handler:
     if SORD+MEMOTECH
         call ctc_reti
     endif
-    if SG1000+MSX+SVI+SORD+MEMOTECH
+    if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
 	in a,(VDPR+1)
     endif
 	ld bc,$8000+VDP
@@ -2256,6 +2252,18 @@ nmi_handler:
 .pv2:	ld a,b
 	ld (key1_data),a
     endif
+    if NABU
+	ld a,(nabu_data0)
+	and $cf
+	ld (joy1_data),a
+	ld a,(nabu_data1)
+	and $cf
+	ld (joy2_data),a
+	ld a,(nabu_data2)
+	ld (key1_data),a
+	ld a,$0f
+	ld (nabu_data2),a
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 	ld a,(music_mode)
@@ -2316,7 +2324,7 @@ nmi_handler:
 	pop af
 	retn
     endif
-    if SG1000+SVI
+    if SG1000+SVI+NABU
 	pop af
         ei
         reti
@@ -2343,6 +2351,108 @@ ctc_reti:
 	retn
     endif
 
+    if NABU
+keyboard_handler:
+	push af
+	push bc
+	push hl
+	in a,($90)
+	ld c,a
+	cp $0d	; Enter
+	ld a,11
+	jr z,.8
+	ld a,c
+	cp $7f	; Del
+	ld a,10
+	jr z,.8
+	ld a,c
+	cp $30
+	jr c,.7
+	cp $3a
+	jr nc,.7
+	sub $30
+.8:	ld (nabu_data2),a
+	jr .1
+.7:
+	cp $a0
+	jr c,.2
+	cp $c0
+	jr c,.joystick
+.2:
+	ld hl,nabu_data0
+	cp $80
+	jr nz,.3
+	res 4,(hl)
+	jr .1
+.3:
+	cp $81
+	jr nz,.4
+	set 4,(hl)
+	jr .1
+.4:
+	cp $e0
+	jr c,.1
+	and $0f
+	ld b,2
+	jr z,.5
+	dec a
+	ld b,8
+	jr z,.5
+	dec a
+	ld b,1
+	jr z,.5
+	dec a
+	ld b,4
+	jr z,.5
+	dec a
+	ld b,$80
+	jr z,.5
+	dec a
+	ld b,$40
+	jr nz,.1
+.5:	bit 4,c
+	jr nz,.6
+	ld a,(hl)
+	or b
+	ld (hl),a
+	jr .1
+
+.6:
+	ld a,b
+	cpl
+	and (hl)
+	ld (hl),a
+	jr .1
+
+.joystick:
+	ld hl,nabu_data0
+	bit 4,(hl)
+	jr z,$+5
+	ld hl,nabu_data1
+	ld b,$00
+	bit 3,c
+	jr z,$+4
+	set 0,b
+	bit 2,c
+	jr z,$+4
+	set 1,b
+	bit 1,c
+	jr z,$+4
+	set 2,b
+	bit 0,c
+	jr z,$+4
+	set 3,b
+	bit 4,c
+	jr z,$+4
+	set 6,b
+	ld (hl),b
+.1:
+	pop hl
+	pop bc
+	pop af
+	ei
+	reti
+    endif
     if SORD
 wait:
 	ld de,(frame)
@@ -2402,10 +2512,10 @@ music_init:
     if COLECO+SG1000+MSX+SVI+SORD+MEMOTECH+PV2000
 MIX_BASE:	equ $b8
     endif
-    if EINSTEIN
+    if EINSTEIN+NABU
 MIX_BASE:	equ $78
     endif
-    if MSX+SVI+EINSTEIN
+    if MSX+SVI+EINSTEIN+NABU
 	ld a,$08
 	ld e,$00
 	call WRTPSG
@@ -2963,7 +3073,7 @@ music_hardware:
       endif
         ret
     endif
-    if MSX+SVI+EINSTEIN
+    if MSX+SVI+EINSTEIN+NABU
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.8		; Yes, jump.	
@@ -3359,6 +3469,21 @@ Z80_CTC:	equ $28
 	di
 	ld sp,STACK
     endif
+    if NABU
+	im 2
+	ld a,nabu_int>>8
+	ld i,a
+	ld a,$03	; Disable ROM
+	out ($00),a
+	ld a,$07
+	out ($41),a
+	ld a,$78	; Setup output ports and mixer.
+	out ($40),a
+	ld a,$0e
+	out ($41),a
+	ld a,$30	; Enable video and keyboard.
+	out ($40),a
+    endif
     if PV2000
 	ld hl,nmi_handler
 	ld ($7499),hl
@@ -3389,7 +3514,7 @@ Z80_CTC:	equ $28
         ld ($7000),a
     endif
   endif
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+NABU
 	ld ix,(lfsr)
 	ld hl,ram_start
 	ld de,ram_start+1
@@ -3494,7 +3619,7 @@ WRITE_VRAM:	equ $1fdf
 	jr nz,$+3
 	dec a
     endif
-    if SG1000+SVI+SORD+PV2000
+    if SG1000+SVI+SORD+PV2000+NABU
 	ld a,1		; Always NTSC.
     endif
     if MEMOTECH+EINSTEIN
@@ -3524,9 +3649,16 @@ WRITE_VRAM:	equ $1fdf
 	xor a
 	ld (joy1_data),a
 	ld (joy2_data),a
+    if NABU
+        ld (nabu_data0),a
+        ld (nabu_data1),a
+    endif
 	ld a,$0f
 	ld (key1_data),a
 	ld (key2_data),a
+    if NABU
+        ld (nabu_data2),a
+    endif
 
     if MSX
 	ld hl,nmi_handler

@@ -22,7 +22,7 @@
 
 rom_end:
 
-    if MEMOTECH+EINSTEIN
+    if MEMOTECH+EINSTEIN+NABU
 	; Align following data to a 256-byte page.
         TIMES $100-($&$ff) DB $4f
     endif
@@ -60,6 +60,11 @@ key2_data:
 	rb 1
 ntsc:
 	rb 1
+    if NABU
+nabu_data0: rb 1
+nabu_data1: rb 1
+nabu_data2: rb 1
+    endif
 
     if CVBASIC_MUSIC_PLAYER
 music_tick:             rb 1

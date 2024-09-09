@@ -31,7 +31,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.7.0 Sep/03/2024"
+#define VERSION "v0.7.1 Sep/08/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -54,6 +54,7 @@ static enum {
     EINSTEIN,
     PV2000,
     TI994A,
+    NABU,
     TOTAL_TARGETS
 } machine;
 
@@ -112,6 +113,9 @@ static struct console {
     {"ti994a",  "",         "Texas Instruments TI-99/4A (32K RAM). Support by tursilion",
         "TI-99/4A (support by tursilion)",
         0x2080, 0x4000, 0x1f80, 0x8800, 0x8c00,0xff, CPU_9900},
+    {"nabu",    "-cpm",     "NABU PC (64K RAM)",
+        "Nabu PC",
+        0,      0xe000, 0,       0xa0,   0xa0, 0,    CPU_Z80},
 };
 
 static int err_code;
@@ -4533,7 +4537,7 @@ void compile_statement(int check_for_else)
                 if (lex != C_NUM) {
                     emit_error("syntax error in SOUND");
                 } else {
-                    if (value < 3 && (machine == MSX || machine == SVI || machine == EINSTEIN))
+                    if (value < 3 && (machine == MSX || machine == SVI || machine == EINSTEIN || machine == NABU))
                         emit_warning("using SOUND 0-3 with AY-3-8910 target");
                     else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH)
                         emit_warning("using SOUND 5-9 with SN76489 target");
@@ -4806,7 +4810,7 @@ void compile_statement(int check_for_else)
                                     /* Nothing to do */
                                 } else {
                                     cpuz80_1op("AND", "$3f");
-                                    if (machine == EINSTEIN) {
+                                    if (machine == EINSTEIN || machine == NABU) {
                                         cpuz80_1op("OR", "$40");
                                     } else {
                                         /* Protect these MSX machines! */
@@ -5512,10 +5516,10 @@ int main(int argc, char *argv[])
     if (argv[c][0] == '-' && tolower(argv[c][1]) == 'c' && tolower(argv[c][2] == 'p') &&
         tolower(argv[c][3] == 'm') && argv[c][4] == '\0') {
         c++;
-        if (machine == MEMOTECH) {
+        if (machine == MEMOTECH || machine == NABU) {
             cpm_option = 1;
         } else {
-            fprintf(stderr, "-cpm option only applies to Memotech.\n");
+            fprintf(stderr, "-cpm option only applies to Memotech or NABU.\n");
             exit(2);
         }
     }
@@ -5617,6 +5621,7 @@ int main(int argc, char *argv[])
     fprintf(output, "PENCIL:\tequ %d\n", pencil);
     fprintf(output, "PV2000:\tequ %d\n", (machine == PV2000) ? 1 : 0);
     fprintf(output, "TI99:\tequ %d\n", (machine == TI994A) ? 1 : 0);
+    fprintf(output, "NABU:\tequ %d\n", (machine == NABU) ? 1 : 0);
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
@@ -5716,7 +5721,7 @@ int main(int argc, char *argv[])
         bytes_used = process_variables();
     }
     fclose(output);
-    if (machine == MEMOTECH || machine == EINSTEIN) {
+    if (machine == MEMOTECH || machine == EINSTEIN || machine == NABU) {
         fprintf(stderr, "%d RAM bytes used for variables.\n", bytes_used);
     } else {
         available_bytes = consoles[machine].memory_size + extra_ram;
