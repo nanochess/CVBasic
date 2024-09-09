@@ -25,6 +25,12 @@
 #include "cpu6502.h"
 #include "cpu9900.h"
 
+#ifdef ASM_LIBRARY_PATH
+#define DEFAULT_ASM_LIBRARY_PATH ASM_LIBRARY_PATH
+#else
+#define DEFAULT_ASM_LIBRARY_PATH ""
+#endif
+
 #define VERSION "v0.7.1 Sep/08/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
@@ -114,7 +120,7 @@ static struct console {
 
 static int err_code;
 
-static char library_path[4096];
+static char library_path[4096] = DEFAULT_ASM_LIBRARY_PATH;
 static char path[4096];
 
 static int last_is_return;
@@ -5440,6 +5446,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "    By default, it will generate assembler files for Colecovision.\n");
         fprintf(stderr, "    The library_path argument is optional so you can provide a\n");
         fprintf(stderr, "    path where the prologue and epilogue files are available.\n");
+#ifdef ASM_LIBRARY_PATH
+        fprintf(stderr, "    Default: '" DEFAULT_ASM_LIBRARY_PATH "'\n");
+#endif
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
@@ -5570,14 +5579,14 @@ int main(int argc, char *argv[])
     if (c < argc) {
         strcpy(library_path, argv[c]);
         c++;
+	}
 #ifdef _WIN32
-        if (strlen(library_path) > 0 && library_path[strlen(library_path) - 1] != '\\')
-            strcat(library_path, "\\");
+	if (strlen(library_path) > 0 && library_path[strlen(library_path) - 1] != '\\')
+		strcat(library_path, "\\");
 #else
-        if (strlen(library_path) > 0 && library_path[strlen(library_path) - 1] != '/')
-            strcat(library_path, "/");
+	if (strlen(library_path) > 0 && library_path[strlen(library_path) - 1] != '/')
+		strcat(library_path, "/");
 #endif
-    }
     
     hex = '$';
     if (target == CPU_9900) {
