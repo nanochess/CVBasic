@@ -4,7 +4,7 @@
 
 CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic originally written for the Colecovision video game console.
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching). 
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching on most platforms, 8k on TI-99/4A). 
 
 Later it was extended to support the following platforms:
 
@@ -131,12 +131,12 @@ Using CVBasic to compile a Casio PV-2000 program:
 Using CVBasic to compile a Texas Instruments TI-99/4A program:
 
     cvbasic --ti994a game.bas game.a99
-    xas99.py -R game.a99
-    xdm99.py -X sssd game.dsk -a game.obj -f df80
+    xas99.py -b -R game.a99
+    linkticart.py game.bin game_8.bin "CARTNAME"
     
-You require the utilities from the xdt99 tool suite: [https://github.com/endlos99/xdt99](https://github.com/endlos99/xdt99)
+You require Python3 and the utilities from the xdt99 tool suite: [https://github.com/endlos99/xdt99](https://github.com/endlos99/xdt99)
     
-The target is a stock TI-99/4A system with 32k memory expansion and joysticks. You can execute the dsk or obj file directly with the onlne emulator [js99er.net](js99er.net), or put it the obj file into a DSK directory for Classic99.
+The target is a stock TI-99/4A system with 32k memory expansion and joysticks. The cartridge binary can be used directly with the online emulator [js99er.net](js99er.net) or Classic99, and can be packed into an RPK for MAME (see README - TI99.md).
 
 ### Notes
 
@@ -165,7 +165,7 @@ The Casio PV-2000 can only use binaries up to 16 kb, the keyboard and joystick a
 
 The Creativision can only use binaries up to 32 kb, the joysticks are controller 1 and controller 2, and it can emulate the Coleocovision keypad (CONT1.KEY only) using the keys 0-9, Left and RETN.
 
-The TI-99/4A can only generate binaries up to 24 kb. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick. The program supports FCTN-= (Alt-= on PC emulation) to reset.
+The TI-99/4A can only generate non-banked binaries up to 24 kb. When banking, the fixed space is 24k and pages are 8k. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick. The program supports FCTN-= (Alt-= on PC emulation) to reset.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 

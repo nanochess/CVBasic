@@ -47,7 +47,7 @@ mywp      equ >8300
 myintwp   equ >8320
 
 ; data storage in scratchpad
-    aorg >8340
+    dorg >8340
 
 ; used to track scratchpad variables
 firstsp         equ $
@@ -109,7 +109,13 @@ audio_noise 		bss 1
 audio_control		bss 1
 
 music_mode	    	bss 1
-music_frame             bss 1
+music_frame         bss 1
+    .endif
+    
+    .ifne CVBASIC_BANK_SWITCHING
+    even
+saved_bank          bss 2
+music_bank          bss 2
     .endif
 
 ; used to track scratchpad variables
@@ -149,16 +155,43 @@ VDPSTATUS equ >8802
 VDPWDATA  equ >8c00
 VDPWADR   equ >8c02
 
-; program in high RAM
-    aorg >a000
-
-; for EA#3, a DEF helps testing
-; for EA#5, we need a start instruction at the beginning
-    def START,SLOAD,SFIRST,SLAST
-
-SLOAD
+; cartridge header for all ROM pages
+; this might do weird things to bank 0 but we have to chop it up anyway...
+    bank all,>6000
+    
+    data >aa01,>0100,>0000,proglist,>0000,>0000
+proglist
+    data >0000,SFIRST
+    byte 20
+    text 'CVBASIC GAME        *'    ; 20 characters to allow name to be hex edited
+    
+; startup code copies the first three banks to 24k RAM (always) and jumps there    
 SFIRST
-    b @START
+    clr @>6000      ; set bank 0 - last shared instruction
+
+    bank 0
+
+    li r3,3         ; how many banks
+    li r4,>6000     ; from bank
+    li r0,>a000     ; target in RAM
+SFLP
+    clr *r4+        ; set the bank
+    li r1,>6050     ; from address
+    li r2,>1FB0     ; count
+SFLP2
+    mov *r1+,*r0+   ; move words
+    dect r2         ; count down
+    jne SFLP2
+    dec r3          ; count down pages
+    jne SFLP
+CODEST
+    b @START        ; jump to startup code in RAM
+
+; fixed program in high RAM - magic bank number higher than normally legal
+; this will be chopped up and inserted into the first three banks
+; we're still in bank 0 - this will result in a gap in the output binary
+; that we can use to put the pieces together more easily.
+    aorg >a000
 
 ; Utility functions
 
@@ -761,6 +794,10 @@ int_handler
 ; first copy the sprite table
     lwpi myintwp        ; separate safe workspace
     
+    .ifne CVBASIC_BANK_SWITCHING
+    mov @>7ffe,@saved_bank  ; save bank switch page
+    .endif
+    
     li r11,>005b        ; >1b00 with the write bit added, and byte flipped
     movb r11,@VDPWADR   ; SAL address
     swpb r11
@@ -918,6 +955,12 @@ int_handler
 
     ;CVBASIC MARK DON'T CHANGE
 
+; restore the saved bank
+    .ifne CVBASIC_BANK_SWITCHING
+    mov @saved_bank,r0  ; recover page switch
+    clr *r0             ; switch it
+    .endif
+
 ; get back the interrupt workspace and return
     lwpi INTWS
     RTWP
@@ -1018,6 +1061,11 @@ music_play
     li r2,>0100
     movb r2,@music_playing          ; needs to be a 1 for BASIC
     mov @music_pointer,@music_start  ; remember this point
+
+    .ifne CVBASIC_BANK_SWITCHING
+    mov @>7ffe,@music_bank          ; save bank switch page for music
+    .endif
+    
     limi 2                          ; ints back on
     b *r11                          ; back to caller
 
@@ -1035,6 +1083,11 @@ music_generate
     movb @music_note_counter,r0     ; check countdown
     jne !2                          ; if not zero, skip ahead
 !1
+    .ifne CVBASIC_BANK_SWITCHING
+    mov @music_bank,r0              ; get music bank switch page
+    clr *r0                         ; set it
+    .endif
+
     mov @music_pointer,r1           ; keep music pointer in r1 - update it if needed
     clr r0
     movb *r1,r0                     ; checking if first byte of pack is loop or end
