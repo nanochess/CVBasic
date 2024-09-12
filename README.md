@@ -113,6 +113,8 @@ Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard / Vtech Lase
 
     cvbasic --creativision game.bas game.asm
     gasm80 game.asm -o game.rom
+    
+You can use the -rom16 option to generate a 16K ROM instead of a 32K ROM, and it is provided utility/switch.c to switch the two 8K banks in a 16K ROM and run it with MAME, as MAME doesn't yet support 32K ROM. For 32K ROM you can use the Creativision emulator.
 
 Using CVBasic to compile a Hanimex/Soundic Pencil II program (almost exactly like a Colecovision, but with 2K of RAM and different cartridge header):
 
