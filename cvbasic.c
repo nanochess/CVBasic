@@ -303,7 +303,6 @@ void emit_warning(char *string)
  */
 void bank_finish(void)
 {
-    /* TODO: not implemented for TI99 yet */
     if (machine == SG1000) {
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $3fff-$\n");
@@ -322,6 +321,22 @@ void bank_finish(void)
             fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
         }
         fprintf(output, "\tDB $%02x\n", bank_current);
+    } else if (machine == TI994A) {
+        if (bank_current == 0) {
+            // bank 0 is copied to RAM so is 24k
+            fprintf(output, "BANK_0_FREE:\tEQU >fffe-$\n");
+            fprintf(output, "\t.rept >fffe-$\n");
+            fprintf(output, "\tbyte 255\n");
+            fprintf(output, "\t.endr\n");
+        } else {
+            // other banks are only 8k
+            fprintf(output, "BANK_%d_FREE:\tEQU >7ffe-$\n", bank_current);
+            fprintf(output, "\t.rept >7ffe-$\n");
+            fprintf(output, "\tbyte 255\n");
+            fprintf(output, "\t.endr\n");
+        }
+        // output the bank switch address so it doesn't need to be calcuated later
+        fprintf(output, "\tdata >%04x\n", (bank_current+2)*2+0x6000);
     } else {
         int c;
         
@@ -4981,13 +4996,14 @@ void compile_statement(int check_for_else)
                     if (lex != C_NUM) {
                         emit_error("Bad syntax for BANK ROM");
                     } else if (value != 128 && value != 256 && value != 512 && value != 1024) {
+                        // TODO: TI can do 2MB as it stands, and 32MB with the scheme. But leaving at 1MB for now.
                         emit_error("BANK ROM not 128, 256, 512 or 1024");
                         get_lex();
                     } else if (bank_switching != 0) {
                         emit_error("BANK ROM used twice");
                         get_lex();
                     } else {
-                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN || machine == PV2000 || machine == TI994A) {
+                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN || machine == PV2000) {
                             emit_error("Bank-switching not supported with current platform");
                         } else {
                             bank_switching = 1;
@@ -5012,35 +5028,53 @@ void compile_statement(int check_for_else)
                     if (bank_switching == 0) {
                         emit_error("Using BANK SELECT without BANK ROM");
                     } else {
-                        if (machine == COLECOVISION || machine == COLECOVISION_SGM)
-                            c--;
-                        if (bank_rom_size == 128)
-                            c &= 0x07;
-                        else if (bank_rom_size == 256)
-                            c &= 0x0f;
-                        else if (bank_rom_size == 512)
-                            c &= 0x1f;
-                        else
-                            c &= 0x3f;
-                        if (machine == SG1000) {
-                            sprintf(temp, "%d", c & 0x3f);
-                            cpuz80_2op("LD", "A", temp);
-                            cpuz80_2op("LD", "($fffe)", "A");
-                        } else if (machine == MSX) {
-                            sprintf(temp, "%d", c & 0x3f);
-                            cpuz80_2op("LD", "A", temp);
-                            cpuz80_2op("LD", "($7000)", "A");
-                        } else {
+                        if (machine == TI994A) {
+                            // the TI needs to use 8k banks, so our masks are different
+                            c+=2;   // reserving 3 banks (0,1,2) for 'fixed' space
+
                             if (bank_rom_size == 128)
-                                c |= 0xfff8;
+                                c &= 0x0f;
                             else if (bank_rom_size == 256)
-                                c |= 0xfff0;
+                                c &= 0x1f;
                             else if (bank_rom_size == 512)
-                                c |= 0xffe0;
+                                c &= 0x3f;
                             else
-                                c |= 0xffc0;
-                            sprintf(temp, "($%04x)", c);
-                            cpuz80_2op("LD", "A", temp);
+                                c &= 0x7f;
+                            
+                            c = 0x6000+(c*2);   // ROM address to poke
+                            sprintf(temp, "@>%x", c);
+                            cpu9900_1op("clr", temp);
+                        } else {
+                            if (machine == COLECOVISION || machine == COLECOVISION_SGM)
+                                c--;
+                            if (bank_rom_size == 128)
+                                c &= 0x07;
+                            else if (bank_rom_size == 256)
+                                c &= 0x0f;
+                            else if (bank_rom_size == 512)
+                                c &= 0x1f;
+                            else
+                                c &= 0x3f;
+                            if (machine == SG1000) {
+                                sprintf(temp, "%d", c & 0x3f);
+                                cpuz80_2op("LD", "A", temp);
+                                cpuz80_2op("LD", "($fffe)", "A");
+                            } else if (machine == MSX) {
+                                sprintf(temp, "%d", c & 0x3f);
+                                cpuz80_2op("LD", "A", temp);
+                                cpuz80_2op("LD", "($7000)", "A");
+                            } else {
+                                if (bank_rom_size == 128)
+                                    c |= 0xfff8;
+                                else if (bank_rom_size == 256)
+                                    c |= 0xfff0;
+                                else if (bank_rom_size == 512)
+                                    c |= 0xffe0;
+                                else
+                                    c |= 0xffc0;
+                                sprintf(temp, "($%04x)", c);
+                                cpuz80_2op("LD", "A", temp);
+                            }
                         }
                     }
                 } else {
@@ -5060,28 +5094,49 @@ void compile_statement(int check_for_else)
                         emit_error("Using BANK without BANK ROM");
                     } else {
                         d = c;
-                        if (machine == COLECOVISION || machine == COLECOVISION_SGM)
-                            c--;
-                        if (bank_rom_size == 128)
-                            c &= 0x07;
-                        else if (bank_rom_size == 256)
-                            c &= 0x0f;
-                        else if (bank_rom_size == 512)
-                            c &= 0x1f;
-                        else
-                            c &= 0x3f;
-                        bank_finish();
-                        sprintf(temp, "$%05x", c << 14);
-                        cpuz80_1op("FORG", temp);
-                        if (machine == SG1000) {
-                            cpuz80_1op("ORG", "$4000");
-                        } else if (machine == MSX) {
-                            cpuz80_1op("ORG", "$8000");
+                        if (machine == TI994A) {
+                            // the TI needs to use 8k banks, so our masks are different
+                            c+=2;   // reserving 3 banks (0,1,2) for 'fixed' space
+
+                            if (bank_rom_size == 128)
+                                c &= 0x0f;
+                            else if (bank_rom_size == 256)
+                                c &= 0x1f;
+                            else if (bank_rom_size == 512)
+                                c &= 0x3f;
+                            else
+                                c &= 0x7f;
+                            bank_finish();
+                            
+                            sprintf(temp, "%d", c);
+                            cpu9900_1op("bank", temp);
+                            cpu9900_empty();
                         } else {
-                            cpuz80_1op("ORG", "$c000");
+                            if (machine == COLECOVISION || machine == COLECOVISION_SGM)
+                                c--;
+                            if (machine == TI994A)
+                                c+=2;   // reserving 3 banks (0,1,2) for 'fixed' space
+                            if (bank_rom_size == 128)
+                                c &= 0x07;
+                            else if (bank_rom_size == 256)
+                                c &= 0x0f;
+                            else if (bank_rom_size == 512)
+                                c &= 0x1f;
+                            else
+                                c &= 0x3f;
+                            bank_finish();
+                            sprintf(temp, "$%05x", c << 14);
+                            cpuz80_1op("FORG", temp);
+                            if (machine == SG1000) {
+                                cpuz80_1op("ORG", "$4000");
+                            } else if (machine == MSX) {
+                                cpuz80_1op("ORG", "$8000");
+                            } else {
+                                cpuz80_1op("ORG", "$c000");
+                            }
+                            cpuz80_empty();
                         }
                         bank_current = d;
-                        cpuz80_empty();
                     }
                 }
             } else if (strcmp(name, "VDP") == 0 && lex_sneak_peek() == '(') {   /* VDP pseudo-array */
@@ -5634,7 +5689,9 @@ int main(int argc, char *argv[])
         fprintf(output, "STACK:\tequ %C%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
     fprintf(output, "VDP:\tequ %c%02x\t; VDP port (write)\n", hex, consoles[machine].vdp_port_write);
     fprintf(output, "VDPR:\tequ %c%02x\t; VDP port (read)\n", hex, consoles[machine].vdp_port_read);
-    fprintf(output, "PSG:\tequ %c%02x\t; PSG port (write)\n", hex, consoles[machine].psg_port);
+    if (machine != TI994A) {
+        fprintf(output, "PSG:\tequ %c%02x\t; PSG port (write)\n", hex, consoles[machine].psg_port);
+    }
     if (machine == CREATIVISION) {
         fprintf(output, "SMALL_ROM:\tequ %d\n", small_rom);
     }
@@ -5644,8 +5701,7 @@ int main(int argc, char *argv[])
         if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
             fprintf(output, "\tforg $%05x\n", bank_rom_size * 0x0400 - 0x4000);
         } else if (machine == TI994A) {
-            /* not implemented yet anyway... */
-            fprintf(output, "\taorg >6000\n");
+            /* nothing to output here - it's all in the prologue */
         } else {
             fprintf(output, "\tforg $00000\n");
         }
