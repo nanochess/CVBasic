@@ -10,6 +10,7 @@ Later it was extended to support the following platforms:
 
 * Sega SG-1000 / SC-3000  (supporting bank switching with Sega mapper)
 * MSX 1 (supporting bank switching with ASCII16 mapper)
+* Texas Instruments TI-99/4A (courtesy of @tursilion, supporting bank switching)
 * Spectravideo SVI-318 / 328.
 * Sord M5.
 * Memotech MTX.
@@ -17,7 +18,6 @@ Later it was extended to support the following platforms:
 * Tatung Einstein.
 * Casio PV2000.
 * Hanimex/Soundic Pencil II.
-* Texas Instruments TI-99/4A (courtesy of @tursilion)
 * NABU PC.
 
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
@@ -164,6 +164,7 @@ All platforms have been tested in emulation.
 * Sega SG1000/SC3000 tested in real hardware by aotta.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
+* NABU tested in real hardware by Sektor.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
 
@@ -205,4 +206,4 @@ All the games in the book will compile for **all** the platforms.
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, wavemotion, and youki.
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, tursilion, wavemotion, and youki.
