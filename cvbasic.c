@@ -5172,8 +5172,8 @@ void compile_statement(int check_for_else)
                     /* Simpler to do inline */
                     sprintf(temp, "%d   ; %d*256+0x8000", vdp_reg*256+0x8000, vdp_reg);
                     cpu9900_2op("li", "r1", temp);
-                    cpu9900_2op("movb", "r1", "@VDPWADR");
                     cpu9900_2op("movb", "r0", "@VDPWADR");
+                    cpu9900_2op("movb", "r1", "@VDPWADR");
                     /*
                      ** only timing critical in scratchpad with register indirect addressing,
                      ** even then probably safe on the 99/4A

@@ -905,7 +905,7 @@ int_handler
     jeq -!key2      ; we don't have a jump if not negative
     
     ai r11,>0100
-    ci r11,>0700
+    ci r11,>0600
     jne -!key1
     
     li r11,>0f00
