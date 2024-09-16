@@ -100,10 +100,10 @@ main_loop:
 				x = ((c - 1) % 3) * 16
 				y = 63 + ((c - 1) / 3) * 16
 				c = c + 48
-            ELSE
-                rem some systems have extra characters
-                x = 16
-                y = 127
+			ELSE
+				rem some systems have extra characters
+				x = 16
+				y = 127
 			END IF
 			SPRITE 6, left_y + y, left_x + x, c, 9
 		END IF
@@ -154,14 +154,14 @@ main_loop:
 				x = 32
 				y = 111
 				c = 35
-            ELSEIF c > 0 AND c < 10 THEN
+			ELSEIF c > 0 AND c < 10 THEN
 				x = ((c - 1) % 3) * 16
 				y = 63 + ((c - 1) / 3) * 16 
 				c = c + 48 
-            ELSE
-                rem some systems have extra characters
-                x = 16
-                y = 127
+			ELSE
+				rem some systems have extra characters
+				x = 16
+				y = 127
 			END IF
 			SPRITE 14, right_y + y, right_x + x, c, 9
 		END IF
