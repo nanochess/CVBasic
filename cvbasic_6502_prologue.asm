@@ -280,7 +280,6 @@ cls:
 	sty cursor+1
 	sta pointer
 	sty pointer+1
-	lda #$00
 	ldy #$03
 	sta temp2
 	sty temp2+1
@@ -952,7 +951,6 @@ mode_0:
 	LDA #$02
 	JSR vdp_generic_mode
 	JSR LDIRVM3
-	CLI
 	SEI
 	LDA #$f0
 	STA temp
@@ -1058,10 +1056,8 @@ mode_2:
 	LDY #$80	; $2000 for color table.
 	LDA #$00	; $0000 for bitmaps
 	STA temp+1
-	LDA #$00
 	JSR vdp_generic_mode
 	JSR LDIRVM
-	CLI
 	SEI
 	LDA #$f0
 	STA temp
@@ -2125,8 +2121,8 @@ START:
 	SEI
 	CLD
 
-	LDX #$00
 	LDA #$00
+	TAX
 .1:	STA $0100,X
 	STA $0200,X
 	STA $0300,X
