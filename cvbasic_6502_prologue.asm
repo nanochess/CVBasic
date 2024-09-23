@@ -635,7 +635,7 @@ _peek16:
 	PLA
 	RTS
 
-	; temp2 constains left side (dividend)
+	; temp2 contains left side (dividend)
 	; temp contains right side (divisor)
 
 	; 16-bit multiplication.
@@ -707,7 +707,7 @@ _mod16s:
 	JSR _mod16.1
 	PLP
 	BPL .3
-	JSR _neg16
+	JMP _neg16
 .3:
 	RTS
 
@@ -745,7 +745,7 @@ _div16s:
 	JSR _div16.1
 	PLP
 	BPL .3
-	JSR _neg16
+	JMP _neg16
 .3:
 	RTS
 
