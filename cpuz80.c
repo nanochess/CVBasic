@@ -241,7 +241,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
             if (strcmp(operand2, z80_hl_content) == 0) {
                 operand2 = "L";
             /* Reading from memory address, and HL already has the address */
-            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_content, strlen(operand2) - 2) == 0) {
+            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_content, strlen(operand2) - 2) == 0 && z80_hl_content[strlen(operand2) - 2] == '\0') {
                 /* Generate subexpression info and mark as previously processed */
                 z80_flag_z_valid = 0;
                 strcpy(z80_a_content, operand2);
@@ -253,7 +253,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
                 return;
         } else if (strcmp(operand2, "A") == 0) {
             /* Writing to memory address, and HL already has the address */
-            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_content, strlen(operand1) - 2) == 0) {
+            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_content, strlen(operand1) - 2) == 0 && z80_hl_content[strlen(operand1) - 2] == '\0') {
                 /* Generate subexpression info and mark as previously processed */
                 strcpy(z80_a_content, operand1);
                 special = 1;    /* Mark as processed */
