@@ -324,8 +324,11 @@ void cpuz80_node_label(struct node *node)
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
-            if (node->left != NULL)
-                cpuz80_node_label(node->left);
+            explore = node->left;
+            while (explore != NULL) {
+                cpuz80_node_label(explore->left);
+                explore = explore->right;
+            }
             node->regs = REG_ALL;
             break;
         case N_ADDR:    /* Get address of variable */
@@ -687,8 +690,28 @@ void cpuz80_node_generate(struct node *node, int decision)
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
-            if (node->left != NULL)
-                cpuz80_node_generate(node->left, 0);
+            /* Generate arguments in reversed order */
+            for (c = node->value - 1; c >= 0; c--) {
+                int a;
+                
+                a = c;
+                explore = node->left;
+                while (a) {
+                    explore = explore->right;
+                    a--;
+                }
+                cpuz80_node_generate(explore->left, 0);
+                if (c > 0)
+                    cpuz80_1op("PUSH", "HL");
+            }
+            if (node->value > 1)
+                cpuz80_1op("POP", "DE");
+            if (node->value > 2)
+                cpuz80_1op("POP", "BC");
+            if (node->value > 3)
+                cpuz80_1op("POP", "IX");
+            if (node->value > 4)
+                cpuz80_1op("POP", "IY");
             cpuz80_1op("CALL", node->label->name);
             break;
         case N_ADDR:    /* Get address of variable */

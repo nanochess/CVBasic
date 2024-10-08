@@ -32,7 +32,7 @@ enum node_type {
     N_JOY1, N_JOY2, N_KEY1, N_KEY2,
     N_RANDOM, N_FRAME, N_MUSIC, N_NTSC, N_POS,
     N_ADDR,
-    N_USR,
+    N_USR, N_COMMA,
 };
 
 #define REG_A   0x01

@@ -23,6 +23,7 @@ All trademarks are property of their respective owners.
 >>>>>>>>>>>>>>  Changes in this version
 
 v0.7.1 Sep/08/2024  o Added support for NABU PC using --nabu (with -cpm option)
+                    o Added support for USR with up to 5 arguments (only Z80)
 
 v0.7.0 Sep/03/2024  o Added support for Texas Instruments TI-99/4A --ti994a
                       (contributed by tursilion)
@@ -1008,6 +1009,9 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
                     arguments, and expects a result in HL.
   A=USR NAME(expr)  Calls assembly function NAME with one argument in HL, and
                     expects a result in HL (or Y,A for 6502).
+  A=USR NAME(expr1,expr2) Calls assembly function NAME with one argument in HL
+                    and the second one in DE (third would be BC, fourth would
+                    be IX, and fifth would be IY). Only for Z80.
 
   #A=VARPTR B       Gets a pointer to a variable. Useful when linking assembler
                     routines.

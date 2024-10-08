@@ -294,7 +294,7 @@ void cpu6502_node_generate(struct node *node, int decision)
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
             if (node->left != NULL)
-                cpu6502_node_generate(node->left, 0);
+                cpu6502_node_generate(node->left->left, 0);
             cpu6502_1op("JSR", node->label->name);
             break;
         case N_ADDR:    /* Get address of variable */

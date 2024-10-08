@@ -1777,6 +1777,9 @@ struct node *evaluate_level_7(int *type)
 struct node *process_usr(int is_call)
 {
     struct node *tree;
+    struct node *list;
+    struct node *last_list;
+    int c;
     struct label *function;
     int type2;
     
@@ -1791,17 +1794,37 @@ struct node *process_usr(int is_call)
         function = function_add(name);
     get_lex();
     tree = NULL;
+    list = NULL;
+    last_list = NULL;
+    c = 0;
     if (lex == C_LPAREN) {
         get_lex();
-        tree = evaluate_level_0(&type2);
-        if ((type2 & MAIN_TYPE) == TYPE_8)
-            tree = node_create((type2 & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+        while (1) {
+            tree = evaluate_level_0(&type2);
+            if ((type2 & MAIN_TYPE) == TYPE_8)
+                tree = node_create((type2 & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+            tree = node_create(N_COMMA, 0, tree, NULL);
+            if (list == NULL) {
+                list = tree;
+            } else {
+                last_list->right = tree;
+            }
+            last_list = tree;
+            c++;
+            if (lex != C_COMMA)
+                break;
+            get_lex();
+        }
         if (lex == C_RPAREN)
             get_lex();
         else
             emit_error("missing right parenthesis");
     }
-    tree = node_create(N_USR, 0, tree, NULL);
+    if (c > 1 && target != CPU_Z80)
+        emit_error("more than one argument for USR (non-Z80 target)");
+    else if (c > 5 && target == CPU_Z80)
+        emit_error("more than five arguments for USR (Z80 target)");
+    tree = node_create(N_USR, c, list, NULL);
     tree->label = function;
     return tree;
 }
