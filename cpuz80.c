@@ -114,8 +114,6 @@ void cpuz80_noop(char *mnemonic)
     sprintf(z80_line, "\t%s\n", mnemonic);
     z80_emit_line();
     z80_a_content[0] = '\0';
-    if (strcmp(mnemonic, "NEG") != 0 && strcmp(mnemonic, "CPL") != 0)
-        z80_hl_content[0] = '\0';
     if (strcmp(mnemonic, "NEG") == 0)
         z80_flag_z_valid = 1;
     else
@@ -641,9 +639,12 @@ void cpuz80_node_label(struct node *node)
                 }
             }
             if (node->type == N_DIV16) {
-                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8 || node->right->value == 16)) {
                     cpuz80_node_label(node->left);
-                    node->regs = node->left->regs;
+                    if (node->right->value == 8 || node->right->value == 16)
+                        node->regs = node->left->regs | REG_AF;
+                    else
+                        node->regs = node->left->regs;
                     break;
                 }
             }
@@ -1497,14 +1498,31 @@ void cpuz80_node_generate(struct node *node, int decision)
                 }
             }
             if (node->type == N_DIV16) {
-                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8 || node->right->value == 16)) {
                     cpuz80_node_generate(node->left, 0);
+                    
+                    /*
+                     ** Division by 2 - 4 bytes (1 * 4)
+                     ** Division by 4 - 8 bytes (2 * 4)
+                     ** Division by 8 - 11 bytes (3 * 3 + 2)
+                     ** Division by 16 - 14 bytes (4 * 3 + 2)
+                     */
                     c = node->right->value;
-                    do {
-                        cpuz80_1op("SRL", "H");
-                        cpuz80_1op("RR", "L");
-                        c /= 2;
-                    } while (c > 1) ;
+                    if (c == 2 || c == 4) {
+                        do {
+                            cpuz80_1op("SRL", "H");
+                            cpuz80_1op("RR", "L");
+                            c /= 2;
+                        } while (c > 1) ;
+                    } else {
+                        cpuz80_2op("LD", "A", "L");
+                        do {
+                            cpuz80_1op("SRL", "H");
+                            cpuz80_noop("RRA");
+                            c /= 2;
+                        } while (c > 1) ;
+                        cpuz80_2op("LD", "L", "A");
+                    }
                     break;
                 }
             }
