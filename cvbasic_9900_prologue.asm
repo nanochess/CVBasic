@@ -17,6 +17,7 @@
 ; Revision date Aug/16/2024. Corrected bug in define_char_unpack.
 ; Revision date Aug/18/2024. Ported bugfixes to TMS9900 version
 ; Revision date Aug/30/2024. All samples except pletter and banking working on TMS9900 version
+; Revision date Oct/15/2024. Added LDIRMV.
 
 ;
 ; Platforms supported:
@@ -248,6 +249,21 @@ FILVRM
 ; No need to delay after setting a write address - there's no VRAM access
 !1
     movb r2,@VDPWDATA
+    dec r3
+    jne -!1
+    b *r11
+
+; Read VRAM - address in R0, CPU data at R2, count in R3
+; Inline address set to avoid needing to cache r11
+LDIRMV
+    swpb r2
+    movb r2,@VDPWADR
+    swpb r2
+    movb r2,@VDPWADR
+    swpb r2
+    swpb r2
+!1
+    movb @VDPDATA,*r0+
     dec r3
     jne -!1
     b *r11

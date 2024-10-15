@@ -3265,6 +3265,7 @@ void compile_statement(int check_for_else)
                 }
             } else if (strcmp(name, "DEFINE") == 0) {
                 int pletter = 0;
+                int vram_read = 0;
                 
                 get_lex();
                 if (lex != C_NAME) {
@@ -3502,6 +3503,9 @@ void compile_statement(int check_for_else)
                     if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
                         pletter = 1;
                         get_lex();
+                    } else if (lex == C_NAME && strcmp(name, "READ") == 0) {
+                        vram_read = 1;
+                        get_lex();
                     }
                     target2 = evaluate_save_expression(1, TYPE_16);
                     if (lex == C_COMMA)
@@ -3636,7 +3640,11 @@ void compile_statement(int check_for_else)
                         } else {
                             cpuz80_1op("CALL", "nmi_off");
                         }
-                        generic_call("LDIRVM");
+                        if (vram_read) {
+                            generic_call("LDIRMV");
+                        } else {
+                            generic_call("LDIRVM");
+                        }
                         if (target == CPU_6502)
                             cpu6502_noop("CLI");
                         else if (target == CPU_9900)

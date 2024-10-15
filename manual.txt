@@ -22,8 +22,12 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.7.1 Sep/08/2024  o Added support for NABU PC using --nabu (with -cpm option)
+v0.7.1 Oct/15/2024  o Added support for NABU PC using --nabu (with -cpm option)
                     o Added support for USR/CALL with up to 5 arguments (only Z80)
+                    o Added DEFINE VRAM READ to read VRAM.
+                    o Added new example brinquitos.bas
+                    o Added new example vramcopy.bas
+                    o Optimizes division by 16.
 
 v0.7.0 Sep/03/2024  o Added support for Texas Instruments TI-99/4A --ti994a
                       (contributed by tursilion)
@@ -533,6 +537,15 @@ The following statements are available:
      Use the optional argument PLETTER to indicate that the data is compressed
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
+
+  DEFINE VRAM READ address,length,label
+  DEFINE VRAM READ address,length,VARPTR array(expr)
+
+     Copies data from VRAM address "address" into "label".
+     The total of bytes is defined by "length".
+
+     The VARPTR expression allows choosing the origin from an offset inside an
+     array.
 
   SOUND 0,[value 10 bits],[vol 0-15]
   SOUND 1,[value 10 bits],[vol 0-15]

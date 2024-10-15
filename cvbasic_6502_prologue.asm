@@ -12,6 +12,7 @@
 	; Revision date: Aug/21/2024. Added support for keypad.
 	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
 	;                             with flicker flag).
+	; Revision date: Oct/15/2024. Added LDIRMV.
 	;
 
 	CPU 6502
@@ -157,6 +158,28 @@ FILVRM:
 	DEC temp2+1	; 5
 	BNE .1		; 2/3/4
 	RTS	
+
+LDIRMV:
+	LDA temp
+	LDY temp+1
+	JSR SETRD
+	LDA temp2
+	BEQ .1
+	INC temp2+1
+.1:
+	LDY #0
+.2:
+	LDA $3000	; 4
+	STA (pointer),Y	; 5/6
+	INC pointer	; 5
+	BNE .3		; 2/3/4
+	INC pointer+1	; 5
+.3:
+	DEC temp2	; 5
+	BNE .2		; 2/3/4
+	DEC temp2+1	; 5
+	BNE .2		; 2/3/4
+	RTS
 
 LDIRVM:
 	LDA pointer

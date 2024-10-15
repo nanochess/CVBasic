@@ -50,6 +50,8 @@ The following files compose the compiler:
     README.md                   This file
     
     examples/bank.bas           Bank-switching example.
+    examples/brinquitos.bas     Jumping game.
+    examples/controller.bas     Controller test.
     examples/demo.bas           Demo of graphics.
     examples/face_joystick.bas  Moving face with joystick.
     examples/happy_face.bas     Bouncing face.
@@ -60,8 +62,10 @@ The following files compose the compiler:
     examples/space_attack.bas   Game example.
     examples/test1.bas          Moving stars.
     examples/test2.bas          Arithmetic test.
+    examples/varptr.bas         VARPTR example for redefining graphics.
     examples/vgm.bas            VGM audio player.
     examples/viboritas.bas      Game example.
+    examples/vramcopy.bas       VRAM copy example.
 
 
 ### Usage guide
