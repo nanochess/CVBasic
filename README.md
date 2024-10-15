@@ -33,7 +33,7 @@ The following files compose the compiler:
     cpuz80.h                    Z80 code headers.
     cpuz80.c                    Z80 code generation.
     driver.h                    Driver headers.
-    driver.c                    Driver for both processors.
+    driver.c                    Driver for all processors.
     node.h                      Tree node headers.
     node.c                      Tree node creation and optimization.
     LICENSE.txt                 Source code license
@@ -169,6 +169,10 @@ All platforms have been tested in emulation.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
 * NABU tested in real hardware by Sektor.
+
+Untested:
+
+* DEFINE VRAM READ is only tested for Colecovision/MSX, please test in your real hardware to check that the timing is right.
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
 
