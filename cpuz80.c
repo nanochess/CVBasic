@@ -647,6 +647,11 @@ void cpuz80_node_label(struct node *node)
                         node->regs = node->left->regs;
                     break;
                 }
+                if (node->right->type == N_NUM16 && node->right->value == 256) {
+                    cpuz80_node_label(node->left);
+                    node->regs = node->left->regs;
+                    break;
+                }
             }
             if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
                 if (node->left->type == N_NUM16) {
@@ -1523,6 +1528,12 @@ void cpuz80_node_generate(struct node *node, int decision)
                         } while (c > 1) ;
                         cpuz80_2op("LD", "L", "A");
                     }
+                    break;
+                }
+                if (node->right->type == N_NUM16 && node->right->value == 256) {
+                    cpuz80_node_generate(node->left, 0);
+                    cpuz80_2op("LD", "L", "H");
+                    cpuz80_2op("LD", "H", "0");
                     break;
                 }
             }

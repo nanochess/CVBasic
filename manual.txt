@@ -27,7 +27,7 @@ v0.7.1 Oct/15/2024  o Added support for NABU PC using --nabu (with -cpm option)
                     o Added DEFINE VRAM READ to read VRAM.
                     o Added new example brinquitos.bas
                     o Added new example vramcopy.bas
-                    o Optimizes division by 16.
+                    o Optimizes division by 16 (Z80).
 
 v0.7.0 Sep/03/2024  o Added support for Texas Instruments TI-99/4A --ti994a
                       (contributed by tursilion)
