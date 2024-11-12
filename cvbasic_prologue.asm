@@ -38,6 +38,7 @@
 	;                             with flicker flag).
 	; Revision date: Oct/15/2024. Added LDIRMV. Solved bug where asterisk and number
 	;                             keys values were inverted.
+	; Revision date: Nov/12/2024. Saves the VDP status.
 	;
 
 JOYSEL:	equ $c0
@@ -1264,6 +1265,7 @@ nmi_handler:
     endif
     if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
 	in a,(VDPR+1)
+	ld (vdp_status),a
     endif
 	ld bc,$8000+VDP
 	bit 2,(hl)
@@ -2360,6 +2362,7 @@ nmi_handler:
 	pop hl
     if COLECO
 	in a,(VDP+1)
+	ld (vdp_status),a
 	pop af
 	retn
     endif
@@ -2386,6 +2389,7 @@ ctc_reti:
     endif
     if PV2000
 	ld a,(VDP+1)
+	ld (vdp_status),a
 	pop af
 	retn
     endif
@@ -2509,6 +2513,7 @@ wait:
 	in a,(VDP+1)
 	bit 7,a
 	jr z,$-4
+	ld (vdp_status),a
 	jp nmi_handler
     endif
 

@@ -31,7 +31,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.7.1 Sep/30/2024"
+#define VERSION "v0.8.0 Nov/12/2024"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -1535,6 +1535,22 @@ struct node *evaluate_level_7(int *type)
                 get_lex();
             }
             tree = node_create(N_MUSIC, 0, NULL, NULL);
+            *type = TYPE_8;
+            return tree;
+        }
+        if (strcmp(name, "VDP") == 0) {
+            get_lex();
+            if (lex != C_PERIOD) {
+                emit_error("missing period in VDP");
+            } else {
+                get_lex();
+            }
+            if (lex != C_NAME || strcmp(name, "STATUS") != 0) {
+                emit_error("only allowed VDP.STATUS");
+            } else {
+                get_lex();
+            }
+            tree = node_create(N_VDPSTATUS, 0, NULL, NULL);
             *type = TYPE_8;
             return tree;
         }
@@ -5370,7 +5386,7 @@ int process_variables(void)
     int size;
     int address;
     
-    if ((machine == CREATIVISION)||(machine == TI994A))
+    if (machine == CREATIVISION || machine == TI994A)
         address = consoles[machine].base_ram;
     bytes_used = 0;
     for (c = 0; c < HASH_PRIME; c++) {
@@ -5541,7 +5557,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, atari2600land,\n");
         fprintf(stderr, "carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
         fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, SiRioKD, Tarzilla,\n");
-        fprintf(stderr, "Tony Cruise, tursilion, wavemotion, and youki.\n");
+        fprintf(stderr, "Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
     }

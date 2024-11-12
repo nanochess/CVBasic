@@ -394,6 +394,7 @@ void cpuz80_node_label(struct node *node)
         case N_KEY2:    /* Read keypad 2 */
         case N_MUSIC:   /* Read music playing status */
         case N_NTSC:    /* Read NTSC flag */
+        case N_VDPSTATUS:   /* Read VDP status */
             node->regs = REG_A;
             break;
         case N_NUM8:    /* Load 8-bit constant */
@@ -926,6 +927,9 @@ void cpuz80_node_generate(struct node *node, int decision)
             break;
         case N_NTSC:    /* Read NTSC flag */
             cpuz80_2op("LD", "A", "(ntsc)");
+            break;
+        case N_VDPSTATUS:    /* Read VDP status */
+            cpuz80_2op("LD", "A", "(vdp_status)");
             break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */

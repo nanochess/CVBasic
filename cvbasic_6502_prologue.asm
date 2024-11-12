@@ -13,6 +13,7 @@
 	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
 	;                             with flicker flag).
 	; Revision date: Oct/15/2024. Added LDIRMV.
+	; Revision date: Nov/12/2024. Saves the VDP status.
 	;
 
 	CPU 6502
@@ -59,9 +60,10 @@ flicker:	equ $29
 sprite_data:	equ $2a
 ntsc:		equ $2e
 pletter_bit:	equ $2f
+vdp_status:	equ $30
 
 	IF CVBASIC_MUSIC_PLAYER
-music_playing:		EQU $30
+music_playing:		EQU $4f
 music_timing:		EQU $31
 music_start:		EQU $32
 music_pointer:		EQU $34
@@ -1103,6 +1105,7 @@ int_handler:
 	TYA
 	PHA
 	LDA $2001	; VDP interruption clear.
+	STA vdp_status
 	LDA #$1B00
 	LDY #$1B00>>8
 	JSR SETWRT

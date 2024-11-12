@@ -22,6 +22,8 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
+v0.8.0 Nov/12/2024  o Added support for VDP.STATUS (for reading VDP status)
+
 v0.7.1 Oct/15/2024  o Added support for NABU PC using --nabu (with -cpm option)
                     o Added support for USR/CALL with up to 5 arguments (only Z80)
                     o Added DEFINE VRAM READ to read VRAM.
@@ -1090,6 +1092,10 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
     Returns 1 if the Colecovision is an NTSC console, otherwise
     returns zero.
 
+  VDP.STATUS
+    Returns the current status of the Video Display Processor. It is
+    updated on each video frame.
+
   MUSIC.PLAYING
     Returns zero if music is not currently playing, returns a non-zero
     value otherwise.
@@ -1201,4 +1207,5 @@ Thanks to following members of Atariage for contributing valuable suggestions:
   gemintronic
   Kiwi
   pixelboy
+  visrealm
   youki

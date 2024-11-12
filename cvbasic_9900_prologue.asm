@@ -134,7 +134,7 @@ lastsp              equ $
 ; reads VDP status for us (no choice).
 
 intcnt              equ >8379   ; interrupt counter byte, adds 1 (from GPLWS r14) every frame
-statusmirror        equ >837B   ; VDP status byte mirror
+vdp_status        equ >837B   ; VDP status byte mirror
 intwsr1             equ >83c2   ; INT WS R1  - interrupt control flags - must be >8000
 intwsr2             equ >83c4   ; INT WS R2  - address of user interrupt routine (point to int_handler)
 intwsr11            equ >83d6   ; screen timeout counter - must be odd (init to 1, is inct every frame)
@@ -801,7 +801,7 @@ mode_2
 ; as well as any operations that might need to manipulate data managed
 ; by this interrupt. We enter via the normal user hook, so WP is on
 ; GPLWS, interrupts are off, and the VDP is already reset and status 
-; stashed on statusmirror (>837b). Our return address to the ROM is in
+; stashed on vdp_status (>837b). Our return address to the ROM is in
 ; r11, but we are NOT going to use it so that we don't need to reserve
 ; r8 for whatever nonsense it does. That means we need to load intws
 ; and RTWP ourselves at the end. We are on our own workspace so we
@@ -1920,7 +1920,7 @@ START
     limi 0
     lwpi mywp           ; get our private workspace
     li R10,>4000        ; pseudo stack pointer
-    movb @>8802,@statusmirror  ; clear any pending VDP interrupt and initialize statusmirror if needed
+    movb @>8802,@vdp_status  ; clear any pending VDP interrupt and initialize vdp_status if needed
     
     li r0,>0182         ; select 16k, magnified, blank, no ints
     bl @wrtvdp          ; other ports write this twice... maybe to be 100% sure no NMI happens? We don't have that problem.    

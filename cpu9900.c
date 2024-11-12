@@ -753,6 +753,9 @@ void cpu9900_node_generate(struct node *node, int decision)
         case N_NTSC:    /* Read NTSC flag */
             cpu9900_2op("movb", "@ntsc", "r0");
             break;
+        case N_VDPSTATUS:    /* Read VDP status */
+            cpu9900_2op("movb", "@vdp_status", "r0");
+            break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */
         case N_AND8:    /* 8-bit AND */
