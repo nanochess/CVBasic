@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Sep/08/2024.
+Last revision: Nov/12/2024.
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -23,6 +23,7 @@ All trademarks are property of their respective owners.
 >>>>>>>>>>>>>>  Changes in this version
 
 v0.8.0 Nov/12/2024  o Added support for VDP.STATUS (for reading VDP status)
+                    o Added SELECT CASE / END CASE
 
 v0.7.1 Oct/15/2024  o Added support for NABU PC using --nabu (with -cpm option)
                     o Added support for USR/CALL with up to 5 arguments (only Z80)
@@ -344,6 +345,19 @@ The following statements are available:
      This statement can be made faster in execution using the FAST modifier,
      it will avoid checking boundaries, but if your list of labels doesn't cover
      the full expression range then your PROGRAM WILL CRASH.
+
+  SELECT CASE expr
+     CASE 1
+       [statement]
+     CASE 2 TO 4
+       [statement]
+     CASE ELSE
+       [statement]
+  END CASE
+
+     It evaluates the expression, and selects the statements to execute from the
+     CASE statements. CASE ELSE should be the last statement if it is required to
+     handle non-specified values. You can exit using EXIT SELECT.
 
   ON FRAME GOSUB label
   

@@ -231,7 +231,7 @@ struct node *evaluate_level_7(int *);
 */
 struct loop {
     struct loop *next;
-    int type;           /* 0=FOR, 1=WHILE, 2=IF, 3=DO WHILE/UNTIL LOOP, 4=DO LOOP WHILE/UNTIL */
+    enum {NESTED_FOR, NESTED_WHILE, NESTED_IF, NESTED_DO, NESTED_DO_LOOP, NESTED_SELECT} type;
     struct node *step;
     struct node *final;
     int label_loop;     /* Main label, in C this would be destination for 'continue' */
@@ -2176,7 +2176,7 @@ void compile_statement(int check_for_else)
                             fprintf(stderr, "out of memory\n");
                             exit(1);
                         }
-                        new_loop->type = 2;
+                        new_loop->type = NESTED_IF;
                         new_loop->step = NULL;
                         new_loop->final = NULL;
                         new_loop->var[0] = 0;
@@ -2217,7 +2217,7 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (loops == NULL) {
                     emit_error("ELSEIF without IF");
-                } else if (loops->type != 2 || loops->label_loop == 0) {
+                } else if (loops->type != NESTED_IF || loops->label_loop == 0) {
                     emit_error("bad nested ELSEIF");
                 } else {
                     if (loops->var[0] != 1) {
@@ -2247,7 +2247,7 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (loops == NULL) {
                     emit_error("ELSE without IF");
-                } else if (loops->type != 2) {
+                } else if (loops->type != NESTED_IF) {
                     emit_error("bad nested ELSE");
                 } else if (loops->label_loop == 0) {
                     emit_error("more than one ELSE");
@@ -2269,11 +2269,9 @@ void compile_statement(int check_for_else)
                 struct loop *popping;
                 
                 get_lex();
-                if (lex != C_NAME || strcmp(name, "IF") != 0) {
-                    emit_error("wrong END");
-                } else {
+                if (lex == C_NAME && strcmp(name, "IF") == 0) {
                     get_lex();
-                    if (loops == NULL || loops->type != 2) {
+                    if (loops == NULL || loops->type != NESTED_IF) {
                         emit_error("Bad nested END IF");
                     } else {
                         if (loops->var[0] == 1) {
@@ -2288,6 +2286,23 @@ void compile_statement(int check_for_else)
                         loops = loops->next;
                         free(popping);
                     }
+                } else if (lex == C_NAME && strcmp(name, "SELECT") == 0) {
+                    get_lex();
+                    if (loops == NULL || loops->type != NESTED_SELECT) {
+                        emit_error("Bad nested END SELECT");
+                    } else {
+                        if (loops->label_loop != 0) {
+                            sprintf(temp, INTERNAL_PREFIX "%d", loops->label_loop);
+                            generic_label(temp);
+                        }
+                        sprintf(temp, INTERNAL_PREFIX "%d", loops->label_exit);
+                        generic_label(temp);
+                        popping = loops;
+                        loops = loops->next;
+                        free(popping);
+                    }
+                } else {
+                    emit_error("wrong END");
                 }
             } else if (strcmp(name, "FOR") == 0) {
                 struct label *label;
@@ -2382,7 +2397,7 @@ void compile_statement(int check_for_else)
                     }
                     final = node_create(comparison, 0, var, final);
                 }
-                new_loop->type = 0;
+                new_loop->type = NESTED_FOR;
                 new_loop->step = step;
                 new_loop->final = final;
                 new_loop->label_loop = label_loop;
@@ -2401,7 +2416,7 @@ void compile_statement(int check_for_else)
                     int label_loop = loops->label_loop;
                     int label_exit = loops->label_exit;
                     
-                    if (loops->type != 0) {
+                    if (loops->type != NESTED_FOR) {
                         emit_error("bad nested NEXT");
                         if (lex == C_NAME)
                             get_lex();
@@ -2451,7 +2466,7 @@ void compile_statement(int check_for_else)
                     fprintf(stderr, "Out of memory\n");
                     exit(1);
                 }
-                new_loop->type = 1;
+                new_loop->type = NESTED_WHILE;
                 new_loop->step = NULL;
                 new_loop->final = NULL;
                 new_loop->var[0] = '\0';
@@ -2465,7 +2480,7 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (loops == NULL) {
                     emit_error("WEND without WHILE");
-                } else if (loops->type != 1) {
+                } else if (loops->type != NESTED_WHILE) {
                     emit_error("bad nested WEND");
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", loops->label_loop);
@@ -2496,7 +2511,7 @@ void compile_statement(int check_for_else)
                     get_lex();
                     type = evaluate_expression(0, 0, label_exit);
                     new_loop->var[0] = '1'; /* Uses exit label */
-                    new_loop->type = 3;     /* Condition at top */
+                    new_loop->type = NESTED_DO;     /* Condition at top */
                 } else if (lex == C_NAME && strcmp(name, "UNTIL") == 0) {
                     int label_temp = next_local++;
                     
@@ -2508,10 +2523,10 @@ void compile_statement(int check_for_else)
                     sprintf(temp, INTERNAL_PREFIX "%d", label_temp);
                     generic_label(temp);
                     new_loop->var[0] = '1'; /* Uses exit label */
-                    new_loop->type = 3;  /* Condition at top */
+                    new_loop->type = NESTED_DO;  /* Condition at top */
                 } else {
                     new_loop->var[0] = '\0'; /* Doesn't use exit label (yet) */
-                    new_loop->type = 4;  /* Condition at bottom */
+                    new_loop->type = NESTED_DO_LOOP;  /* Condition at bottom */
                 }
                 new_loop->step = NULL;
                 new_loop->final = NULL;
@@ -2525,7 +2540,7 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (loops == NULL) {
                     emit_error("LOOP without DO");
-                } else if (loops->type == 3) {
+                } else if (loops->type == NESTED_DO) {
                     sprintf(temp, INTERNAL_PREFIX "%d", loops->label_loop);
                     generic_jump(temp);
                     sprintf(temp, INTERNAL_PREFIX "%d", loops->label_exit);
@@ -2533,7 +2548,7 @@ void compile_statement(int check_for_else)
                     popping = loops;
                     loops = loops->next;
                     free(popping);
-                } else if (loops->type == 4) {
+                } else if (loops->type == NESTED_DO_LOOP) {
                     int type;
                     
                     if (lex == C_NAME && strcmp(name, "WHILE") == 0) {
@@ -2562,6 +2577,125 @@ void compile_statement(int check_for_else)
                 } else {
                     emit_error("bad nested LOOP");
                 }
+            } else if (strcmp(name, "SELECT") == 0) {
+                int label_loop;
+                int label_exit;
+                int type;
+                struct loop *new_loop;
+                struct node *tree;
+                
+                get_lex();
+                label_exit = next_local++;
+                new_loop = malloc(sizeof(struct loop));
+                if (new_loop == NULL) {
+                    fprintf(stderr, "Out of memory\n");
+                    exit(1);
+                }
+                new_loop->type = NESTED_SELECT;
+                if (lex == C_NAME && strcmp(name, "CASE") == 0) {
+                    get_lex();
+                    
+                    optimized = 0;
+                    tree = evaluate_level_0(&type);
+                    if (type & TYPE_SIGNED) {
+                        if ((type & MAIN_TYPE) == TYPE_8)
+                            tree = node_create(N_XOR8, 0, tree, node_create(N_NUM8, 0x80, NULL, NULL));
+                        else
+                            tree = node_create(N_XOR16, 0, tree, node_create(N_NUM16, 0x8000, NULL, NULL));
+                    }
+                    node_label(tree);
+                    /*    node_visual(tree); */ /* Debugging */
+                    node_generate(tree, 0);
+                    node_delete(tree);
+                    new_loop->var[0] = type & (MAIN_TYPE | TYPE_SIGNED); /* Type of data */
+                } else {
+                    emit_error("missing CASE after SELECT");
+                    new_loop->var[0] = TYPE_8;
+                }
+                new_loop->step = NULL;
+                new_loop->final = NULL;
+                new_loop->label_loop = 0;
+                new_loop->label_exit = label_exit;
+                new_loop->next = loops;
+                loops = new_loop;
+            } else if (strcmp(name, "CASE") == 0) {
+                get_lex();
+                if (loops == NULL || loops->type != NESTED_SELECT) {
+                    emit_error("CASE without SELECT CASE");
+                } else {
+                    if (loops->label_loop != 0) {
+                        sprintf(temp, INTERNAL_PREFIX "%d", loops->label_exit);
+                        generic_jump(temp);
+                        sprintf(temp, INTERNAL_PREFIX "%d", loops->label_loop);
+                        generic_label(temp);
+                    }
+                    if (lex == C_NAME && strcmp(name, "ELSE") == 0) {
+                        get_lex();
+                        if (loops->label_loop == 0) {
+                            emit_error("More than one CASE ELSE");
+                        } else {
+                            loops->label_loop = 0;
+                        }
+                    } else {
+                        struct node *tree;
+                        int type;
+                        int min;
+                        int max;
+                        
+                        optimized = 0;
+                        tree = evaluate_level_0(&type);
+                        if ((loops->var[0] & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16) {
+                            tree = node_create(N_REDUCE16, 0, tree, NULL);
+                            type = TYPE_8;
+                        } else if ((loops->var[0] & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8) {
+                            tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+                            type = TYPE_16;
+                        }
+                        if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                            emit_error("Not a constant expression in CASE");
+                            min = 0;
+                        } else {
+                            min = tree->value;
+                        }
+                        node_delete(tree);
+                        if (lex == C_NAME && strcmp(name, "TO") == 0) {
+                            get_lex();
+                            optimized = 0;
+                            tree = evaluate_level_0(&type);
+                            if (loops->var[0] == TYPE_8 && (type & MAIN_TYPE) == TYPE_16) {
+                                tree = node_create(N_REDUCE16, 0, tree, NULL);
+                                type = TYPE_8;
+                            } else if (loops->var[0] == TYPE_16 && (type & MAIN_TYPE) == TYPE_8) {
+                                tree = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, tree, NULL);
+                                type = TYPE_16;
+                            }
+                            if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                                emit_error("Not a constant expression in CASE TO");
+                            } else {
+                                max = tree->value;
+                            }
+                            node_delete(tree);
+                        } else {
+                            max = min;
+                        }
+                        if (loops->var[0] == (TYPE_8 | TYPE_SIGNED)) {
+                            min ^= 0x80;
+                            max ^= 0x80;
+                        } else if (loops->var[0] == (TYPE_16 | TYPE_SIGNED)) {
+                            min ^= 0x8000;
+                            max ^= 0x8000;
+                        }
+                        if (min > max) {
+                            emit_error("Maximum range of CASE is lesser than minimum");
+                        }
+                        loops->label_loop = next_local++;
+                        sprintf(temp, INTERNAL_PREFIX "%d", loops->label_loop);
+                        if (type == TYPE_8)
+                            generic_comparison_8bit(min, max, temp);
+                        else
+                            generic_comparison_16bit(min, max, temp);
+                    }
+                }
             } else if (strcmp(name, "EXIT") == 0) {
                 struct loop *loop_explorer;
                 
@@ -2570,7 +2704,7 @@ void compile_statement(int check_for_else)
                 /* Avoid IF blocks */
                 loop_explorer = loops;
                 while (loop_explorer != NULL) {
-                    if (loop_explorer->type != 2)
+                    if (loop_explorer->type != NESTED_IF)
                         break;
                     loop_explorer = loop_explorer->next;
                 }
@@ -2581,7 +2715,7 @@ void compile_statement(int check_for_else)
                         emit_error("missing type of EXIT, WHILE/FOR/DO");
                     } else if (strcmp(name, "FOR") == 0) {
                         get_lex();
-                        if (loop_explorer->type != 0) {
+                        if (loop_explorer->type != NESTED_FOR) {
                             emit_error("EXIT FOR without FOR");
                         } else {
                             if (loop_explorer->label_exit == 0)
@@ -2591,7 +2725,7 @@ void compile_statement(int check_for_else)
                         }
                     } else if (strcmp(name, "WHILE") == 0) {
                         get_lex();
-                        if (loop_explorer->type != 1) {
+                        if (loop_explorer->type != NESTED_WHILE) {
                             emit_error("EXIT WHILE without WHILE");
                         } else {
                             sprintf(temp, INTERNAL_PREFIX "%d", loop_explorer->label_exit);
@@ -2599,15 +2733,23 @@ void compile_statement(int check_for_else)
                         }
                     } else if (strcmp(name, "DO") == 0) {
                         get_lex();
-                        if (loop_explorer->type != 3 && loop_explorer->type != 4) {
+                        if (loop_explorer->type != NESTED_DO && loop_explorer->type != NESTED_DO_LOOP) {
                             emit_error("EXIT DO without DO");
                         } else {
                             loop_explorer->var[0] = '1';
                             sprintf(temp, INTERNAL_PREFIX "%d", loop_explorer->label_exit);
                             generic_jump(temp);
                         }
+                    } else if (strcmp(name, "SELECT") == 0) {
+                        get_lex();
+                        if (loop_explorer->type != NESTED_SELECT) {
+                            emit_error("EXIT SELECT without SELECT");
+                        } else {
+                            sprintf(temp, INTERNAL_PREFIX "%d", loop_explorer->label_exit);
+                            generic_jump(temp);
+                        }
                     } else {
-                        emit_error("only supported EXIT WHILE/FOR/DO");
+                        emit_error("only supported EXIT WHILE/FOR/DO/SELECT");
                         get_lex();
                     }
                 }
@@ -5310,7 +5452,7 @@ void compile_basic(void)
                 get_lex();
                 inside_proc = label;
                 last_is_return = 0;
-            } else if (strcmp(name, "END") == 0 && lex_sneak_peek() != 'I') {  /* END (and not END IF) */
+            } else if (strcmp(name, "END") == 0 && lex_sneak_peek() != 'I' && lex_sneak_peek() != 'S') {  /* END (and not END IF) */
                 if (!inside_proc)
                     emit_warning("END without PROCEDURE");
                 else if (loops != NULL)
