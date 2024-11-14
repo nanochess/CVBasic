@@ -22,6 +22,12 @@ BIOS_NMI_RESET_ADDR:	EQU $F808
 BIOS_READ_CONTROLLERS:	EQU $FA00
 BIOS_WRITE_PSG:		EQU $FE77
 
+
+VDP_WRITE_DATA:   EQU $3000
+VDP_WRITE_REG:    EQU $3001
+VDP_READ_DATA:    EQU $2000
+VDP_READ_STATUS:  EQU $2001
+
 	;
 	; Platforms supported:
 	; o Vtech Creativision.
@@ -96,24 +102,24 @@ sprites:	equ $0180
 	ORG $4000+$4000*SMALL_ROM
 	
 WRTVDP:
-	STA $3001
+	STA VDP_WRITE_REG
 	TXA
 	ORA #$80
-	STA $3001
+	STA VDP_WRITE_REG
 	RTS
 
 SETWRT:
-	STA $3001	; 4
+	STA VDP_WRITE_REG	; 4
 	TYA		; 2
 	ORA #$40	; 2
-	STA $3001	; 4
+	STA VDP_WRITE_REG	; 4
 	RTS		; 6
 
 SETRD:
-	STA $3001	; 4
+	STA VDP_WRITE_REG	; 4
 	TYA		; 2
 	AND #$3F	; 2
-	STA $3001	; 4
+	STA VDP_WRITE_REG	; 4
 	RTS		; 6
 
 	; VDP delays calculated for 6502 running at 2 mhz.
@@ -124,7 +130,7 @@ WRTVRM:
 	NOP		; 2
 	NOP		; 2 = RTS + 14 = Minimum cycles
 	NOP		; 2
-	STA $3000	; 4
+	STA VDP_WRITE_DATA	; 4
 	RTS		; 6
 
 RDVRM:
@@ -140,8 +146,13 @@ RDVRM:
 	NOP		; 2
 	NOP		; 2
 	NOP		; 2
-	LDA $2000	; 4
+	LDA VDP_READ_DATA	; 4
 	RTS		; 6
+
+; Read the status register from VDP - data returned in A (visrealm)
+RDVST:
+    LDA VDP_READ_STATUS
+    RTS
 
 FILVRM:
 	LDA pointer
@@ -152,7 +163,7 @@ FILVRM:
 	INC temp2+1
 .1:
 	LDA temp	; 3
-	STA $3000	; 4
+	STA VDP_WRITE_DATA	; 4
 	NOP		; 2
 	NOP		; 2
 	DEC temp2	; 5
@@ -171,7 +182,7 @@ LDIRMV:
 .1:
 	LDY #0
 .2:
-	LDA $3000	; 4
+	LDA VDP_WRITE_DATA	; 4
 	STA (pointer),Y	; 5/6
 	INC pointer	; 5
 	BNE .3		; 2/3/4
@@ -194,7 +205,7 @@ LDIRVM:
 	LDY #0
 .2:
 	LDA (temp),Y	; 5/6
-	STA $3000	; 4
+	STA VDP_WRITE_DATA	; 4
 	INC temp	; 5
 	BNE .3		; 2/3/4
 	INC temp+1	; 5
@@ -1055,7 +1066,7 @@ mode_1:
 	LDY pointer
 .2:
 	TYA		; 2
-	STA $3000	; 4
+	STA VDP_WRITE_DATA	; 4
 	NOP		; 2
 	NOP		; 2
 	NOP		; 2
@@ -1104,7 +1115,7 @@ int_handler:
 	PHA
 	TYA
 	PHA
-	LDA $2001	; VDP interruption clear.
+	LDA VDP_READ_STATUS	; VDP interruption clear.
 	STA vdp_status
 	LDA #$1B00
 	LDY #$1B00>>8
@@ -1114,7 +1125,7 @@ int_handler:
 	BEQ .4
 	LDX #0
 .7:	LDA sprites,X	; 4
-	STA $3000	; 4
+	STA VDP_WRITE_DATA	; 4
 	NOP		; 2
 	NOP		; 2
 	INX		; 2
@@ -1131,7 +1142,7 @@ int_handler:
 	LDY #31
 .6:
 	LDA sprites,X
-	STA $3000	
+	STA VDP_WRITE_DATA	
 	NOP
 	NOP
 	NOP
@@ -1139,7 +1150,7 @@ int_handler:
 	NOP
 	INX
 	LDA sprites,X
-	STA $3000
+	STA VDP_WRITE_DATA
 	NOP
 	NOP
 	NOP
@@ -1147,7 +1158,7 @@ int_handler:
 	NOP
 	INX
 	LDA sprites,X
-	STA $3000
+	STA VDP_WRITE_DATA
 	NOP
 	NOP
 	NOP
@@ -1155,7 +1166,7 @@ int_handler:
 	NOP
 	INX
 	LDA sprites,X
-	STA $3000
+	STA VDP_WRITE_DATA
 	TXA
 	CLC
 	ADC #25
@@ -2157,11 +2168,11 @@ START:
 
 	LDX #STACK
 	TXS
-	LDA $2001
+	LDA VDP_READ_STATUS
 	LDA #$82
 	LDX #$01
 	JSR WRTVDP
-	LDA $2001
+	LDA VDP_READ_STATUS
 	LDA #$82
 	LDX #$01
 	JSR WRTVDP

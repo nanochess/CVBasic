@@ -371,6 +371,12 @@ RDVRM:
         in a,(VDPR)
         ret
 
+; Read the status register from VDP - data returned in a (visrealm)
+RDVST:
+    in a,(VDPR+1)
+    ld l, a
+    ret
+
 FILVRM:
 	push af
 	call SETWRT

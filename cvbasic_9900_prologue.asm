@@ -134,7 +134,7 @@ lastsp              equ $
 ; reads VDP status for us (no choice).
 
 intcnt              equ >8379   ; interrupt counter byte, adds 1 (from GPLWS r14) every frame
-vdp_status        equ >837B   ; VDP status byte mirror
+vdp_status          equ >837B   ; VDP status byte mirror
 intwsr1             equ >83c2   ; INT WS R1  - interrupt control flags - must be >8000
 intwsr2             equ >83c4   ; INT WS R2  - address of user interrupt routine (point to int_handler)
 intwsr11            equ >83d6   ; screen timeout counter - must be odd (init to 1, is inct every frame)
@@ -236,6 +236,12 @@ RDVRM
     nop
     movb @VDPDATA,r0
     b *r11
+
+; Read the status register from VDP - data returned in LSB R0 (visrealm)
+RDVST
+    movb @VDPSTATUS,r0
+    srl r0,8
+	b *r11
 
 ; Fill VRAM - address in R0, byte in R2, count in R3
 ; Original: address in pointer, byte in temp, count in temp2 (ZP)
