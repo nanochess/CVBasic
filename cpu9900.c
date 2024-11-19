@@ -1029,7 +1029,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                         while (*p)
                             p++;
                         sprintf(p, "%d", node->right->value);
-                        cpu9900_2op("mov", "r0", temp);
+                        cpu9900_2op("li", "r0", temp);
                         break;
                     }
                 }
