@@ -8,6 +8,7 @@
  ** Creation date: Jun/21/2024.
  */
 
+#define CONST_PREFIX    "const_"
 #define ARRAY_PREFIX    "array_"
 #define LABEL_PREFIX    "cvb_"
 #define INTERNAL_PREFIX "cv"

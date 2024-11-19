@@ -253,6 +253,7 @@ static int cpu6502_8bit_simple(struct node *node)
         case N_KEY2:
         case N_MUSIC:
         case N_NTSC:
+        case N_VDPSTATUS:
             return 1;
         case N_NEG8:
         case N_NOT8:
@@ -294,7 +295,7 @@ void cpu6502_node_generate(struct node *node, int decision)
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
             if (node->left != NULL)
-                cpu6502_node_generate(node->left, 0);
+                cpu6502_node_generate(node->left->left, 0);
             cpu6502_1op("JSR", node->label->name);
             break;
         case N_ADDR:    /* Get address of variable */
@@ -477,6 +478,9 @@ void cpu6502_node_generate(struct node *node, int decision)
             break;
         case N_NTSC:    /* Read NTSC flag */
             cpu6502_1op("LDA", "ntsc");
+            break;
+        case N_VDPSTATUS:    /* Read VDP status */
+            cpu6502_1op("LDA", "vdp_status");
             break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */

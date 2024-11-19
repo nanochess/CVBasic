@@ -12,6 +12,8 @@
 	; Revision date: Aug/21/2024. Added support for keypad.
 	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
 	;                             with flicker flag).
+	; Revision date: Oct/15/2024. Added LDIRMV.
+	; Revision date: Nov/12/2024. Saves the VDP status.
 	;
 
 	CPU 6502
@@ -58,9 +60,10 @@ flicker:	equ $29
 sprite_data:	equ $2a
 ntsc:		equ $2e
 pletter_bit:	equ $2f
+vdp_status:	equ $30
 
 	IF CVBASIC_MUSIC_PLAYER
-music_playing:		EQU $30
+music_playing:		EQU $4f
 music_timing:		EQU $31
 music_start:		EQU $32
 music_pointer:		EQU $34
@@ -157,6 +160,28 @@ FILVRM:
 	DEC temp2+1	; 5
 	BNE .1		; 2/3/4
 	RTS	
+
+LDIRMV:
+	LDA temp
+	LDY temp+1
+	JSR SETRD
+	LDA temp2
+	BEQ .1
+	INC temp2+1
+.1:
+	LDY #0
+.2:
+	LDA $3000	; 4
+	STA (pointer),Y	; 5/6
+	INC pointer	; 5
+	BNE .3		; 2/3/4
+	INC pointer+1	; 5
+.3:
+	DEC temp2	; 5
+	BNE .2		; 2/3/4
+	DEC temp2+1	; 5
+	BNE .2		; 2/3/4
+	RTS
 
 LDIRVM:
 	LDA pointer
@@ -280,7 +305,6 @@ cls:
 	sty cursor+1
 	sta pointer
 	sty pointer+1
-	lda #$00
 	ldy #$03
 	sta temp2
 	sty temp2+1
@@ -635,7 +659,7 @@ _peek16:
 	PLA
 	RTS
 
-	; temp2 constains left side (dividend)
+	; temp2 contains left side (dividend)
 	; temp contains right side (divisor)
 
 	; 16-bit multiplication.
@@ -707,7 +731,7 @@ _mod16s:
 	JSR _mod16.1
 	PLP
 	BPL .3
-	JSR _neg16
+	JMP _neg16
 .3:
 	RTS
 
@@ -745,7 +769,7 @@ _div16s:
 	JSR _div16.1
 	PLP
 	BPL .3
-	JSR _neg16
+	JMP _neg16
 .3:
 	RTS
 
@@ -952,7 +976,6 @@ mode_0:
 	LDA #$02
 	JSR vdp_generic_mode
 	JSR LDIRVM3
-	CLI
 	SEI
 	LDA #$f0
 	STA temp
@@ -1058,10 +1081,8 @@ mode_2:
 	LDY #$80	; $2000 for color table.
 	LDA #$00	; $0000 for bitmaps
 	STA temp+1
-	LDA #$00
 	JSR vdp_generic_mode
 	JSR LDIRVM
-	CLI
 	SEI
 	LDA #$f0
 	STA temp
@@ -1084,6 +1105,7 @@ int_handler:
 	TYA
 	PHA
 	LDA $2001	; VDP interruption clear.
+	STA vdp_status
 	LDA #$1B00
 	LDY #$1B00>>8
 	JSR SETWRT
@@ -2125,8 +2147,8 @@ START:
 	SEI
 	CLD
 
-	LDX #$00
 	LDA #$00
+	TAX
 .1:	STA $0100,X
 	STA $0200,X
 	STA $0300,X

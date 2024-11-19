@@ -589,7 +589,7 @@ void cpu9900_node_generate(struct node *node, int decision)
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
             if (node->left != NULL)
-                cpu9900_node_generate(node->left, 0);
+                cpu9900_node_generate(node->left->left, 0);
             cpu9900_1op("bl", "@JSR");
             cpu9900_1op("data", node->label->name);
             break;
@@ -752,6 +752,9 @@ void cpu9900_node_generate(struct node *node, int decision)
             break;
         case N_NTSC:    /* Read NTSC flag */
             cpu9900_2op("movb", "@ntsc", "r0");
+            break;
+        case N_VDPSTATUS:    /* Read VDP status */
+            cpu9900_2op("movb", "@vdp_status", "r0");
             break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */

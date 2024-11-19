@@ -114,8 +114,6 @@ void cpuz80_noop(char *mnemonic)
     sprintf(z80_line, "\t%s\n", mnemonic);
     z80_emit_line();
     z80_a_content[0] = '\0';
-    if (strcmp(mnemonic, "NEG") != 0 && strcmp(mnemonic, "CPL") != 0)
-        z80_hl_content[0] = '\0';
     if (strcmp(mnemonic, "NEG") == 0)
         z80_flag_z_valid = 1;
     else
@@ -241,7 +239,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
             if (strcmp(operand2, z80_hl_content) == 0) {
                 operand2 = "L";
             /* Reading from memory address, and HL already has the address */
-            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_content, strlen(operand2) - 2) == 0) {
+            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_content, strlen(operand2) - 2) == 0 && z80_hl_content[strlen(operand2) - 2] == '\0') {
                 /* Generate subexpression info and mark as previously processed */
                 z80_flag_z_valid = 0;
                 strcpy(z80_a_content, operand2);
@@ -253,7 +251,7 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
                 return;
         } else if (strcmp(operand2, "A") == 0) {
             /* Writing to memory address, and HL already has the address */
-            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_content, strlen(operand1) - 2) == 0) {
+            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_content, strlen(operand1) - 2) == 0 && z80_hl_content[strlen(operand1) - 2] == '\0') {
                 /* Generate subexpression info and mark as previously processed */
                 strcpy(z80_a_content, operand1);
                 special = 1;    /* Mark as processed */
@@ -324,8 +322,11 @@ void cpuz80_node_label(struct node *node)
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
-            if (node->left != NULL)
-                cpuz80_node_label(node->left);
+            explore = node->left;
+            while (explore != NULL) {
+                cpuz80_node_label(explore->left);
+                explore = explore->right;
+            }
             node->regs = REG_ALL;
             break;
         case N_ADDR:    /* Get address of variable */
@@ -393,6 +394,7 @@ void cpuz80_node_label(struct node *node)
         case N_KEY2:    /* Read keypad 2 */
         case N_MUSIC:   /* Read music playing status */
         case N_NTSC:    /* Read NTSC flag */
+        case N_VDPSTATUS:   /* Read VDP status */
             node->regs = REG_A;
             break;
         case N_NUM8:    /* Load 8-bit constant */
@@ -638,7 +640,15 @@ void cpuz80_node_label(struct node *node)
                 }
             }
             if (node->type == N_DIV16) {
-                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8 || node->right->value == 16)) {
+                    cpuz80_node_label(node->left);
+                    if (node->right->value == 8 || node->right->value == 16)
+                        node->regs = node->left->regs | REG_AF;
+                    else
+                        node->regs = node->left->regs;
+                    break;
+                }
+                if (node->right->type == N_NUM16 && node->right->value == 256) {
                     cpuz80_node_label(node->left);
                     node->regs = node->left->regs;
                     break;
@@ -687,8 +697,28 @@ void cpuz80_node_generate(struct node *node, int decision)
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
-            if (node->left != NULL)
-                cpuz80_node_generate(node->left, 0);
+            /* Generate arguments in reversed order */
+            for (c = node->value - 1; c >= 0; c--) {
+                int a;
+                
+                a = c;
+                explore = node->left;
+                while (a) {
+                    explore = explore->right;
+                    a--;
+                }
+                cpuz80_node_generate(explore->left, 0);
+                if (c > 0)
+                    cpuz80_1op("PUSH", "HL");
+            }
+            if (node->value > 1)
+                cpuz80_1op("POP", "DE");
+            if (node->value > 2)
+                cpuz80_1op("POP", "BC");
+            if (node->value > 3)
+                cpuz80_1op("POP", "IX");
+            if (node->value > 4)
+                cpuz80_1op("POP", "IY");
             cpuz80_1op("CALL", node->label->name);
             break;
         case N_ADDR:    /* Get address of variable */
@@ -897,6 +927,9 @@ void cpuz80_node_generate(struct node *node, int decision)
             break;
         case N_NTSC:    /* Read NTSC flag */
             cpuz80_2op("LD", "A", "(ntsc)");
+            break;
+        case N_VDPSTATUS:    /* Read VDP status */
+            cpuz80_2op("LD", "A", "(vdp_status)");
             break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */
@@ -1474,14 +1507,37 @@ void cpuz80_node_generate(struct node *node, int decision)
                 }
             }
             if (node->type == N_DIV16) {
-                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8 || node->right->value == 16)) {
                     cpuz80_node_generate(node->left, 0);
+                    
+                    /*
+                     ** Division by 2 - 4 bytes (1 * 4)
+                     ** Division by 4 - 8 bytes (2 * 4)
+                     ** Division by 8 - 11 bytes (3 * 3 + 2)
+                     ** Division by 16 - 14 bytes (4 * 3 + 2)
+                     */
                     c = node->right->value;
-                    do {
-                        cpuz80_1op("SRL", "H");
-                        cpuz80_1op("RR", "L");
-                        c /= 2;
-                    } while (c > 1) ;
+                    if (c == 2 || c == 4) {
+                        do {
+                            cpuz80_1op("SRL", "H");
+                            cpuz80_1op("RR", "L");
+                            c /= 2;
+                        } while (c > 1) ;
+                    } else {
+                        cpuz80_2op("LD", "A", "L");
+                        do {
+                            cpuz80_1op("SRL", "H");
+                            cpuz80_noop("RRA");
+                            c /= 2;
+                        } while (c > 1) ;
+                        cpuz80_2op("LD", "L", "A");
+                    }
+                    break;
+                }
+                if (node->right->type == N_NUM16 && node->right->value == 256) {
+                    cpuz80_node_generate(node->left, 0);
+                    cpuz80_2op("LD", "L", "H");
+                    cpuz80_2op("LD", "H", "0");
                     break;
                 }
             }

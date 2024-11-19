@@ -30,9 +30,9 @@ enum node_type {
     N_NUM8, N_NUM16,
     N_PEEK8, N_PEEK16, N_VPEEK, N_INP, N_ABS16, N_SGN16,
     N_JOY1, N_JOY2, N_KEY1, N_KEY2,
-    N_RANDOM, N_FRAME, N_MUSIC, N_NTSC, N_POS,
+    N_RANDOM, N_FRAME, N_MUSIC, N_NTSC, N_POS, N_VDPSTATUS,
     N_ADDR,
-    N_USR,
+    N_USR, N_COMMA,
 };
 
 #define REG_A   0x01

@@ -4,6 +4,7 @@
 	' by Oscar Toledo G.
 	'
 	' Creation date: Aug/21/2024.
+	' Revision date: Oct/15/2024. Solved wrong display for number key in 2nd controller.
 	'
 
 	CONST left_x = 56
@@ -81,33 +82,12 @@ main_loop:
 			SPRITE 5, $d1, 0, 0, 0
 		END IF
 		c = cont1.key
-		IF cont1.key = 15 THEN
+		IF c = 15 THEN
 			SPRITE 6, $d1, 0, 0, 0
 		ELSE
-			IF c = 0 THEN
-				x = 16
-				y = 111
-				c = 48
-			ELSEIF c = 10 THEN
-				x = 0
-				y = 111
-				c = 42
-			ELSEIF c = 11 THEN
-				x = 32
-				y = 111
-				c = 43
-			ELSEIF c > 0 AND c < 10 THEN
-				x = ((c - 1) % 3) * 16
-				y = 63 + ((c - 1) / 3) * 16
-				c = c + 48
-			ELSE
-				rem some systems have extra characters
-				x = 16
-				y = 127
-			END IF
+			GOSUB prepare_key
 			SPRITE 6, left_y + y, left_x + x, c, 9
 		END IF
-		
 		IF cont2.up THEN
 			SPRITE 7, right_y - 1, right_x + 16, 27, 9
 		ELSE
@@ -139,30 +119,10 @@ main_loop:
 			SPRITE 12, $d1, 0, 0, 0
 		END IF
 		c = cont2.key
-		IF cont2.key = 15 THEN
+		IF c = 15 THEN
 			SPRITE 14, $d1, 0, 0, 0
 		ELSE
-			IF c = 0 THEN
-				x = 16
-				y = 111
-				c = 48
-			ELSEIF c = 10 THEN
-				x = 0
-				y = 111
-				c = 42
-			ELSEIF c = 11 THEN
-				x = 32
-				y = 111
-				c = 35
-			ELSEIF c > 0 AND c < 10 THEN
-				x = ((c - 1) % 3) * 16
-				y = 63 + ((c - 1) / 3) * 16 
-				c = c + 48 
-			ELSE
-				rem some systems have extra characters
-				x = 16
-				y = 127
-			END IF
+			GOSUB prepare_key
 			SPRITE 14, right_y + y, right_x + x, c, 9
 		END IF
 
@@ -185,6 +145,30 @@ draw_controller:	PROCEDURE
 	PRINT AT #c + $01C0, "*!0!+"
 	END
 
+prepare_key:	PROCEDURE
+	IF c = 0 THEN
+		x = 16
+		y = 111
+		c = 48
+	ELSEIF c = 10 THEN
+		x = 0
+		y = 111
+		c = 42
+	ELSEIF c = 11 THEN
+		x = 32
+		y = 111
+		c = 43
+	ELSEIF c > 0 AND c < 10 THEN
+		x = ((c - 1) % 3) * 16
+		y = 63 + ((c - 1) / 3) * 16
+		c = c + 48
+	ELSE
+		' Some systems have extra characters
+		x = 16
+		y = 127
+	END IF
+	END
+		
 extra_bitmaps:
 	BITMAP "...XX..."
 	BITMAP "..XXXX.."

@@ -138,3 +138,132 @@ void generic_jump_zero(char *label)
     if (target == CPU_Z80)
         cpuz80_2op("JP", "Z", label);
 }
+
+/*
+ ** Generic range comparison (8-bit)
+ */
+void generic_comparison_8bit(int min, int max, char *label)
+{
+    char value[256];
+    
+    if (min == max) {
+        if (target == CPU_Z80) {
+            sprintf(value, "%d", min);
+            cpuz80_1op("CP", value);
+            cpuz80_2op("JP", "NZ", label);
+        }
+        if (target == CPU_6502) {
+            sprintf(value, "#%d", min);
+            cpu6502_1op("CMP", value);
+            cpu6502_1op("BNE.L", label);
+        }
+        if (target == CPU_9900) {
+            sprintf(value, "%d", min * 256);
+            cpu9900_2op("ci", "r0", value);
+            cpu9900_1op("jne", label);
+        }
+        return;
+    }
+    if (target == CPU_Z80) {
+        sprintf(value, "%d", min);
+        cpuz80_1op("CP", value);
+        cpuz80_2op("JP", "C", label);
+        sprintf(value, "%d", max + 1);
+        cpuz80_1op("CP", value);
+        cpuz80_2op("JP", "NC", label);
+    }
+    if (target == CPU_6502) {
+        sprintf(value, "#%d", min);
+        cpu6502_1op("CMP", value);
+        cpu6502_1op("BCC.L", label);
+        sprintf(value, "#%d", max + 1);
+        cpu6502_1op("CMP", value);
+        cpu6502_1op("BCS.L", label);
+    }
+    if (target == CPU_9900) {
+        sprintf(value, "%d", min * 256);
+        cpu9900_2op("ci", "r0", value);
+        cpu9900_1op("jl", label);
+        sprintf(value, "%d", max * 256);
+        cpu9900_2op("ci", "r0", value);
+        cpu9900_1op("jh", label);
+    }
+}
+
+/*
+ ** Generic range comparison (16-bit)
+ */
+void generic_comparison_16bit(int min, int max, char *label)
+{
+    char value[256];
+            
+    if (min == max) {
+        if (target == CPU_Z80) {
+            sprintf(value, "%d", min);
+            cpuz80_2op("LD", "DE", value);
+            cpuz80_1op("OR", "A");
+            cpuz80_2op("SBC", "HL", "DE");
+            cpuz80_2op("ADD", "HL", "DE");
+            cpuz80_2op("JP", "NZ", label);
+        }
+        if (target == CPU_6502) {
+            sprintf(value, "#%d", min & 0xff);
+            cpu6502_1op("CMP", value);
+            cpu6502_1op("BNE.L", label);
+            sprintf(value, "#%d", (min >> 8) & 0xff);
+            cpu6502_1op("CPY", value);
+            cpu6502_1op("BNE.L", label);
+        }
+        if (target == CPU_9900) {
+            sprintf(value, "%d", min);
+            cpu9900_2op("ci", "r0", value);
+            cpu9900_1op("jne", label);
+        }
+        return;
+    }
+    if (target == CPU_Z80) {
+        sprintf(value, "%d", min);
+        cpuz80_2op("LD", "DE", value);
+        cpuz80_1op("OR", "A");
+        cpuz80_2op("SBC", "HL", "DE");
+        cpuz80_2op("ADD", "HL", "DE");
+        cpuz80_2op("JP", "C", label);
+        sprintf(value, "%d", max + 1);
+        cpuz80_2op("LD", "DE", value);
+/*      cpuz80_1op("OR", "A"); */ /* Guaranteed */
+        cpuz80_2op("SBC", "HL", "DE");
+        cpuz80_2op("ADD", "HL", "DE");
+        cpuz80_2op("JP", "NC", label);
+    }
+    if (target == CPU_6502) {
+        cpu6502_noop("PHA");
+        cpu6502_noop("SEC");
+        sprintf(value, "#%d", min & 0xff);
+        cpu6502_1op("SBC", value);
+        cpu6502_noop("TYA");
+        sprintf(value, "#%d", (min >> 8) & 0xff);
+        cpu6502_1op("SBC", value);
+        cpu6502_noop("PLA");
+        cpu6502_1op("BCC.L", label);
+        cpu6502_noop("PHA");
+/*      cpu6502_noop("SEC"); */ /* Guaranteed */
+        sprintf(value, "#%d", (max + 1) & 0xff);
+        cpu6502_1op("SBC", value);
+        cpu6502_noop("TYA");
+        sprintf(value, "#%d", ((max + 1) >> 8) & 0xff);
+        cpu6502_1op("SBC", value);
+        cpu6502_noop("PLA");
+        cpu6502_1op("BCS.L", label);
+    }
+    if (target == CPU_9900) {
+        sprintf(value, "%d", min);
+        cpu9900_2op("ci", "r0", value);
+        cpu9900_1op("jl", label);
+        sprintf(value, "%d", max);
+        cpu9900_2op("ci", "r0", value);
+        cpu9900_1op("jh", label);
+    }
+}
+
+
+

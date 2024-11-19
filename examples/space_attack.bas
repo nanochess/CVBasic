@@ -5,6 +5,7 @@
 	' https://nanochess.org/
 	'
 	' Creation date: Feb/29/2024.
+	' Revision date: Nov/13/2024. Added pixel stars background and double-speed enemies.
 	'
 
 	DEFINE SPRITE 0,4,sprites_bitmaps
@@ -15,10 +16,9 @@
 
 restart_game:
 	CLS
+	MODE 2		' In this mode, char definitions are faster
 
 	#score = 0
-
-	GOSUB update_score
 
 	player_x = 120
 	player_y = 176
@@ -27,13 +27,36 @@ restart_game:
 		enemy_s(c) = 0
 	NEXT c
 
+	' Draw the stars background
+	'
+	' We make a vertical strip using 8 characters (numbers 16 to 23)
+	' and we repeat it continuously (24 rows / 8 characters = 3 repetitions)
+	'
+	FOR d = 0 TO 31				' For each column
+		e = e + RANDOM(4) + 2		' Displace the strip offset for this column.
+		FOR #c = 0 TO 736 STEP 32
+			e = ((e + 1) AND 7) OR 16	' Limit to range 16 to 23.
+			VPOKE $1800 + #c + d, e		' Put strip character.
+		NEXT #c
+	NEXT d
+
+	GOSUB update_score
+
 game_loop:
 	WAIT
 
+	' Displace stars pixel by pixel
+	'
+	' This is almost magic because these characters are used in the whole screen,
+	' so this redefinition of characters updates the whole screen.
+	'
+	DEFINE CHAR 16,8,VARPTR pixel_bitmaps(((FRAME / 2) AND 63) XOR 63)
+
 	' Background "music" (two tones alternating each 16 video frames)
 	#c = 960
-	IF FRAME AND 16 THEN #c = 1023
-	SOUND 0,#c,15-(FRAME AND 15)
+	IF FRAME AND 32 THEN #c = 1023
+	d = (FRAME AND 31) / 2
+	SOUND 0, #c, 15 - d
 
 	' Setup player sprite
 	SPRITE 0,player_y-1,player_x,0,10
@@ -57,8 +80,8 @@ game_loop:
 			' Create one
 			enemy_x(c) = RANDOM(240)
 			enemy_y(c) = $c0 + c * 4
-			enemy_s(c) = 1
-		ELSEIF enemy_s(c) = 1 THEN	' Enemy moving.
+			enemy_s(c) = RANDOM(2) + 1
+		ELSEIF enemy_s(c) < 3 THEN	' Enemy moving.
 			SPRITE c + 2, enemy_y(c) - 1, enemy_x(c), 4, 2
 
 			' Slowly drift towards the player.
@@ -70,10 +93,15 @@ game_loop:
 				END IF
 			END IF
 			' Move down.
-			enemy_y(c) = enemy_y(c) + 2
-			IF enemy_y(c) = $c0 THEN	' Reached frontier.
+			IF enemy_s(c) = 1 THEN
+				enemy_y(c) = enemy_y(c) + 2
+			ELSE
+				enemy_y(c) = enemy_y(c) + 3
+			END IF
+			IF enemy_y(c) >= $c0 AND enemy_y(c) <= $c7 THEN	' Reached bottom.
 				enemy_x(c) = RANDOM(240)
 				enemy_y(c) = $f2	' Reset enemy.
+				enemy_s(c) = RANDOM(2) + 1
 			END IF
 
 			'
@@ -82,7 +110,7 @@ game_loop:
 			IF bullet_y <> 0 THEN	' Is bullet launched?
 				IF ABS(bullet_x + 1 - enemy_x(c)) < 8 THEN
 					IF ABS(bullet_y + 1 - enemy_y(c)) < 8 THEN
-						enemy_s(c) = 2	' Enemy explodes
+						enemy_s(c) = 3	' Enemy explodes
 						#score = #score + 1
 						GOSUB update_score
 						bullet_y = 0
@@ -177,6 +205,154 @@ player_dies:
 update_score:	PROCEDURE
 	PRINT AT 2,#score,"0"
 	END
+
+	'
+	' Pixel scrolling stars
+	'
+pixel_bitmaps:
+	BITMAP "....X..."
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "....X..."
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
+	BITMAP "........"
 
 	'
 	' Bitmaps for the game.

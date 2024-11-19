@@ -36,6 +36,9 @@
 	;                             and Casio PV-2000.
 	; Revision date: Aug/30/2024. Changed mode bit to bit 3 (avoids collision
 	;                             with flicker flag).
+	; Revision date: Oct/15/2024. Added LDIRMV. Solved bug where asterisk and number
+	;                             keys values were inverted.
+	; Revision date: Nov/12/2024. Saves the VDP status.
 	;
 
 JOYSEL:	equ $c0
@@ -286,6 +289,21 @@ FILVRM:
 			; 37 42
 	ret
 
+LDIRMV:
+	ex de,hl
+	call SETRD
+	ex (sp),hl
+	ex (sp),hl
+.1:
+	ld a,(VDP)
+	ld (de),a
+	inc de
+	dec bc
+	ld a,b
+	or c
+	jp nz,.1
+	ret
+
 LDIRVM:
         EX DE,HL
         CALL SETWRT
@@ -366,29 +384,51 @@ FILVRM:
 			; 35 40
 	ret
 
-LDIRVM:
-        EX DE,HL
-        CALL SETWRT
-        EX DE,HL
-        DEC BC
-        INC C
-        LD A,B
-        LD B,C
-        INC A
-        LD C,VDP
+LDIRMV:
+	ex de,hl
+	call SETRD
+	ex (sp),hl
+	ex (sp),hl
 .1:
+	in a,(VDP)
+	ld (de),a
     if SORD
-	NOP	
+	nop	
     endif
     if SG1000+MEMOTECH+EINSTEIN
-	NOP	; SG1000 is 3.58 mhz, but SC3000 is 4 mhz.
-	NOP
+	nop	; SG1000 is 3.58 mhz, but SC3000 is 4 mhz.
+	nop
     endif
-	OUTI
-        JP NZ,.1
-        DEC A
-        JP NZ,.1
-        RET
+	inc de
+	dec bc
+	ld a,b
+	or c
+	jp nz,.1
+	ret
+
+LDIRVM:
+        ex de,hl
+        call SETWRT
+        ex de,hl
+        dec bc
+        inc c
+        ld a,b
+        ld b,c
+        inc a
+        ld c,VDP
+.1:
+    if SORD
+	nop	
+    endif
+    if SG1000+MEMOTECH+EINSTEIN
+	nop	; SG1000 is 3.58 mhz, but SC3000 is 4 mhz.
+	nop
+    endif
+	outi
+        jp nz,.1
+        dec a
+        jp nz,.1
+        ret
     endif
 
 LDIRVM3:
@@ -478,8 +518,8 @@ nmi_on:
 
     if COLECO
 keypad_table:
-        db $0f,$08,$04,$05,$0c,$07,$0a,$02
-        db $0d,$0b,$00,$09,$03,$01,$06,$0f
+        db $0f,$08,$04,$05,$0c,$07,$0b,$02
+        db $0d,$0a,$00,$09,$03,$01,$06,$0f
     endif
 
 cls:
@@ -1225,6 +1265,7 @@ nmi_handler:
     endif
     if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
 	in a,(VDPR+1)
+	ld (vdp_status),a
     endif
 	ld bc,$8000+VDP
 	bit 2,(hl)
@@ -2321,6 +2362,7 @@ nmi_handler:
 	pop hl
     if COLECO
 	in a,(VDP+1)
+	ld (vdp_status),a
 	pop af
 	retn
     endif
@@ -2347,6 +2389,7 @@ ctc_reti:
     endif
     if PV2000
 	ld a,(VDP+1)
+	ld (vdp_status),a
 	pop af
 	retn
     endif
@@ -2470,6 +2513,7 @@ wait:
 	in a,(VDP+1)
 	bit 7,a
 	jr z,$-4
+	ld (vdp_status),a
 	jp nmi_handler
     endif
 

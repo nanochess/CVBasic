@@ -18,6 +18,7 @@
 	;                             can remain accessible in bank 0 (bank switching).
 	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
 	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
+	; Revision date: Nov/12/2024. Added vdp_status.
 	;
 
 rom_end:
@@ -59,6 +60,8 @@ key1_data:
 key2_data:
 	rb 1
 ntsc:
+	rb 1
+vdp_status:
 	rb 1
     if NABU
 nabu_data0: rb 1

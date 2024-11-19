@@ -33,7 +33,7 @@ The following files compose the compiler:
     cpuz80.h                    Z80 code headers.
     cpuz80.c                    Z80 code generation.
     driver.h                    Driver headers.
-    driver.c                    Driver for both processors.
+    driver.c                    Driver for all processors.
     node.h                      Tree node headers.
     node.c                      Tree node creation and optimization.
     LICENSE.txt                 Source code license
@@ -50,6 +50,8 @@ The following files compose the compiler:
     README.md                   This file
     
     examples/bank.bas           Bank-switching example.
+    examples/brinquitos.bas     Jumping game.
+    examples/controller.bas     Controller test.
     examples/demo.bas           Demo of graphics.
     examples/face_joystick.bas  Moving face with joystick.
     examples/happy_face.bas     Bouncing face.
@@ -60,8 +62,11 @@ The following files compose the compiler:
     examples/space_attack.bas   Game example.
     examples/test1.bas          Moving stars.
     examples/test2.bas          Arithmetic test.
+    examples/test3.bas          Shows usage of SELECT CASE / END CASE
+    examples/varptr.bas         VARPTR example for redefining graphics.
     examples/vgm.bas            VGM audio player.
     examples/viboritas.bas      Game example.
+    examples/vramcopy.bas       VRAM copy example.
 
 
 ### Usage guide
@@ -166,6 +171,10 @@ All platforms have been tested in emulation.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
 * NABU tested in real hardware by Sektor.
 
+Untested:
+
+* DEFINE VRAM READ is only tested for Colecovision/MSX, please test in your real hardware to check that the timing is right.
+
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
 
 The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD) and for CONT1.KEY using the keys 0-9, Delete and CR.
@@ -206,4 +215,4 @@ All the games in the book will compile for **all** the platforms.
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, tursilion, wavemotion, and youki.
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, aotta, ARTRAG, atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.
