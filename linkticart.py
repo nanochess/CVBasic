@@ -55,18 +55,33 @@ if (sys.argv[1][-5:] != '0.bin'):
 else:
     print('Banked cart detected...')
 
+    numprefix = ''
     namebase = sys.argv[1][:-5]
+    if (namebase[-1] == '0'):
+        # two digit number
+        numprefix = '0'
+        namebase = namebase[:-1]
 
-    file = namebase + str(sz) + '.bin'
+    if (sz < 10):
+        file = namebase + numprefix + str(sz) + '.bin'
+    else:
+        file = namebase + str(sz) + '.bin'
 
     while os.path.isfile(file):
         f = open(file, 'rb')
         data = f.read()
+        if len(data) < 8192:
+            while len(data)<8192:
+                data += b'\xff'
         f.close()
         fo.write(data)
         sz+=1
-        file = namebase + str(sz) + '.bin'
+        if (sz < 10):
+            file = namebase + numprefix + str(sz) + '.bin'
+        else:
+            file = namebase + str(sz) + '.bin'
 
+# calculate number of files needed for power of two
 desired=0
 if sz>64:
     desired=128
@@ -87,6 +102,8 @@ while sz<desired:
     fo.write(b'\xff'*8112)
 
 fo.close()
+print('Wrote final cart size:',sz*8,'KB')
+
 
 
 
