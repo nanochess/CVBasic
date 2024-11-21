@@ -62,6 +62,7 @@ The following files compose the compiler:
     examples/space_attack.bas   Game example.
     examples/test1.bas          Moving stars.
     examples/test2.bas          Arithmetic test.
+    examples/test3.bas          Shows usage of SELECT CASE / END CASE
     examples/varptr.bas         VARPTR example for redefining graphics.
     examples/vgm.bas            VGM audio player.
     examples/viboritas.bas      Game example.

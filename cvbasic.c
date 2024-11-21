@@ -4060,6 +4060,12 @@ void compile_statement(int check_for_else)
                     } else {
                         c->value = tree->value;
                     }
+                    if (target == CPU_Z80 || target == CPU_6502) {
+                        sprintf(temp, CONST_PREFIX "%s:\tequ $%04x", assigned, c->value);
+                    } else if (target == CPU_9900) {
+                        sprintf(temp, CONST_PREFIX "%s\tequ >%04x", assigned, c->value);
+                    }
+                    fprintf(output, "%s\n", temp);
                     node_delete(tree);
                     tree = NULL;
                 }

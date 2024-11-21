@@ -3,6 +3,16 @@
 import os.path
 import sys
 
+# take the first name, and return (base,zeros)
+# where zeros is how many leading zeros are in the index
+def parseFilename(fn):
+    zerocnt = 1
+    namebase = fn[:-5]
+    while (namebase[-1] == '0'):
+        zerocnt += 1
+        namebase = namebase[:-1]
+    return (namebase, zerocnt)
+
 # converts a binary from xas99 (xas99.py -b -R file.a99) with banks to a single non-inverted cart image
 # note: minimal error checking - GIGO.
 # pass the name of the first file (ie: file_b0.bin)
@@ -55,18 +65,22 @@ if (sys.argv[1][-5:] != '0.bin'):
 else:
     print('Banked cart detected...')
 
-    namebase = sys.argv[1][:-5]
+    (namebase,zerocnt) = parseFilename(sys.argv[1])
 
-    file = namebase + str(sz) + '.bin'
-
+    file = namebase + str(sz).zfill(zerocnt) + '.bin'
+    
     while os.path.isfile(file):
         f = open(file, 'rb')
         data = f.read()
+        if len(data) < 8192:
+            while len(data)<8192:
+                data += b'\xff'
         f.close()
         fo.write(data)
         sz+=1
-        file = namebase + str(sz) + '.bin'
+        file = namebase + str(sz).zfill(zerocnt) + '.bin'
 
+# calculate number of files needed for power of two
 desired=0
 if sz>64:
     desired=128
@@ -87,6 +101,8 @@ while sz<desired:
     fo.write(b'\xff'*8112)
 
 fo.close()
+print('Wrote final cart size:',sz*8,'KB')
+
 
 
 
