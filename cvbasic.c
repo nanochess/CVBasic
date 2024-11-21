@@ -335,7 +335,7 @@ void bank_finish(void)
             fprintf(output, "\tbyte 255\n");
             fprintf(output, "\t.endr\n");
         }
-        // output the bank switch address so it doesn't need to be calcuated later
+        // output the bank switch address so it doesn't need to be calculated later
         fprintf(output, "\tdata >%04x\n", (bank_current+2)*2+0x6000);
     } else {
         int c;
@@ -3027,7 +3027,17 @@ void compile_statement(int check_for_else)
                                     } else {
                                         fprintf(output, ",");
                                     }
-                                    fprintf(output, "%s%s+%d", label->length ? ARRAY_PREFIX : LABEL_PREFIX, label->name, label->name[0] == '#' ? index * 2 : index);
+                                    strcpy(assigned, label->name);
+                                    if (target == CPU_9900) {
+                                        char *p = assigned;
+                                        
+                                        while (*p) {
+                                            if (*p == '#')
+                                                *p = '_';
+                                            p++;
+                                        }
+                                    }
+                                    fprintf(output, "%s%s+%d", label->length ? ARRAY_PREFIX : LABEL_PREFIX, assigned, label->name[0] == '#' ? index * 2 : index);
                                     if (c == 7) {
                                         fprintf(output, "\n");
                                         c = 0;
@@ -3068,7 +3078,17 @@ void compile_statement(int check_for_else)
                                         } else {
                                             fprintf(output, ",");
                                         }
-                                        fprintf(output, "%s%s", LABEL_PREFIX, label->name);
+                                        strcpy(assigned, label->name);
+                                        if (target == CPU_9900) {
+                                            char *p = assigned;
+                                            
+                                            while (*p) {
+                                                if (*p == '#')
+                                                    *p = '_';
+                                                p++;
+                                            }
+                                        }
+                                        fprintf(output, "%s%s", LABEL_PREFIX, assigned);
                                         if (c == 7) {
                                             fprintf(output, "\n");
                                             c = 0;
@@ -4062,10 +4082,11 @@ void compile_statement(int check_for_else)
                     }
                     if (target == CPU_Z80 || target == CPU_6502) {
                         sprintf(temp, CONST_PREFIX "%s:\tequ $%04x", assigned, c->value);
+                        fprintf(output, "%s\n", temp);
                     } else if (target == CPU_9900) {
                         sprintf(temp, CONST_PREFIX "%s\tequ >%04x", assigned, c->value);
+                        cpu9900_label(temp);    // Hack
                     }
-                    fprintf(output, "%s\n", temp);
                     node_delete(tree);
                     tree = NULL;
                 }
@@ -5925,7 +5946,17 @@ int main(int argc, char *argv[])
                     /* To call compiled code, we need the stack pointer and we need to jsr it */
                     fprintf(output, "\tmov @>8314,r10\n");
                     fprintf(output, "\tbl @jsr\n");
-                    fprintf(output, "\tdata " LABEL_PREFIX "%s\n", frame_drive->name);
+                    strcpy(assigned, frame_drive->name);
+                    if (target == CPU_9900) {
+                        char *p = assigned;
+                        
+                        while (*p) {
+                            if (*p == '#')
+                                *p = '_';
+                            p++;
+                        }
+                    }
+                    fprintf(output, "\tdata " LABEL_PREFIX "%s\n", assigned);
                 }
                 else
                     fprintf(output, "\tCALL " LABEL_PREFIX "%s\n", frame_drive->name);
