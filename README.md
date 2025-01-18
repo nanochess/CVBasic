@@ -210,6 +210,8 @@ There are some very good examples of games developed with CVBasic.
 
 * Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
 
+* Monkey Moon by nanochess, example from the book **Programming Games for Colecovision**. Available from [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249)
+
 * Rogue-like Wip by Skywaffle. Available from [https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/](https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/)
 
 * Unnamed game by OriginalJohn. Demo screenshot [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429)
