@@ -208,6 +208,8 @@ There are some very good examples of games developed with CVBasic.
 
 * Donkey.BAS by Claus Bækkel. Available for purchase from [https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/](https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/)
 
+* Gorilla.BAS by nanochess. Available from [https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/](https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/)
+
 * Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
 
 * Monkey Moon by nanochess, example from the book **Programming Games for Colecovision**. Available from [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249)
