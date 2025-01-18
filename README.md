@@ -202,7 +202,9 @@ There are some very good examples of games developed with CVBasic.
 
 * Beachhead by Eric Damain. Demo screenshots [https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/](https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/)
 
-* Camelot Knights by myself. Available from [https://forums.atariage.com/topic/363252-camelot-knights-game/](https://forums.atariage.com/topic/363252-camelot-knights-game/)
+* Camelot Knights by nanochess. Available from [https://forums.atariage.com/topic/363252-camelot-knights-game/](https://forums.atariage.com/topic/363252-camelot-knights-game/)
+
+* Colecovania demo by Skywaffle. Video at [https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl]((https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl)
 
 * Donkey.BAS by Claus Bækkel. Available for purchase from [https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/](https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/)
 
@@ -212,7 +214,7 @@ There are some very good examples of games developed with CVBasic.
 
 * Unnamed game by OriginalJohn. Demo screenshot [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429)
 
-* Whack'em Smack'em Byron. Available from [https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961](https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961)
+* Whack'em Smack'em Byron by Jess Ragan. Available from [https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961](https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961)
 
 ### Supporting the developer
 
