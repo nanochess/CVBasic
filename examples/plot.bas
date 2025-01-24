@@ -17,6 +17,8 @@
 
 	DEF FN LINECOLOR(w,x,y,z,a)=x1=w:y1=x:x2=y:y2=z:c=a:GOSUB draw_line_color
 
+	DEF FN CIRCLE(w,x,y)=x1=w:y1=x:c=y:GOSUB draw_circle
+
 	MODE 1
 	
 	y = 20
@@ -37,22 +39,26 @@
 	NEXT y
 
 	FOR y = 40 TO 150
-		FOR x = 40 TO 63
+		FOR x = 32 TO 55
 			PSETCOLOR(x, y, y AND $0F)
 		NEXT x
 	NEXT y
 
-	FOR x = 72 TO 202 STEP 10
+	FOR x = 102 TO 202 STEP 10
 		LINE(x, 40, 202, 150)
 	NEXT x
 
 	FOR y = 40 TO 150 STEP 10
-		LINE(72, y, 202, 150)
+		LINE(102, y, 202, 150)
 	NEXT y
 
 	FOR x = 8 TO 240 STEP 8
 		LINECOLOR(128, 0, x, 16, (x / 8) AND $0F)
 	NEXT x
+
+	CIRCLE(80, 60, 15)
+	CIRCLE(80, 100, 20)
+	CIRCLE(80, 140, 25)
 
 	WHILE 1: WEND
 
@@ -127,6 +133,35 @@ draw_line_color:	PROCEDURE
 			y1 = y1 + sy
 		WEND
 	END IF
+	END
+
+draw_points:	PROCEDURE
+	PSET(x1 + x, y1 + y)
+	PSET(x1 + x, y1 - y)
+	PSET(x1 - x, y1 + y)
+	PSET(x1 - x, y1 - y)
+	PSET(x1 + y, y1 + x)
+	PSET(x1 + y, y1 - x)
+	PSET(x1 - y, y1 + x)
+	PSET(x1 - y, y1 - x)
+	END
+
+draw_circle:	PROCEDURE
+	x = 0
+	y = c
+	#err = 3 - 2 * c
+	GOSUB draw_points
+	WHILE x <= y
+		IF #err > 0 THEN
+			y = y - 1
+			#err = #err + 4 * x - 4 * y + 10
+		ELSE
+			#err = #err + 4 * x + 6
+		END IF
+		x = x + 1
+		GOSUB draw_points
+	WEND
+
 	END
 
 bit_table:
