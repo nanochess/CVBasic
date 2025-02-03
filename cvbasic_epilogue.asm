@@ -25,7 +25,7 @@
 rom_end:
 
 	; ROM final size rounding
-    if MSX+COLECO+SG1000+SVI+SORD+PENCIL
+    if MSX+COLECO+SG1000+SVI+SORD
         TIMES (($+$1FFF)&$e000)-$ DB $ff
     endif
     if MEMOTECH+EINSTEIN+NABU
