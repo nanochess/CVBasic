@@ -5902,7 +5902,7 @@ int main(int argc, char *argv[])
     if ((machine == MEMOTECH || machine == EINSTEIN) && cpm_option != 0)
         fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, 0xe000);
     else
-        fprintf(output, "STACK:\tequ %C%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
+        fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
     fprintf(output, "VDP:\tequ %c%02x\t; VDP port (write)\n", hex, consoles[machine].vdp_port_write);
     fprintf(output, "VDPR:\tequ %c%02x\t; VDP port (read)\n", hex, consoles[machine].vdp_port_read);
     if (machine != TI994A) {

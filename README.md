@@ -196,6 +196,30 @@ The NABU PC can only use binaries up to 32 kb, joysticks can be used for both co
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
 
+### People using CVBasic
+
+There are some very good examples of games developed with CVBasic.
+
+* Beachhead by Eric Damain. Demo screenshots [https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/](https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/)
+
+* Camelot Knights by nanochess. Available from [https://forums.atariage.com/topic/363252-camelot-knights-game/](https://forums.atariage.com/topic/363252-camelot-knights-game/)
+
+* Colecovania demo by Skywaffle. Video at [https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl](https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl)
+
+* Donkey.BAS by Claus Bækkel. Available for purchase from [https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/](https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/)
+
+* Gorilla.BAS by nanochess. Available from [https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/](https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/)
+
+* Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
+
+* Monkey Moon by nanochess, example from the book **Programming Games for Colecovision**. Available from [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249)
+
+* Rogue-like Wip by Skywaffle. Available from [https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/](https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/)
+
+* Unnamed game by OriginalJohn. Demo screenshot [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429)
+
+* Whack'em Smack'em Byron by Jess Ragan. Available from [https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961](https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961)
+
 ### Supporting the developer
 
 If you find CVBasic useful, please show your appreciation making a donation via Paypal ($9 USD suggested) to b-i+y-u+b-i (at) gmail.com
@@ -206,7 +230,7 @@ You can also get my book **Programming Games for Colecovision** including an int
 
 The foreword is written by the legendary David R. Megarry, programmer of Zaxxon™ for Colecovision, and creator of the Dungeon!™ Board game.
 
-All the games in the book will compile for **all** the platforms.
+All the games in the book will compile for **all** the platforms (exception of Dungeon Warrior for Casio PV2000 because the small 16KB ROM size)
 
 * [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)
