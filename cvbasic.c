@@ -1723,7 +1723,7 @@ struct node *evaluate_level_7(int *type)
                 tree = node_create(N_MUL16, 0, tree,
                                    node_create(N_NUM16, 2, NULL, NULL));
             }
-            tree = node_create(*type == TYPE_16 ? N_PEEK16 : N_PEEK8, 0,
+            tree = node_create((*type & MAIN_TYPE) == TYPE_16 ? N_PEEK16 : N_PEEK8, 0,
                                node_create(N_PLUS16, 0, addr, tree), NULL);
             return tree;
         }
