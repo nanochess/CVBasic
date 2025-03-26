@@ -2313,7 +2313,6 @@ void compile_statement(int check_for_else)
                 struct node *var;
                 int positive;
                 int type;
-                int step_value;
                 int type_var;
                 enum node_type comparison;
                 struct signedness *sign;
@@ -2351,32 +2350,30 @@ void compile_statement(int check_for_else)
                         final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                     else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                         final = node_create(N_REDUCE16, 0, final, NULL);
-                    positive = 1;
+                    positive = 2;
                     var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
                     if (lex == C_NAME && strcmp(name, "STEP") == 0) {
                         get_lex();
                         if (lex == C_MINUS) {
                             get_lex();
-                            step = evaluate_level_0(&type);
-                            if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                                step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
-                            else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
-                                step = node_create(N_REDUCE16, 0, step, NULL);
-                            step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_MINUS16 : N_MINUS8, 0,
-                                            var, step);
                             positive = 0;
-                        } else {
-                            step = evaluate_level_0(&type);
-                            if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                                step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
-                            else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
-                                step = node_create(N_REDUCE16, 0, step, NULL);
-                            step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                         }
+                        step = evaluate_level_0(&type);
+                        if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+                            step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
+                        else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+                            step = node_create(N_REDUCE16, 0, step, NULL);
+                        if ((step->type == N_NUM8 && step->value == 1)
+                         || (step->type == N_NUM16 && step->value == 1))
+                            positive |= 1;
                     } else {
-                        step_value = 1;
                         step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_NUM16 : N_NUM8, 1, NULL, NULL);
+                        positive |= 1;
+                    }
+                    if ((positive & 2) == 0) {  /* Negative step */
+                        step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_MINUS16 : N_MINUS8, 0, var, step);
+                    } else {    /* Positive step */
                         step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                     }
                     var = node_create(N_ADDR, 0, NULL, NULL);
@@ -2385,15 +2382,37 @@ void compile_statement(int check_for_else)
                     var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
                     if ((type_var & MAIN_TYPE) == TYPE_16) {
-                        if (type_var & TYPE_SIGNED)
-                            comparison = positive ? N_GREATER16S : N_LESS16S;
-                        else
-                            comparison = positive ? N_GREATER16 : N_LESS16;
+                        if (type_var & TYPE_SIGNED) {
+                            if (final->type == N_NUM16 && final->value == 0x8000 && (positive & 1) != 0) {
+                                final->value = 0x7fff;
+                                comparison = N_EQUAL16;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER16S : N_LESS16S;
+                            }
+                        } else {
+                            if (final->type == N_NUM16 && final->value == 0x0000 && (positive & 1) != 0) {
+                                final->value = 0xffff;
+                                comparison = N_EQUAL16;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER16 : N_LESS16;
+                            }
+                        }
                     } else {
-                        if (type_var & TYPE_SIGNED)
-                            comparison = positive ? N_GREATER8S : N_LESS8S;
-                        else
-                            comparison = positive ? N_GREATER8 : N_LESS8;
+                        if (type_var & TYPE_SIGNED) {
+                            if (final->type == N_NUM8 && final->value == 0x80 && (positive & 1) != 0) {
+                                final->value = 0x7f;
+                                comparison = N_EQUAL8;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER8S : N_LESS8S;
+                            }
+                        } else {
+                            if (final->type == N_NUM8 && final->value == 0x00 && (positive & 1) != 0) {
+                                final->value = 0xff;
+                                comparison = N_EQUAL8;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER8 : N_LESS8;
+                            }
+                        }
                     }
                     final = node_create(comparison, 0, var, final);
                 }
