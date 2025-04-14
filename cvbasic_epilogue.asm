@@ -35,7 +35,16 @@ rom_end:
     if PV2000
 	TIMES $10000-$ DB $ff
     endif
-
+    if SG1000
+	forg $7FF0
+	org $7FF0
+	db "TMR SEGA"
+	db 0,0
+	db 0,0		; Checksum
+	db $11,$78	; Product code
+	db $00		; Version
+	db $4c		; SMS Export + 32KB for checksum
+    endif
     if COLECO+SG1000+MSX+SVI+SORD+PV2000
 	org BASE_RAM
     endif
