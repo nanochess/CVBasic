@@ -1656,6 +1656,7 @@ struct node *evaluate_level_7(int *type)
                 emit_error("missing right parenthesis in LEN");
             else
                 get_lex();
+            *type = TYPE_16;
             return node_create(N_NUM16, c, NULL, NULL);
         }
         if (strcmp(name, "POS") == 0) { /* Access to current screen position */
