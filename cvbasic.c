@@ -648,8 +648,14 @@ void get_lex(void) {
     if (accumulated.length > 0) {
         --accumulated.length;
         lex = accumulated.definition[accumulated.length].lex;
-        strcpy(name, accumulated.definition[accumulated.length].name);
         value = accumulated.definition[accumulated.length].value;
+        if (lex == C_STRING) {
+            name_size = value;
+            if (name_size)
+                memcpy(name, accumulated.definition[accumulated.length].name, name_size);
+        } else {
+            strcpy(name, accumulated.definition[accumulated.length].name);
+        }
         free(accumulated.definition[accumulated.length].name);
         return;
     }
@@ -1861,12 +1867,20 @@ void accumulated_push(enum lexical_component lex, int value, char *name)
     }
     accumulated.definition[accumulated.length].lex = lex;
     accumulated.definition[accumulated.length].value = value;
-    accumulated.definition[accumulated.length].name = malloc(strlen(name) + 1);
+    if (lex == C_STRING)
+        accumulated.definition[accumulated.length].name = malloc(value + 1);
+    else
+        accumulated.definition[accumulated.length].name = malloc(strlen(name) + 1);
     if (accumulated.definition[accumulated.length].name == NULL) {
         emit_error("out of memory in accumulated_push");
         exit(1);
     }
-    strcpy(accumulated.definition[accumulated.length].name, name);
+    if (lex == C_STRING) {
+        if (value > 0)
+            memcpy(accumulated.definition[accumulated.length].name, name, value);
+    } else {
+        strcpy(accumulated.definition[accumulated.length].name, name);
+    }
     accumulated.length++;
 }
 
@@ -1924,13 +1938,23 @@ int replace_macro(void)
                     argument[c].max_length = (argument[c].max_length + 1) * 2;
                 }
                 argument[c].definition[argument[c].length].lex = lex;
+                if (lex == C_STRING)
+                    value = name_size;
                 argument[c].definition[argument[c].length].value = value;
-                argument[c].definition[argument[c].length].name = malloc(strlen(name) + 1);
+                if (lex == C_STRING)
+                    argument[c].definition[argument[c].length].name = malloc(name_size + 1);
+                else
+                    argument[c].definition[argument[c].length].name = malloc(strlen(name) + 1);
                 if (argument[c].definition[argument[c].length].name == NULL) {
                     emit_error("out of memory in call to FN");
                     return 1;
                 }
-                strcpy(argument[c].definition[argument[c].length].name, name);
+                if (lex == C_STRING) {
+                    if (name_size)
+                        memcpy(argument[c].definition[argument[c].length].name, name, name_size);
+                } else {
+                    strcpy(argument[c].definition[argument[c].length].name, name);
+                }
                 argument[c].length++;
                 get_lex();
             }
@@ -5183,13 +5207,23 @@ void compile_statement(int check_for_else)
                                     macro->max_length = (macro->max_length + 1) * 2;
                                 }
                                 macro->definition[macro->length].lex = lex;
+                                if (lex == C_STRING)
+                                    value = name_size;
                                 macro->definition[macro->length].value = value;
-                                macro->definition[macro->length].name = malloc(strlen(name) + 1);
+                                if (lex == C_STRING)
+                                    macro->definition[macro->length].name = malloc(name_size + 1);
+                                else
+                                    macro->definition[macro->length].name = malloc(strlen(name) + 1);
                                 if (macro->definition[macro->length].name == NULL) {
                                     emit_error("Out of memory in DEF FN");
                                     break;
                                 }
-                                strcpy(macro->definition[macro->length].name, name);
+                                if (lex == C_STRING) {
+                                    if (value)
+                                        memcpy(macro->definition[macro->length].name, name, value);
+                                } else {
+                                    strcpy(macro->definition[macro->length].name, name);
+                                }
                                 macro->length++;
                                 get_lex();
                             }
