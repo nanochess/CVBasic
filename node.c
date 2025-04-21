@@ -786,16 +786,18 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
  ** parenthesis:
         1 - open and close ()
         2 - #
-        3 - open only (
+        3 - #(
         4 - @
  */
 void node_get_label(struct node *node, int parenthesis)
 {
     temp[0] = '\0';
-    if (parenthesis == 1 || parenthesis == 3)
+    if (parenthesis == 1)
         strcat(temp, "(");
     else if (parenthesis == 2)
         strcat(temp, "#");
+    else if (parenthesis == 3)
+        strcat(temp, "#(");
     else if (parenthesis == 4)
         strcat(temp, "@");
     if (node->label->length) {

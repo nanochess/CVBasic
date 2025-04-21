@@ -648,8 +648,14 @@ void get_lex(void) {
     if (accumulated.length > 0) {
         --accumulated.length;
         lex = accumulated.definition[accumulated.length].lex;
-        strcpy(name, accumulated.definition[accumulated.length].name);
         value = accumulated.definition[accumulated.length].value;
+        if (lex == C_STRING) {
+            name_size = value;
+            if (name_size)
+                memcpy(name, accumulated.definition[accumulated.length].name, name_size);
+        } else {
+            strcpy(name, accumulated.definition[accumulated.length].name);
+        }
         free(accumulated.definition[accumulated.length].name);
         return;
     }
@@ -1656,6 +1662,7 @@ struct node *evaluate_level_7(int *type)
                 emit_error("missing right parenthesis in LEN");
             else
                 get_lex();
+            *type = TYPE_16;
             return node_create(N_NUM16, c, NULL, NULL);
         }
         if (strcmp(name, "POS") == 0) { /* Access to current screen position */
@@ -1723,7 +1730,7 @@ struct node *evaluate_level_7(int *type)
                 tree = node_create(N_MUL16, 0, tree,
                                    node_create(N_NUM16, 2, NULL, NULL));
             }
-            tree = node_create(*type == TYPE_16 ? N_PEEK16 : N_PEEK8, 0,
+            tree = node_create((*type & MAIN_TYPE) == TYPE_16 ? N_PEEK16 : N_PEEK8, 0,
                                node_create(N_PLUS16, 0, addr, tree), NULL);
             return tree;
         }
@@ -1860,12 +1867,20 @@ void accumulated_push(enum lexical_component lex, int value, char *name)
     }
     accumulated.definition[accumulated.length].lex = lex;
     accumulated.definition[accumulated.length].value = value;
-    accumulated.definition[accumulated.length].name = malloc(strlen(name) + 1);
+    if (lex == C_STRING)
+        accumulated.definition[accumulated.length].name = malloc(value + 1);
+    else
+        accumulated.definition[accumulated.length].name = malloc(strlen(name) + 1);
     if (accumulated.definition[accumulated.length].name == NULL) {
         emit_error("out of memory in accumulated_push");
         exit(1);
     }
-    strcpy(accumulated.definition[accumulated.length].name, name);
+    if (lex == C_STRING) {
+        if (value > 0)
+            memcpy(accumulated.definition[accumulated.length].name, name, value);
+    } else {
+        strcpy(accumulated.definition[accumulated.length].name, name);
+    }
     accumulated.length++;
 }
 
@@ -1923,13 +1938,23 @@ int replace_macro(void)
                     argument[c].max_length = (argument[c].max_length + 1) * 2;
                 }
                 argument[c].definition[argument[c].length].lex = lex;
+                if (lex == C_STRING)
+                    value = name_size;
                 argument[c].definition[argument[c].length].value = value;
-                argument[c].definition[argument[c].length].name = malloc(strlen(name) + 1);
+                if (lex == C_STRING)
+                    argument[c].definition[argument[c].length].name = malloc(name_size + 1);
+                else
+                    argument[c].definition[argument[c].length].name = malloc(strlen(name) + 1);
                 if (argument[c].definition[argument[c].length].name == NULL) {
                     emit_error("out of memory in call to FN");
                     return 1;
                 }
-                strcpy(argument[c].definition[argument[c].length].name, name);
+                if (lex == C_STRING) {
+                    if (name_size)
+                        memcpy(argument[c].definition[argument[c].length].name, name, name_size);
+                } else {
+                    strcpy(argument[c].definition[argument[c].length].name, name);
+                }
                 argument[c].length++;
                 get_lex();
             }
@@ -2313,7 +2338,6 @@ void compile_statement(int check_for_else)
                 struct node *var;
                 int positive;
                 int type;
-                int step_value;
                 int type_var;
                 enum node_type comparison;
                 struct signedness *sign;
@@ -2351,32 +2375,30 @@ void compile_statement(int check_for_else)
                         final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                     else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
                         final = node_create(N_REDUCE16, 0, final, NULL);
-                    positive = 1;
+                    positive = 2;
                     var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
                     if (lex == C_NAME && strcmp(name, "STEP") == 0) {
                         get_lex();
                         if (lex == C_MINUS) {
                             get_lex();
-                            step = evaluate_level_0(&type);
-                            if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                                step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
-                            else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
-                                step = node_create(N_REDUCE16, 0, step, NULL);
-                            step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_MINUS16 : N_MINUS8, 0,
-                                            var, step);
                             positive = 0;
-                        } else {
-                            step = evaluate_level_0(&type);
-                            if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
-                                step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
-                            else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
-                                step = node_create(N_REDUCE16, 0, step, NULL);
-                            step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                         }
+                        step = evaluate_level_0(&type);
+                        if ((type_var & MAIN_TYPE) == TYPE_16 && (type & MAIN_TYPE) == TYPE_8)
+                            step = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, step, NULL);
+                        else if ((type_var & MAIN_TYPE) == TYPE_8 && (type & MAIN_TYPE) == TYPE_16)
+                            step = node_create(N_REDUCE16, 0, step, NULL);
+                        if ((step->type == N_NUM8 && step->value == 1)
+                         || (step->type == N_NUM16 && step->value == 1))
+                            positive |= 1;
                     } else {
-                        step_value = 1;
                         step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_NUM16 : N_NUM8, 1, NULL, NULL);
+                        positive |= 1;
+                    }
+                    if ((positive & 2) == 0) {  /* Negative step */
+                        step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_MINUS16 : N_MINUS8, 0, var, step);
+                    } else {    /* Positive step */
                         step = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_PLUS16 : N_PLUS8, 0, var, step);
                     }
                     var = node_create(N_ADDR, 0, NULL, NULL);
@@ -2385,15 +2407,37 @@ void compile_statement(int check_for_else)
                     var = node_create((type_var & MAIN_TYPE) == TYPE_16 ? N_LOAD16 : N_LOAD8, 0, NULL, NULL);
                     var->label = label_search(new_loop->var);
                     if ((type_var & MAIN_TYPE) == TYPE_16) {
-                        if (type_var & TYPE_SIGNED)
-                            comparison = positive ? N_GREATER16S : N_LESS16S;
-                        else
-                            comparison = positive ? N_GREATER16 : N_LESS16;
+                        if (type_var & TYPE_SIGNED) {
+                            if (final->type == N_NUM16 && final->value == 0x8000 && (positive & 1) != 0) {
+                                final->value = 0x7fff;
+                                comparison = N_EQUAL16;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER16S : N_LESS16S;
+                            }
+                        } else {
+                            if (final->type == N_NUM16 && final->value == 0x0000 && (positive & 1) != 0) {
+                                final->value = 0xffff;
+                                comparison = N_EQUAL16;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER16 : N_LESS16;
+                            }
+                        }
                     } else {
-                        if (type_var & TYPE_SIGNED)
-                            comparison = positive ? N_GREATER8S : N_LESS8S;
-                        else
-                            comparison = positive ? N_GREATER8 : N_LESS8;
+                        if (type_var & TYPE_SIGNED) {
+                            if (final->type == N_NUM8 && final->value == 0x80 && (positive & 1) != 0) {
+                                final->value = 0x7f;
+                                comparison = N_EQUAL8;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER8S : N_LESS8S;
+                            }
+                        } else {
+                            if (final->type == N_NUM8 && final->value == 0x00 && (positive & 1) != 0) {
+                                final->value = 0xff;
+                                comparison = N_EQUAL8;
+                            } else {
+                                comparison = (positive & 2) ? N_GREATER8 : N_LESS8;
+                            }
+                        }
                     }
                     final = node_create(comparison, 0, var, final);
                 }
@@ -5163,13 +5207,23 @@ void compile_statement(int check_for_else)
                                     macro->max_length = (macro->max_length + 1) * 2;
                                 }
                                 macro->definition[macro->length].lex = lex;
+                                if (lex == C_STRING)
+                                    value = name_size;
                                 macro->definition[macro->length].value = value;
-                                macro->definition[macro->length].name = malloc(strlen(name) + 1);
+                                if (lex == C_STRING)
+                                    macro->definition[macro->length].name = malloc(name_size + 1);
+                                else
+                                    macro->definition[macro->length].name = malloc(strlen(name) + 1);
                                 if (macro->definition[macro->length].name == NULL) {
                                     emit_error("Out of memory in DEF FN");
                                     break;
                                 }
-                                strcpy(macro->definition[macro->length].name, name);
+                                if (lex == C_STRING) {
+                                    if (value)
+                                        memcpy(macro->definition[macro->length].name, name, value);
+                                } else {
+                                    strcpy(macro->definition[macro->length].name, name);
+                                }
                                 macro->length++;
                                 get_lex();
                             }
