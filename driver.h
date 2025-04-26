@@ -16,3 +16,5 @@ extern void generic_jump(char *);
 extern void generic_jump_zero(char *);
 extern void generic_comparison_8bit(int, int, char *);
 extern void generic_comparison_16bit(int, int, char *);
+extern void generic_interrupt_disable(void);
+extern void generic_interrupt_enable(void);

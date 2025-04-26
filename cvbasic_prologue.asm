@@ -1,5 +1,5 @@
 	;
-	; CVBasic prologue (BASIC compiler for Colecovision)
+	; CVBasic prologue (BASIC compiler for Colecovision and other consoles)
 	;
 	; by Oscar Toledo G.
 	; https://nanochess.org/
@@ -44,8 +44,8 @@
 JOYSEL:	equ $c0
 KEYSEL:	equ $80
 
-JOY1:   equ $fc-$20*SG1000
-JOY2:   equ $ff-$22*SG1000
+JOY1:   equ $fc-$20*(SG1000+SMS)
+JOY2:   equ $ff-$22*(SG1000+SMS)
 
     if COLECO
 	org $8000
@@ -84,7 +84,7 @@ JOY2:   equ $ff-$22*SG1000
 	jp nmi_handler
       endif
     endif
-    if SG1000+SVI
+    if SG1000+SMS+SVI
 	org $0000
 	di
 	ld sp,STACK
@@ -236,6 +236,7 @@ RDPSG:
     endif
 
     if PV2000
+	; The Casio PV2000 has the VDP ports mapped into main memory (MREQ)
 WRTVDP:
 	ld a,b
 	ld (VDP+1),a
@@ -323,6 +324,7 @@ LDIRVM:
         JP NZ,.1	; 10 11
         RET
     else
+	; Normal platforms with VDP connected via ports (IORQ)
 WRTVDP:
 	ld a,b
 	out (VDP+1),a
@@ -354,7 +356,7 @@ WRTVRM:
 	out (VDP),a
 	ret
 
-    if SG1000
+    if SG1000+SMS
 	db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
 
 	; Located at $0066
@@ -392,7 +394,7 @@ LDIRMV:
 .1:
 	in a,(VDP)
 	ld (de),a
-    if SORD
+    if SORD+SMS
 	nop	
     endif
     if SG1000+MEMOTECH+EINSTEIN
@@ -417,7 +419,7 @@ LDIRVM:
         inc a
         ld c,VDP
 .1:
-    if SORD
+    if SORD+SMS
 	nop	
     endif
     if SG1000+MEMOTECH+EINSTEIN
@@ -431,6 +433,8 @@ LDIRVM:
         ret
     endif
 
+    if SMS
+    else
 LDIRVM3:
 	call .1
 	call .1
@@ -445,6 +449,7 @@ LDIRVM3:
 	ld d,a
 	pop hl
 	ret
+    endif
 
 DISSCR:
 	call nmi_off
@@ -494,7 +499,7 @@ nmi_off:
 	set 0,(hl)
 	pop hl
     endif
-    if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
+    if SG1000+SMS+MSX+SVI+SORD+MEMOTECH+NABU
         di
     endif
 	ret
@@ -511,7 +516,7 @@ nmi_on:
 	pop hl
 	pop af
     endif
-    if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
+    if SG1000+SMS+MSX+SVI+SORD+MEMOTECH+NABU
         ei
     endif
 	ret
@@ -523,6 +528,23 @@ keypad_table:
     endif
 
 cls:
+    if SMS
+	ld hl,$3800
+	ld (cursor),hl
+	di
+	call SETWRT
+.1:	ld a,$20	;  7
+	out (VDP),a	; 11
+	inc hl		;  6
+	inc hl		;  6
+	ld a,$00	;  7
+	out (VDP),a	; 11
+	ld a,h		;  4 
+	cp $3e		;  7
+	jp nz,.1	; 10
+	ei
+	ret
+    else
 	ld hl,$1800
 	ld (cursor),hl
 	ld bc,$0300
@@ -530,23 +552,49 @@ cls:
 	call nmi_off
 	call FILVRM
 	jp nmi_on
+    endif
 
 print_string:
 	ld c,a
 	ld b,0
 	ld de,(cursor)
+    if SMS
+	ld a,d
+	and $07
+	or $38
+	ld d,a
+    else
 	ld a,d
 	and $07
 	or $18
 	ld d,a
+    endif
 	push de
 	push bc
 	call nmi_off
+    if SMS
+	ex de,hl
+.1:	ld a,(de)
+	call WRTVRM
+	inc de
+	inc hl
+	xor a
+	call WRTVRM
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jp nz,.1
+    else
 	call LDIRVM
+    endif
 	call nmi_on
 	pop bc
 	pop hl
 	add hl,bc
+    if SMS
+        add hl,bc
+    endif
 	ld (cursor),hl
 	ret
 
@@ -586,49 +634,35 @@ print_digit:
 	dec a
 	jr z,.4
 	ld a,c
-	jr .5	
+	jr print_char
 .4:
 	ld a,$30
 .3:	ld b,1
-.5:	push hl
+
+print_char:
+	push hl
 	ld hl,(cursor)
 	ex af,af'
 	ld a,h
 	and $07
+    if SMS
+	or $38
+    else
 	or $18
+    endif
 	ld h,a
 	ex af,af'
 	call WRTVRM
 	inc hl
+    if SMS
+	xor a
+	call WRTVRM
+	inc hl
+    endif
 	ld (cursor),hl
 	pop hl
 	ret
 
-define_sprite:
-	ex de,hl
-	ld l,a
-	ld h,0
-	add hl,hl	; x2
-	add hl,hl	; x4
-	add hl,hl	; x8
-	add hl,hl	; x16
-	add hl,hl	; x32
-	ld c,l
-	ld b,h
-	pop af
-	pop hl
-	push af
-	add hl,hl	; x2
-	add hl,hl	; x4
-	ld h,$07
-	add hl,hl	; x8
-	add hl,hl	; x16
-	add hl,hl	; x32
-	ex de,hl
-	call nmi_off
-	call LDIRVM
-	jp nmi_on
-	
 define_char:
 	ex de,hl
 	ld l,a
@@ -636,6 +670,10 @@ define_char:
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
+    if SMS
+	add hl,hl	; x16
+	add hl,hl	; x32
+    endif
 	ld c,l
 	ld b,h
 	pop af
@@ -644,7 +682,17 @@ define_char:
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
+    if SMS
+	add hl,hl	; x16
+	add hl,hl	; x32
+    endif
 	ex de,hl
+    if SMS
+	di
+	call LDIRVM
+	ei
+	ret
+    else
 	call nmi_off
 	ld a,(mode)
 	and 8
@@ -654,8 +702,12 @@ define_char:
 	
 .1:	call LDIRVM
 	jp nmi_on
+    endif
 
 define_color:
+    if SMS
+	ret
+    else
 	ex de,hl
 	ld l,a
 	ld h,0
@@ -675,8 +727,68 @@ define_color:
 	call nmi_off
 	call LDIRVM3
 	jp nmi_on
+    endif
+
+define_sprite:
+	ex de,hl
+	ld l,a
+	ld h,0
+	add hl,hl	; x2
+	add hl,hl	; x4
+	add hl,hl	; x8
+	add hl,hl	; x16
+	add hl,hl	; x32
+    if SMS
+	add hl,hl	; x64
+    endif
+	ld c,l
+	ld b,h
+	pop af
+	pop hl
+	push af
+	add hl,hl	; x2
+	add hl,hl	; x4
+    if SMS
+	set 1,h
+    else
+	ld h,$07
+    endif
+	add hl,hl	; x8
+	add hl,hl	; x16
+	add hl,hl	; x32
+    if SMS
+	add hl,hl	; x64
+    endif
+	ex de,hl
+	call nmi_off
+	call LDIRVM
+	jp nmi_on
+    endif
 	
 update_sprite:
+    if SMS
+	pop bc
+	ld (sprite_data+2),a
+	pop af
+	ld (sprite_data+1),a
+	pop af
+	ld (sprite_data),a
+	pop af
+	; A = Sprite number
+	push bc
+	and $3f
+	ld e,a
+	ld d,sprites>>8
+	ld a,(sprite_data)
+	ld (de),a
+	sla e
+	set 7,e
+	ld a,(sprite_data+1)
+	ld (de),a
+	inc e
+	ld a,(sprite_data+2)
+	ld (de),a	
+    else
 	pop bc
 	ld (sprite_data+3),a
 	pop af
@@ -686,6 +798,7 @@ update_sprite:
 	pop af
 	ld (sprite_data),a
 	pop af
+	; A = Sprite number
 	push bc
 	ld de,sprites
 	add a,a
@@ -697,6 +810,7 @@ update_sprite:
 	ld hl,sprite_data
 	ld bc,4
 	ldir
+    endif
 	ret
 
 	; Fast 16-bit multiplication.
@@ -851,7 +965,7 @@ random:
         ret
 
 sn76489_freq:
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
 	ld b,a
 	ld a,l
 	and $0f
@@ -874,7 +988,7 @@ sn76489_freq:
 	ret
 
 sn76489_vol:
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
 	cpl
 	and $0f
 	or b
@@ -886,7 +1000,7 @@ sn76489_vol:
 	ret
 
 sn76489_control:
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
 	and $0f
 	or $e0
 	out (PSG),a
@@ -905,7 +1019,7 @@ ay3_reg:
 	out ($51),a
 	ret
     endif
-    if SG1000+SORD+MEMOTECH+PV2000
+    if SG1000+SORD+SMS+MEMOTECH+PV2000
         ret
     endif
     if MSX+SVI+EINSTEIN+NABU
@@ -930,7 +1044,7 @@ ay3_freq:
 	pop af
 	ret
     endif
-    if SG1000+SORD+MEMOTECH+PV2000
+    if SG1000+SMS+SORD+MEMOTECH+PV2000
 	ret
     endif
     if MSX+SVI+EINSTEIN+NABU
@@ -941,8 +1055,8 @@ ay3_freq:
 	jp WRTPSG
     endif
 
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
-	; Required for SG1000 as it doesn't have a BIOS
+    if SG1000+SMS+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
+	; Required for SG1000 and Sega Master System as both don't have a BIOS
 	; Required for SVI because we don't have access to BIOS in cartridge.
 	; Required for Sord M5 because it doesn't provide an ASCII charset.
 	; Required for Memotech/Einstein because CP/M uses the memory.
@@ -1051,6 +1165,79 @@ font_bitmaps:
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
     endif
 
+    if SMS
+set_palette:
+	push hl
+	di
+	ld hl,$c000
+	call SETWRT
+	pop hl
+	ld bc,16*256+VDP
+	outi
+	jp nz,$-2
+	ei
+	ret
+
+mode_4:
+	di
+	ld bc,$0400
+	call WRTVDP
+	ld bc,$a201
+	call WRTVDP
+	ld bc,$0e02	; $3800 for pattern table.
+	call WRTVDP
+	ld bc,$ff03	; Not used.
+	call WRTVDP
+	ld bc,$0304	; Not used.
+	call WRTVDP
+	ld bc,$7e05	; $3f00 for sprite attribute table.
+	call WRTVDP
+	ld bc,$ff06	; $2000 for sprites bitmaps (or $fb for $0000)
+	call WRTVDP
+	ld bc,$0007	
+	call WRTVDP
+	ld bc,$0008	; Background X scroll	
+	call WRTVDP
+	ld bc,$0009	; Background Y scroll	
+	call WRTVDP
+	ld hl,$20*32	; Point to space character bitmap
+	call SETWRT
+	ld hl,font_bitmaps
+	ld c,96
+.1:	ld b,8
+.2:	ld a,(hl)
+	out (VDP),a
+	ld a,(hl)
+	out (VDP),a
+	ld a,(hl)
+	out (VDP),a
+	ld a,(hl)
+	out (VDP),a
+	inc hl
+	djnz .2
+	dec c
+	jp nz,.1
+	ei
+	call cls
+	di
+	ld hl,$3f00
+	ld bc,$0040
+	ld a,$e0
+	call FILVRM
+	ld hl,sprites
+	ld de,sprites+1
+	ld bc,63
+	ld (hl),$e0
+	ldir
+	ei
+	ld hl,.3
+	call set_palette
+	jp ENASCR
+
+	; From https://www.smspower.org/Development/Palette
+.3:	db $00,$00,$08,$0c,$10,$30,$01,$3c,$02,$03,$05,$0f,$04,$33,$15,$3f
+
+    else
 vdp_generic_mode:
 	call nmi_off
 	call WRTVDP
@@ -1116,10 +1303,7 @@ vdp_generic_sprites:
 	ld (hl),$d1
 	ldir
 	call nmi_on
-	call nmi_off
-	ld bc,$e201	; Enable screen and interrupts.
-	call WRTVDP
-	jp nmi_on
+	jp ENASCR
 
 mode_1:
 	ld hl,mode
@@ -1166,7 +1350,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
+    if SG1000+SMS+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1185,6 +1369,7 @@ mode_2:
 	call nmi_on
 	call cls
 	jp vdp_generic_sprites
+    endif
 
     if MSX
 ENASLT: EQU $0024       ; Select slot (H=Addr, A=Slot)
@@ -1252,7 +1437,7 @@ nmi_handler:
     if COLECO
 	ld a,($ffbf)
     endif
-    if SG1000
+    if SG1000+SMS
 	ld a,($7fff)
     endif
     if MSX
@@ -1263,10 +1448,64 @@ nmi_handler:
     if SORD+MEMOTECH
         call ctc_reti
     endif
-    if SG1000+MSX+SVI+SORD+MEMOTECH+NABU
+    if SG1000+SMS+MSX+SVI+SORD+MEMOTECH+NABU
 	in a,(VDPR+1)
 	ld (vdp_status),a
     endif
+
+	;
+	; Update of sprite attribute table
+	;
+    if SMS
+	bit 2,(hl)
+	jr z,.4
+	ld hl,$3f00
+	call SETWRT
+	ld hl,sprites
+	ld bc,$4000+VDP
+	outi
+	jp nz,$-2
+	ld hl,$3f80
+	call SETWRT
+	ld hl,sprites
+	ld bc,$8000+VDP
+	outi
+	jp nz,$-2
+	jr .5
+
+.4:	ld hl,$3f00
+	call SETWRT
+	ld a,(flicker)
+	inc a
+	and $3f
+	ld (flicker),a
+	ld l,a
+	ld h,sprites>>8
+	ld bc,$4000+VDP
+	ld de,6
+	outi
+	add hl,de
+	res 7,l
+	jp nz,$-5
+	ld hl,$3f80
+	call SETWRT
+	ld a,(flicker)
+	add a,a
+	or $80
+	ld l,a
+	ld h,sprites>>8
+	ld bc,$8000+VDP
+	ld de,12
+	outi
+	nop
+	nop
+	nop
+	outi
+	add hl,de
+	res 7,l
+	jp nz,$-10
+.5:
+    else
 	ld bc,$8000+VDP
 	bit 2,(hl)
 	jr z,.4
@@ -1356,6 +1595,7 @@ nmi_handler:
 	add hl,de
 	jp nz,.6
 .5:
+    endif
 
     if COLECO
 	out (JOYSEL),a
@@ -1407,7 +1647,7 @@ nmi_handler:
 	ld a,(hl)
 	ld (key2_data),a
     endif
-    if SG1000
+    if SG1000+SMS
 	ld a,$07
 	out ($de),a
 	ld b,$ff
@@ -2350,7 +2590,7 @@ nmi_handler:
 	ld h,$ff
 	ld a,(hl)
     endif
-    if SG1000
+    if SG1000+SMS
 	ld ($fffe),a
     endif
     if MSX
@@ -2366,7 +2606,7 @@ nmi_handler:
 	pop af
 	retn
     endif
-    if SG1000+SVI+NABU
+    if SG1000+SMS+SVI+NABU
 	pop af
         ei
         reti
@@ -2526,7 +2766,7 @@ wait:
         ; Init music player.
         ;
 music_init:
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
         ld a,$9f
         out (PSG),a
       if MEMOTECH
@@ -2553,7 +2793,7 @@ music_init:
 	in a,($03)
       endif
     endif
-    if COLECO+SG1000+MSX+SVI+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+MSX+SVI+SORD+MEMOTECH+PV2000
 MIX_BASE:	equ $b8
     endif
     if EINSTEIN+NABU
@@ -2617,7 +2857,7 @@ music_play:
     if COLECO
 	ld a,($ffbf)
     endif
-    if SG1000
+    if SG1000+SMS
         ld a,($7fff)
     endif
     if MSX
@@ -2655,7 +2895,7 @@ music_generate:
 	ld d,$ff
 	ld a,(de)
     endif
-    if SG1000
+    if SG1000+SMS
         ld ($fffe),a
     endif
     if MSX
@@ -2965,7 +3205,7 @@ music_flute:
         ; Emit sound.
         ;
 music_hardware:
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
 	ld a,(music_mode)
 	cp 4		; PLAY SIMPLE?
 	jr c,.7		; Yes, jump.
@@ -3175,7 +3415,7 @@ music_hardware:
         ; Enable drum.
         ;
 enable_drum:
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
         ld a,$f5
         ld (audio_vol4hw),a
     else
@@ -3226,7 +3466,7 @@ music_notes_table:
 	dw 53,50,48
     endif
 
-    if COLECO+SG1000+SORD+MEMOTECH+PV2000
+    if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
         ;
         ; Converts AY-3-8910 volume to SN76489
         ;
@@ -3249,12 +3489,21 @@ define_char_unpack:
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
+    if SMS
+	add hl,hl       ; x16
+	add hl,hl       ; x32
+    endif
 	ex de,hl
+    if SMS
+    else
 	ld a,(mode)
 	and 8
 	jp z,unpack3
+    endif
 	jp unpack
 
+    if SMS
+    else
 define_color_unpack:
 	ex de,hl
 	pop af
@@ -3278,6 +3527,7 @@ unpack3:
 	add a,8	
 	ld d,a
 	ret
+    endif
 	
         ;
         ; Pletter-0.5c decompressor (XL2S Entertainment & Team Bomba)
@@ -3425,7 +3675,7 @@ unpack:
     endif
 
 START:
-    if SVI+SG1000
+    if SVI+SG1000+SMS
 	im 1
     endif
     if MEMOTECH
@@ -3486,7 +3736,7 @@ Z80_CTC:	equ $28
 	ld a,$92	; Setup 8255 for keyboard/joystick reading.
 	out ($97),a
     endif
-    if SG1000
+    if SG1000+SMS
 	; Contributed by SiRioKD
 	ld a,$9F	; Turn off PSG
 	out (PSG),a
@@ -3499,7 +3749,7 @@ Z80_CTC:	equ $28
 	ld a,$92	; Setup 8255 for SC3000.
 	out ($df),a
     endif
-    if SG1000+SVI
+    if SG1000+SMS+SVI
 	; Wait for VDP ready (around 1000 ms)
 	ld b,11
 	ld de,$FFFF
@@ -3549,7 +3799,7 @@ Z80_CTC:	equ $28
     if COLECO
 	ld a,($ffc0)	; Megacart
     endif
-    if SG1000
+    if SG1000+SMS
         ld a,1		; Sega mapper
         ld ($fffe),a
     endif
@@ -3663,7 +3913,7 @@ WRITE_VRAM:	equ $1fdf
 	jr nz,$+3
 	dec a
     endif
-    if SG1000+SVI+SORD+PV2000+NABU
+    if SG1000+SMS+SVI+SORD+PV2000+NABU
 	ld a,1		; Always NTSC.
     endif
     if MEMOTECH+EINSTEIN
@@ -3687,8 +3937,11 @@ WRITE_VRAM:	equ $1fdf
 
 	xor a
 	ld (mode),a
-
+    if SMS
+	call mode_4
+    else
 	call mode_0
+    endif
 
 	xor a
 	ld (joy1_data),a

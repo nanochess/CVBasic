@@ -416,13 +416,13 @@ print_digit
     ci r5,>0200
     jl !6
     mov r5,r2
-    jne !5
+    jne print_char
 !6
     li r2,>30
 !3
     andi r5,>00ff
     ori r5,>0100
-!5
+print_char
     mov @cursor,r0      ; get cursor
     andi r0,>07ff       ; enforce position - large range for two screen pages
     ai r0,>1800         ; add is safer than OR, and we have that option

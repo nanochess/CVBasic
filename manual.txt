@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Nov/12/2024.
+Last revision: Apr/26/2025
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,8 +22,12 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.8.0 Nov/12/2024  o Added support for VDP.STATUS (for reading VDP status)
-                    o Added SELECT CASE / END CASE
+v0.8.0 Apr/26/2025  o Added support for VDP.STATUS (for reading VDP status)
+                    o Added SELECT CASE / END SELECT
+                    o Added support for CHR$ in PRINT (for portable printing of
+                      arbitrary characters in the current cursor position)
+                    o Optimizes code using directly DI/EI instructions in Z80
+                      platforms if possible.
 
 v0.7.1 Oct/15/2024  o Added support for NABU PC using --nabu (with -cpm option)
                     o Added support for USR/CALL with up to 5 arguments (only Z80)
@@ -353,7 +357,7 @@ The following statements are available:
        [statement]
      CASE ELSE
        [statement]
-  END CASE
+  END SELECT
 
      It evaluates the expression, and selects the statements to execute from the
      CASE statements. CASE ELSE should be the last statement if it is required to
@@ -692,6 +696,14 @@ The following statements are available:
      Example:
 
         PRINT AT 8,"Score:",<5>#score,"00"
+
+  PRINT CHR$(expr)
+
+     Displays expr as a character on the video screen.
+
+     Example:
+ 
+        PRINT CHR$(65)
 
   BORDER color
 

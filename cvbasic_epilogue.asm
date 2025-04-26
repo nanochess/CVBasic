@@ -25,7 +25,7 @@
 rom_end:
 
 	; ROM final size rounding
-    if MSX+COLECO+SG1000+SVI+SORD
+    if MSX+COLECO+SG1000+SMS+SVI+SORD
         TIMES (($+$1FFF)&$1e000)-$ DB $ff
     endif
     if MEMOTECH+EINSTEIN+NABU
@@ -35,7 +35,7 @@ rom_end:
     if PV2000
 	TIMES $10000-$ DB $ff
     endif
-    if SG1000
+    if SG1000+SMS
 	forg $7FF0
 	org $7FF0
 	db "TMR SEGA"
@@ -45,13 +45,17 @@ rom_end:
 	db $00		; Version
 	db $4c		; SMS Export + 32KB for checksum
     endif
-    if COLECO+SG1000+MSX+SVI+SORD+PV2000
+    if COLECO+SG1000+SMS+MSX+SVI+SORD+PV2000
 	org BASE_RAM
     endif
 ram_start:
 
 sprites:
+    if SMS
+	rb 256
+    else
 	rb 128
+    endif
 sprite_data:
 	rb 4
 frame:

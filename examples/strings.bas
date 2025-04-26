@@ -19,7 +19,7 @@
 
 	DEF FN get_string(where, num) = RESTORE where: c = num: WHILE c > 0: DO: READ BYTE char: LOOP WHILE char <> 0: c = c - 1: WEND
 
-	DEF FN print_string(a) = WHILE 1: READ BYTE char: IF char <> 0 THEN PRINT " ": VPOKE $1800 + POS(0) - 1, char: WEND
+	DEF FN print_string(a) = WHILE 1: READ BYTE char: IF char <> 0 THEN PRINT CHR$(char): WEND
 
 	WHILE 1
 
