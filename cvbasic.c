@@ -218,7 +218,7 @@ struct loop {
 
 static struct loop *loops;
 
-static unsigned char bitmap[32];
+static unsigned char bitmap[128];
 static int bitmap_byte;
 
 /*
@@ -3973,35 +3973,104 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (lex != C_STRING ) {
                     emit_error("syntax error in BITMAP");
-                } else if (name_size == 16 && machine != SMS) {   /* Sprites */
+                } else if (name_size == 16) {   /* Sprites */
                     int c;
                     
-                    value = 0;
-                    for (c = 0; c < 16; c++) {
-                        if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
-                            && name[c] != 0x20 && name[c] != 0x2e)  /* space and . */
-                            value |= 0x8000 >> c;
-                    }
-                    get_lex();
-                    bitmap[bitmap_byte] = value >> 8;
-                    bitmap[bitmap_byte + 16] = value;
-                    bitmap_byte++;
-                    if (bitmap_byte >= 16) {
-                        bitmap_byte = 0;
-                        for (c = 0; c < 32; c += 8) {
-                            if (target == CPU_9900) {
-                                sprintf(temp, "\tbyte >%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x\n",
-                                        bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
-                                        bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
-                            } else {
+                    if (machine == SMS) {
+                        int first_time = 1;
+                        
+                        value = 0;
+                        for (c = 0; c < 8; c++) {
+                            if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
+                                && name[c] != 0x20 && name[c] != 0x2e) {  /* space and . */
+                                int d;
+                                
+                                if (isxdigit(name[c])) {
+                                    d = toupper(name[c]) - 0x30;
+                                    if (d > 9)
+                                        d -= 7;
+                                } else {
+                                    if (first_time) {
+                                        emit_warning("invalid hexadecimal value in BITMAP");
+                                        first_time = 0;
+                                    }
+                                    d = 0;
+                                }
+                                value |= ((d & 1) << 7) >> c;
+                                value |= ((d & 2) << 6) >> c << 8;
+                                value |= ((d & 4) << 5) >> c << 16;
+                                value |= ((d & 8) << 4) >> c << 24;
+                            }
+                        }
+                        bitmap[bitmap_byte + 0] = value;
+                        bitmap[bitmap_byte + 1] = value >> 8;
+                        bitmap[bitmap_byte + 2] = value >> 16;
+                        bitmap[bitmap_byte + 3] = value >> 24;
+                        value = 0;
+                        for (c = 0; c < 8; c++) {
+                            if (name[8 + c] != 0x30 && name[8 + c] != 0x5f   /* 0 and _ */
+                                && name[8 + c] != 0x20 && name[8 + c] != 0x2e) {  /* space and . */
+                                int d;
+                                
+                                if (isxdigit(name[8 + c])) {
+                                    d = toupper(name[8 + c]) - 0x30;
+                                    if (d > 9)
+                                        d -= 7;
+                                } else {
+                                    if (first_time) {
+                                        emit_warning("invalid hexadecimal value in BITMAP");
+                                        first_time = 0;
+                                    }
+                                    d = 0;
+                                }
+                                value |= ((d & 1) << 7) >> c;
+                                value |= ((d & 2) << 6) >> c << 8;
+                                value |= ((d & 4) << 5) >> c << 16;
+                                value |= ((d & 8) << 4) >> c << 24;
+                            }
+                        }
+                        get_lex();
+                        bitmap[bitmap_byte + 64] = value;
+                        bitmap[bitmap_byte + 65] = value >> 8;
+                        bitmap[bitmap_byte + 66] = value >> 16;
+                        bitmap[bitmap_byte + 67] = value >> 24;
+                        bitmap_byte += 4;
+                        if (bitmap_byte == 64) {
+                            bitmap_byte = 0;
+                            for (c = 0; c < 128; c += 8) {
                                 sprintf(temp, "\tDB $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
                                         bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
                                         bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                                fprintf(output, "%s", temp);
                             }
-                            fprintf(output, "%s", temp);
+                        }
+                    } else {
+                        value = 0;
+                        for (c = 0; c < 16; c++) {
+                            if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
+                                && name[c] != 0x20 && name[c] != 0x2e)  /* space and . */
+                                value |= 0x8000 >> c;
+                        }
+                        get_lex();
+                        bitmap[bitmap_byte] = value >> 8;
+                        bitmap[bitmap_byte + 16] = value;
+                        bitmap_byte++;
+                        if (bitmap_byte >= 16) {
+                            bitmap_byte = 0;
+                            for (c = 0; c < 32; c += 8) {
+                                if (target == CPU_9900) {
+                                    sprintf(temp, "\tbyte >%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x,>%02x\n",
+                                            bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
+                                            bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                                } else {
+                                    sprintf(temp, "\tDB $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
+                                            bitmap[c], bitmap[c + 1], bitmap[c + 2], bitmap[c + 3],
+                                            bitmap[c + 4], bitmap[c + 5], bitmap[c + 6], bitmap[c + 7]);
+                                }
+                                fprintf(output, "%s", temp);
+                            }
                         }
                     }
-                    
                 } else if (name_size == 8) {
                     int c;
                     
