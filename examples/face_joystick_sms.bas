@@ -1,10 +1,10 @@
 	'
-	' Bouncing happy face (demo for CVBasic)
+	' Joystick moving with joystick (demo for CVBasic)
 	'
 	' by Oscar Toledo G.
 	' https://nanochess.org/
 	'
-	' Creation date: Feb/28/2024.
+	' Creation date: Mar/03/2024.
 	' Revision date: Apr/26/2025. Adapted for Sega Master System.
 	'
 
@@ -14,21 +14,31 @@
 
 	x = 50
 	y = 100
-	dx = 1
-	dy = 1
+
+	SPRITE 2, 96, 128, 0
+	SPRITE 3, 96, 136, 1
 
 game_loop:
 	WAIT
-	WAIT
+	PRINT AT 0, "VDP.STATUS = ", <>VDP.STATUS , "  "
+
 	SPRITE 0,y-1,x,0
 	SPRITE 1,y-1,x+8,1
 
-	x = x + dx
-	IF x = 0 THEN dx = -dx
-	IF x = 240 THEN dx = -dx
-	y = y + dy
-	IF y = 0 THEN dy = -dy
-	IF y = 176 THEN dy = -dy
+	IF FRAME AND 1 THEN
+		IF cont1.up THEN IF y > 0 THEN y = y - 1
+		IF cont1.left THEN IF x > 0 THEN x = x - 1
+		IF cont1.right THEN IF x < 240 THEN x = x + 1
+		IF cont1.down THEN IF y < 176 THEN y = y + 1
+		IF cont1.button THEN
+			PALETTE 10+16,$30
+		ELSEIF cont1.button2 THEN
+			PALETTE 10+16,$03
+		ELSE
+			PALETTE 10+16,$0F
+		END IF
+	END IF
+
 	GOTO game_loop
 
 	' The face includes the color for the sprite
