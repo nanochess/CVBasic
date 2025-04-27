@@ -22,10 +22,15 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.8.0 Apr/26/2025  o Added support for VDP.STATUS (for reading VDP status)
+v0.8.0 Apr/26/2025  o Added support for Sega Master System using --sms
+                    o Added support for VDP.STATUS (for reading VDP status)
                     o Added SELECT CASE / END SELECT
                     o Added support for CHR$ in PRINT (for portable printing of
                       arbitrary characters in the current cursor position)
+                    o Added SCROLL statement for Sega Master System.
+                    o Added BORDER flags for Sega Master System.
+                    o Added PALETTE statement for Sega Master System.
+                    o Adapted BITMAP, SCREEN, and SPRITE for Sega Master System.
                     o Optimizes code using directly DI/EI instructions in Z80
                       platforms if possible.
 
