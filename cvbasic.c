@@ -92,7 +92,7 @@ struct console consoles[TOTAL_TARGETS] = {
         0,      0xe000, 0,       0xa0,   0xa0, 0,    1, CPU_Z80},
     {"sms",     "",         "Sega Master System (8K RAM)",
         "Sega Master System",
-        0xc000, 0xe000, 0x1000,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
+        0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
 };
 
 static int err_code;
@@ -280,15 +280,16 @@ void emit_warning(char *string)
  */
 void bank_finish(void)
 {
-    if (machine == SG1000) {
+    if (machine == SG1000 || machine == SMS) {
         if (bank_current == 0) {
-            fprintf(output, "BANK_0_FREE:\tEQU $3fff-$\n");
-            fprintf(output, "\tTIMES $3fff-$ DB $ff\n");
+            fprintf(output, "BANK_0_FREE:\tEQU $3fbf-$\n");
+            fprintf(output, "\tTIMES $3fbf-$ DB $ff\n");
         } else {
-            fprintf(output, "BANK_%d_FREE:\tEQU $7fff-$\n", bank_current);
-            fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
+            fprintf(output, "BANK_%d_FREE:\tEQU $7fbf-$\n", bank_current);
+            fprintf(output, "\tTIMES $7fbf-$ DB $ff\n");
         }
         fprintf(output, "\tDB $%02x\n", bank_current);
+        fprintf(output, "\tTIMES $40 DB $ff\n");
     } else if (machine == MSX) {
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $7fff-$\n");
@@ -6165,8 +6166,10 @@ int main(int argc, char *argv[])
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
+    fprintf(output, "CVBASIC_BANK_ROM_SIZE:\tequ %d\n", bank_rom_size);
     fprintf(output, "\n");
     fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].base_ram - extra_ram);
+    fprintf(output, "RAM_SIZE:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].memory_size + extra_ram);
     if ((machine == MEMOTECH || machine == EINSTEIN) && cpm_option != 0)
         fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, 0xe000);
     else

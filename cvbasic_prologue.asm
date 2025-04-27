@@ -1191,7 +1191,7 @@ mode_4:
 	call WRTVDP
 	ld bc,$7f05	; $3f00 for sprite attribute table (required bit 0 set to 1)
 	call WRTVDP
-	ld bc,$ff06	; $2000 for sprites bitmaps (or $fb for $0000)
+	ld bc,$0706	; $2000 for sprites bitmaps (or $03 for $0000)
 	call WRTVDP
 	ld bc,$0007	
 	call WRTVDP
@@ -1439,7 +1439,7 @@ nmi_handler:
 	ld a,($ffbf)
     endif
     if SG1000+SMS
-	ld a,($7fff)
+	ld a,($7fbf)
     endif
     if MSX
 	ld a,($bfff)
@@ -2859,7 +2859,7 @@ music_play:
 	ld a,($ffbf)
     endif
     if SG1000+SMS
-        ld a,($7fff)
+        ld a,($7fbf)
     endif
     if MSX
         ld a,($bfff)
@@ -3817,7 +3817,17 @@ Z80_CTC:	equ $28
 	ld (hl),0
 	ldir
 	ld (lfsr),ix
-    else
+    endif
+    if MSX+SVI+SMS
+	ld ix,(lfsr)
+	ld hl,BASE_RAM
+	ld de,BASE_RAM+1
+	ld bc,RAM_SIZE-1
+	ld (hl),0
+	ldir
+	ld (lfsr),ix
+    endif
+    if COLECO+SG1000+SORD+PENCIL+PV2000
 	ld hl,(lfsr)	; Save RAM trash for random generator.
 	ld de,BASE_RAM
 	xor a
@@ -3825,7 +3835,11 @@ Z80_CTC:	equ $28
 	inc de
       if PV2000
         bit 7,d
-      else
+      endif
+      if PENCIL
+        bit 3,d
+      endif
+      if COLECO+SG1000+SORD
 	bit 2,d
       endif
 	jp z,$-4

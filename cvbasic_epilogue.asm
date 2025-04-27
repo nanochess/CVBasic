@@ -36,6 +36,10 @@ rom_end:
 	TIMES $10000-$ DB $ff
     endif
     if SG1000+SMS
+      if CVBASIC_BANK_SWITCHING
+        forg CVBASIC_BANK_ROM_SIZE*1024-1	; Force final ROM size
+	db $ff
+      endif
 	forg $7FF0
 	org $7FF0
 	db "TMR SEGA"

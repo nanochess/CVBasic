@@ -64,7 +64,9 @@ The following files compose the compiler:
     examples/happy_face_sms.bas Bouncing face (Sega Master System).
     examples/music.bas          Music example.
     examples/oscar_compressed.bas  High-resolution graphics example compressed with Pletter.
+    examples/oscar_compressed_sms.bas  High-resolution graphics example compressed with Pletter (Sega Master System)
     examples/oscar.bas          High-resolution graphics example.
+    examples/oscar_sms.bas      High-resolution graphics example (Sega Master System)
     examples/portrait.bas       Data used by demo.bas
     examples/portrait_sms.bas   Data used by demo_sms.bas
     examples/space_attack.bas   Game example.
