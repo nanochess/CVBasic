@@ -479,7 +479,11 @@ CPYBLK:
 	ld b,0
 	call LDIRVM
 	pop hl
+    if SMS
+	ld bc,$0040
+    else
 	ld bc,$0020
+    endif
 	add hl,bc
 	ex de,hl
 	pop hl
@@ -1231,8 +1235,8 @@ mode_4:
 
 	; TMS9118-alike palette
 .3:
-	db $00,$00,$08,$1d,$20,$30,$02,$3c,$17,$2B,$0f,$1f,$04,$33,$2a,$3f
-	db $00,$00,$08,$1d,$20,$30,$02,$3c,$17,$2B,$0f,$1f,$04,$33,$2a,$3f
+	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
+	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
 
     else
 vdp_generic_mode:
