@@ -77,7 +77,9 @@ v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
 
 >>>>>>>>>>>>>>. Description
 
-CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, and Creativision. It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, Creativision, Soundic Pencil II, Tatung Einstein, Casio PV-2000, TI-99/4A, NABU PC, and Sega Master System.
+
+It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
 Platforms requirements:
   o PC with Windows XP or better.
@@ -102,8 +104,10 @@ Usage:
   cvbasic --creativision in.bas output.asm
   cvbasic --pencil in.bas output.asm
   cvbasic --einstein in.bas output.asm
+  cvbasic --pv2000 in.bas output.asm
   cvbasic --ti994a in.bas output.a99
   cvbasic --nabu in.bas output.asm
+  cvbasic --sms in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
@@ -481,7 +485,9 @@ The following statements are available:
      BITMAP statements or DATA BYTE statements.
 
      Each character is an 8x8 pixel bitmap (represented as 8 BITMAP statements or
-     8 constants in a DATA BYTE statement).
+     8 constants in a DATA BYTE statement). For Sega Master System, this is 32
+     constants in a DATA BYTE statement because the character definition includes
+     color.
 
      Internally, CVBasic will replicate the data along the 3 display areas so
      the defined characters will appear on the whole screen when required.
@@ -497,7 +503,7 @@ The following statements are available:
   DEFINE COLOR char_num,total,VARPTR array(expr)
   DEFINE COLOR PLETTER char_num,total,label
 
-     Loads color into VRAM.
+     Loads color into VRAM. This sentence isn't used on Sega Master System.
 
      "char_num" valid values are between 0 and 255.
 
@@ -527,15 +533,15 @@ The following statements are available:
 
      Loads sprites into VRAM
 
-     "sprite_num" valid values are between 0 and 63.
+     "sprite_num" valid values are between 0 and 63 (127 for Sega Master System)
 
-     "total" valid values are between 1 and 64.
+     "total" valid values are between 1 and 64 (128 for Sega Master System)
 
      It replaces the definitions for "sprite_num", "total" means the total number
      of sprites to load, and "label" should point to a label containing
      BITMAP or DATA BYTE statements with the sprite or sprites representation.
 
-     Each sprite is 16x16 pixels.
+     Each sprite is 16x16 pixels (8x16 pixels for Sega Master System)
 
      The VARPTR expression allows sprite definition from an offset inside an
      array so you can do animation easily.
@@ -614,6 +620,7 @@ The following statements are available:
            CAN BURN YOUR MSX HARDWARE.
 
   SPRITE index,y,x,f,c
+  SPRITE index,y,x,f
 
      The first parameter indicates the number of the sprite (0-31).
 
@@ -630,6 +637,9 @@ The following statements are available:
      add the flag $80 (128 decimal) to displace the sprite by 32 pixels
      to the left. Allowing it to blend inside the screen from the left.
 
+     The fourth argument (color) isn't used on Sega Master System, and
+     it will generate an error from CVBasic if present.
+
      Sprites are updated on the vertical retrace.
 
      The Y-coordinate visible range for sprites is 240 to 255, and 0
@@ -640,7 +650,8 @@ The following statements are available:
 
      Additionally, the value 208 for the Y-coordinate disables sprite
      processing starting on that very sprite. For example,
-     SPRITE 0,$d0,0,0,0 forces sprites 1-31 to disappear even if active. 
+     SPRITE 0,$d0,0,0,0 forces sprites 1-31 to disappear even if active.
+
 
   SPRITE FLICKER ON
   SPRITE FLICKER OFF
@@ -706,8 +717,32 @@ The following statements are available:
         PRINT CHR$(65)
 
   BORDER color
+  BORDER color,flags
 
      Select the border color. It can be a number from 0 to 15.
+
+     The flags argument is available on Sega Master System.
+        bit 0 = Set column 0 to border color.
+        bit 1 = Horizontal scrolling disabled on rows 0-1.
+        bit 2 = Vertical scrolling disabled on columns 24-31.
+
+  SCROLL x, y
+
+     Sets the pixel scrolling for Sega Master System background.
+
+  PALETTE register, color
+  PALETTE LOAD array_data_byte
+  PALETTE LOAD VARPTR array_data_byte(0)
+
+     Sets a single palette register (0-31) to the color (0-63). Color bits are
+     specified in a single byte as 00BBGGRR (two bits each for red, green, and
+     blue).
+
+     The registers 0-15 are for background tiles, and the registers 16-31 are
+     for sprites. The tiles can request to use the sprite colors.
+
+     Alternatively, you can load a full 32 entries palette using PALETTE LOAD.
+     The array should be specified with DATA BYTE.
 
   MODE 0
 
@@ -744,6 +779,13 @@ The following statements are available:
 
      VRAM addresses $2000-$201f contain the color for the characters group.
 
+  MODE 4
+
+     It is only available on Sega Master System, and it is the only mode supported
+     in this console. VRAM $0000-$1fff are setup as background bitmaps, $2000-$37ff
+     for sprites bitmaps, $3800-$3dff for the background patterns, and $3f00-$3fff
+     for the sprites attributes. The unused portion $3e00-$3eff and $3f40-$3f7f 
+     can be used for extra sprites (sprite numbers 120-123 and 125)
 
   SCREEN DISABLE
 
@@ -785,6 +827,17 @@ The following statements are available:
         
         SCREEN tile,0,0,2,2
 
+    For the Sega Master System the source offset, target offset, and width are
+    automatically multiplied by 2, because each character in the screen uses
+    two bytes in VRAM. The first byte referring to the tile number (0-255), and
+    the second byte specifies how it is used:
+
+        bit 0 - Indicates to use tiles in the range 256-511
+        bit 1 - Horizontal flip if set.
+        bit 2 - Vertical flip if set.
+        bit 3 - Uses sprite palette if set.
+        bit 4 - The tile will be drawn on top of sprites.
+
   BITMAP "00000000"
   BITMAP "00001111"
   
@@ -804,6 +857,10 @@ The following statements are available:
     Characters taken as zero include: "0" "_" " " "."
 
     Every other character will be interpreted as one.
+
+    For the Sega Master System, the colors are specified by using 1 to 9,
+    and A to F.
+
 
   PLAY SIMPLE
   PLAY SIMPLE NO DRUMS

@@ -1,3 +1,32 @@
+	; CVBasic compiler v0.8.0 Apr/26/2025
+	; Command: ./cvbasic --sms examples/music.bas music.asm 
+	; Created: Sat Apr 26 18:00:28 2025
+
+COLECO:	equ 0
+SG1000:	equ 0
+MSX:	equ 0
+SGM:	equ 0
+SVI:	equ 0
+SORD:	equ 0
+MEMOTECH:	equ 0
+EINSTEIN:	equ 0
+CPM:	equ 0
+PENCIL:	equ 0
+PV2000:	equ 0
+TI99:	equ 0
+NABU:	equ 0
+SMS:	equ 1
+
+CVBASIC_MUSIC_PLAYER:	equ 1
+CVBASIC_COMPRESSION:	equ 0
+CVBASIC_BANK_SWITCHING:	equ 0
+
+BASE_RAM:	equ $c000	; Base of RAM
+STACK:	equ $e000	; Base stack pointer
+VDP:	equ $be	; VDP port (write)
+VDPR:	equ $be	; VDP port (read)
+PSG:	equ $7f	; PSG port (write)
+
 	;
 	; CVBasic prologue (BASIC compiler for Colecovision and other consoles)
 	;
@@ -768,7 +797,6 @@ define_sprite:
 update_sprite:
     if SMS
 	pop bc
-	add a,a
 	ld (sprite_data+2),a
 	pop af
 	ld (sprite_data+1),a
@@ -1167,13 +1195,13 @@ font_bitmaps:
     endif
 
     if SMS
-palette_load:
+set_palette:
 	push hl
 	di
 	ld hl,$c000
 	call SETWRT
 	pop hl
-	ld bc,32*256+VDP
+	ld bc,16*256+VDP
 	outi
 	jp nz,$-2
 	ei
@@ -1185,13 +1213,13 @@ mode_4:
 	call WRTVDP
 	ld bc,$a201
 	call WRTVDP
-	ld bc,$0f02	; $3800 for pattern table (required bit 0 set to 1 for SMS1)
+	ld bc,$0e02	; $3800 for pattern table.
 	call WRTVDP
-	ld bc,$ff03	; Not used (required value for SMS1)
+	ld bc,$ff03	; Not used.
 	call WRTVDP
-	ld bc,$0704	; Not used (required value for SMS1)
+	ld bc,$0304	; Not used.
 	call WRTVDP
-	ld bc,$7f05	; $3f00 for sprite attribute table (required bit 0 set to 1)
+	ld bc,$7e05	; $3f00 for sprite attribute table.
 	call WRTVDP
 	ld bc,$ff06	; $2000 for sprites bitmaps (or $fb for $0000)
 	call WRTVDP
@@ -1232,13 +1260,11 @@ mode_4:
 	ldir
 	ei
 	ld hl,.3
-	call palette_load
+	call set_palette
 	jp ENASCR
 
-	; TMS9118-alike palette
-.3:
-	db $00,$00,$08,$1d,$10,$30,$02,$3c,$03,$17,$0f,$1f,$04,$33,$2a,$3f
-	db $00,$00,$08,$1d,$10,$30,$02,$3c,$03,$17,$0f,$1f,$04,$33,$2a,$3f
+	; TMS9118-alike palette. From https://www.smspower.org/Development/Palette
+.3:	db $00,$00,$08,$0c,$10,$30,$01,$3c,$02,$03,$05,$0f,$04,$33,$15,$3f
 
     else
 vdp_generic_mode:
@@ -1488,7 +1514,7 @@ nmi_handler:
 	ld de,6
 	outi
 	add hl,de
-	res 6,l
+	res 7,l
 	jp nz,$-5
 	ld hl,$3f80
 	call SETWRT
@@ -1496,17 +1522,17 @@ nmi_handler:
 	add a,a
 	or $80
 	ld l,a
+	ld h,sprites>>8
 	ld bc,$8000+VDP
 	ld de,12
-	ld h,sprites>>8
 	outi
 	nop
 	nop
 	nop
 	outi
 	add hl,de
-	set 7,l
-	jp nz,$-12
+	res 7,l
+	jp nz,$-10
 .5:
     else
 	ld bc,$8000+VDP
@@ -2584,7 +2610,6 @@ nmi_handler:
 	call nz,music_generate
 .3:
     endif
-	;CVBASIC MARK DON'T CHANGE
 
   if CVBASIC_BANK_SWITCHING
 	pop af
@@ -3972,3 +3997,796 @@ WRITE_VRAM:	equ $1fdf
     endif
 
 	; CVBasic program start.
+	; 	rem
+	; 	rem Test of IntyBASIC music player
+	; 	rem by Oscar Toledo G. http://nanochess.org
+	; 	rem Aug/26/2014
+	; 	rem
+	; 
+	; 	REM Include useful predefined constants
+	; 
+	; main:
+cvb_MAIN:
+	; 	V=0
+	SUB A
+	LD (cvb_V),A
+	; 
+	; wait_key:
+cvb_WAIT_KEY:
+	; 	CLS
+	CALL cls
+	;         PRINT AT 66,"Press button"
+	LD HL,132
+	LD (cursor),HL
+	LD HL,cv1
+	LD A,12
+	CALL print_string
+	JP cv2
+cv1:
+	DB $50,$72,$65,$73,$73,$20,$62,$75
+	DB $74,$74,$6f,$6e
+cv2:
+	;         FOR c = 0 TO 60
+	SUB A
+	LD (cvb_C),A
+cv3:
+	;                 WAIT
+	HALT
+	;         NEXT c
+	LD HL,cvb_C
+	INC (HL)
+	LD A,(HL)
+	CP 61
+	JP C,cv3
+	; wait_loop:
+cvb_WAIT_LOOP:
+	; 	IF CONT1.BUTTON THEN GOTO play_1
+	LD A,(joy1_data)
+	AND 64
+	JP Z,cv4
+	JP cvb_PLAY_1
+cv4:
+	; 	IF CONT1.BUTTON2 THEN GOTO play_2
+	LD A,(joy1_data)
+	AND 128
+	JP Z,cv5
+	JP cvb_PLAY_2
+cv5:
+	; 
+	; 	GOTO wait_loop
+	JP cvb_WAIT_LOOP
+	; 
+	; play_1:
+cvb_PLAY_1:
+	;         PRINT AT 66,"Bach Invention 8"
+	LD HL,132
+	LD (cursor),HL
+	LD HL,cv6
+	LD A,16
+	CALL print_string
+	JP cv7
+cv6:
+	DB $42,$61,$63,$68,$20,$49,$6e,$76
+	DB $65,$6e,$74,$69,$6f,$6e,$20,$38
+cv7:
+	;         PRINT AT 130,"(fragment)"
+	LD HL,260
+	LD (cursor),HL
+	LD HL,cv8
+	LD A,10
+	CALL print_string
+	JP cv9
+cv8:
+	DB $28,$66,$72,$61,$67,$6d,$65,$6e
+	DB $74,$29
+cv9:
+	; 	WAIT
+	HALT
+	; 	PLAY SIMPLE
+	LD A,3
+	LD (music_mode),A
+	; 	PLAY tune_1
+	LD HL,cvb_TUNE_1
+	CALL music_play
+	; 
+	; 	' Sound effect if button touch
+	; repeat:
+cvb_REPEAT:
+	; 	WAIT
+	HALT
+	; 	IF CONT1.BUTTON2 THEN V=15
+	LD A,(joy1_data)
+	AND 128
+	JP Z,cv10
+	LD A,15
+	LD (cvb_V),A
+cv10:
+	;         SOUND 2,300,V
+	LD HL,300
+	LD A,$c0
+	CALL sn76489_freq
+	LD A,(cvb_V)
+	LD B,$d0
+	CALL sn76489_vol
+	;         IF V>0 THEN V=V-1
+	LD A,(cvb_V)
+	CP 1
+	JP C,cv11
+	LD HL,cvb_V
+	DEC (HL)
+cv11:
+	;         IF MUSIC.PLAYING THEN GOTO repeat
+	LD A,(music_playing)
+	OR A
+	JP Z,cv12
+	JP cvb_REPEAT
+cv12:
+	;         GOTO wait_key
+	JP cvb_WAIT_KEY
+	; 
+	; play_2:
+cvb_PLAY_2:
+	;         PRINT AT 66,"Mecha-8 Level 4 "
+	LD HL,132
+	LD (cursor),HL
+	LD HL,cv13
+	LD A,16
+	CALL print_string
+	JP cv14
+cv13:
+	DB $4d,$65,$63,$68,$61,$2d,$38,$20
+	DB $4c,$65,$76,$65,$6c,$20,$34,$20
+cv14:
+	;         PRINT AT 130,"(fragment)"
+	LD HL,260
+	LD (cursor),HL
+	LD HL,cv15
+	LD A,10
+	CALL print_string
+	JP cv16
+cv15:
+	DB $28,$66,$72,$61,$67,$6d,$65,$6e
+	DB $74,$29
+cv16:
+	; 	WAIT
+	HALT
+	; 	PLAY FULL
+	LD A,5
+	LD (music_mode),A
+	; 	PLAY tune_2
+	LD HL,cvb_TUNE_2
+	CALL music_play
+	; repeat2:
+cvb_REPEAT2:
+	; 	WAIT
+	HALT
+	;         IF CONT1.BUTTON THEN PLAY OFF: GOTO wait_key
+	LD A,(joy1_data)
+	AND 64
+	JP Z,cv17
+	LD HL,music_silence
+	CALL music_play
+	JP cvb_WAIT_KEY
+cv17:
+	; 	GOTO repeat2
+	JP cvb_REPEAT2
+	; 
+	; 	' Bach Invention 8 (BWV779)
+	; 	' Fragment
+	; tune_1:	DATA BYTE 7
+cvb_TUNE_1:
+	DB $07
+	; 	MUSIC F4,-
+	db $1e,$00,$00,$00
+	; 	MUSIC S,-
+	db $3f,$00,$00,$00
+	; 	MUSIC A4,-
+	db $22,$00,$00,$00
+	; 	MUSIC S,-
+	db $3f,$00,$00,$00
+	; 	MUSIC F4,-
+	db $1e,$00,$00,$00
+	; 	MUSIC S,-
+	db $3f,$00,$00,$00
+	; 	MUSIC C5,-
+	db $25,$00,$00,$00
+	; 	MUSIC S,-
+	db $3f,$00,$00,$00
+	; 	MUSIC F4,-
+	db $1e,$00,$00,$00
+	; 	MUSIC S,-
+	db $3f,$00,$00,$00
+	; 
+	; 	MUSIC F5,-
+	db $2a,$00,$00,$00
+	; 	MUSIC S,-
+	db $3f,$00,$00,$00
+	; 	MUSIC E5,F3
+	db $29,$12,$00,$00
+	; 	MUSIC D5,S
+	db $27,$3f,$00,$00
+	; 	MUSIC C5,A3
+	db $25,$16,$00,$00
+	; 	MUSIC D5,S
+	db $27,$3f,$00,$00
+	; 	MUSIC C5,F3
+	db $25,$12,$00,$00
+	; 	MUSIC A4#,S
+	db $23,$3f,$00,$00
+	; 	MUSIC A4,C4
+	db $22,$19,$00,$00
+	; 	MUSIC A4#,S
+	db $23,$3f,$00,$00
+	; 	MUSIC A4,F3
+	db $22,$12,$00,$00
+	; 	MUSIC G4,S
+	db $20,$3f,$00,$00
+	; 
+	; 	MUSIC F4,F4
+	db $1e,$1e,$00,$00
+	; 	MUSIC S,S
+	db $3f,$3f,$00,$00
+	; 	MUSIC A4,E4
+	db $22,$1d,$00,$00
+	; 	MUSIC S,D4
+	db $3f,$1b,$00,$00
+	; 	MUSIC C5,C4
+	db $25,$19,$00,$00
+	; 	MUSIC S,D4
+	db $3f,$1b,$00,$00
+	; 	MUSIC A4,C4
+	db $22,$19,$00,$00
+	; 	MUSIC S,A3#
+	db $3f,$17,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC S,A3#
+	db $3f,$17,$00,$00
+	; 	MUSIC C5,A3
+	db $25,$16,$00,$00
+	; 	MUSIC S,G3
+	db $3f,$14,$00,$00
+	; 
+	; 	MUSIC A5,F3
+	db $2e,$12,$00,$00
+	; 	MUSIC C6,S
+	db $31,$3f,$00,$00
+	; 	MUSIC A5#,A3
+	db $2f,$16,$00,$00
+	; 	MUSIC C6,S
+	db $31,$3f,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 	MUSIC C6,S
+	db $31,$3f,$00,$00
+	; 	MUSIC A5#,A3
+	db $2f,$16,$00,$00
+	; 	MUSIC C6,S
+	db $31,$3f,$00,$00
+	; 	MUSIC A5,F4
+	db $2e,$1e,$00,$00
+	; 	MUSIC C6,S
+	db $31,$3f,$00,$00
+	; 	MUSIC A5#,C4
+	db $2f,$19,$00,$00
+	; 	MUSIC C6,S
+	db $31,$3f,$00,$00
+	; 
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 	MUSIC G5,A3#
+	db $2c,$17,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 	MUSIC G5,A3#
+	db $2c,$17,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 	MUSIC G5,A3#
+	db $2c,$17,$00,$00
+	; 	MUSIC A5,C4
+	db $2e,$19,$00,$00
+	; 
+	; 	MUSIC D5,F3
+	db $27,$12,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC E5,G3
+	db $29,$14,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC D5,F3
+	db $27,$12,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC E5,G3
+	db $29,$14,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC D5,F3
+	db $27,$12,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 	MUSIC E5,G3
+	db $29,$14,$00,$00
+	; 	MUSIC F5,A3
+	db $2a,$16,$00,$00
+	; 
+	; 	MUSIC B4,D3
+	db $24,$0f,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC G4,E3
+	db $20,$11,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC D5,D3
+	db $27,$0f,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC B4,E3
+	db $24,$11,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC F5,D3
+	db $2a,$0f,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC D5,E3
+	db $27,$11,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 
+	; 	MUSIC G5,B3
+	db $2c,$18,$00,$00
+	; 	MUSIC A5,S
+	db $2e,$3f,$00,$00
+	; 	MUSIC G5,G3
+	db $2c,$14,$00,$00
+	; 	MUSIC F5,S
+	db $2a,$3f,$00,$00
+	; 	MUSIC E5,C4
+	db $29,$19,$00,$00
+	; 	MUSIC F5,S
+	db $2a,$3f,$00,$00
+	; 	MUSIC E5,G3
+	db $29,$14,$00,$00
+	; 	MUSIC D5,S
+	db $27,$3f,$00,$00
+	; 	MUSIC C5,E4
+	db $25,$1d,$00,$00
+	; 	MUSIC D5,S
+	db $27,$3f,$00,$00
+	; 	MUSIC C5,C4
+	db $25,$19,$00,$00
+	; 	MUSIC A4#,S
+	db $23,$3f,$00,$00
+	; 
+	; 	MUSIC A4,F4
+	db $22,$1e,$00,$00
+	; 	MUSIC S,G4
+	db $3f,$20,$00,$00
+	; 	MUSIC D5,F4
+	db $27,$1e,$00,$00
+	; 	MUSIC C5,E4
+	db $25,$1d,$00,$00
+	; 	MUSIC B4,D4
+	db $24,$1b,$00,$00
+	; 	MUSIC C5,E4
+	db $25,$1d,$00,$00
+	; 	MUSIC B4,D4
+	db $24,$1b,$00,$00
+	; 	MUSIC A4,C4
+	db $22,$19,$00,$00
+	; 	MUSIC G4,B3
+	db $20,$18,$00,$00
+	; 	MUSIC A4,C4
+	db $22,$19,$00,$00
+	; 	MUSIC G4,B3
+	db $20,$18,$00,$00
+	; 	MUSIC F4,A3
+	db $1e,$16,$00,$00
+	; 
+	; 	MUSIC E4,G3
+	db $1d,$14,$00,$00
+	; 	MUSIC F4,S
+	db $1e,$3f,$00,$00
+	; 	MUSIC E4,C4
+	db $1d,$19,$00,$00
+	; 	MUSIC D4,B3
+	db $1b,$18,$00,$00
+	; 	MUSIC C4,A3
+	db $19,$16,$00,$00
+	; 	MUSIC S,B3
+	db $3f,$18,$00,$00
+	; 	MUSIC C5,A3
+	db $25,$16,$00,$00
+	; 	MUSIC B4,G3
+	db $24,$14,$00,$00
+	; 	MUSIC C5,F3
+	db $25,$12,$00,$00
+	; 	MUSIC S,G3
+	db $3f,$14,$00,$00
+	; 	MUSIC E4,F3
+	db $1d,$12,$00,$00
+	; 	MUSIC S,E3
+	db $3f,$11,$00,$00
+	; 
+	; 	MUSIC F4,D3
+	db $1e,$0f,$00,$00
+	; 	MUSIC S,E3
+	db $3f,$11,$00,$00
+	; 	MUSIC C5,D3
+	db $25,$0f,$00,$00
+	; 	MUSIC S,C3
+	db $3f,$0d,$00,$00
+	; 	MUSIC E4,G3
+	db $1d,$14,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC C5,E3
+	db $25,$11,$00,$00
+	; 	MUSIC S,F3
+	db $3f,$12,$00,$00
+	; 	MUSIC D4,G3
+	db $1b,$14,$00,$00
+	; 	MUSIC S,S
+	db $3f,$3f,$00,$00
+	; 	MUSIC B4,G2
+	db $24,$08,$00,$00
+	; 	MUSIC S,S
+	db $3f,$3f,$00,$00
+	; 
+	; 	MUSIC C5,C4
+	db $25,$19,$00,$00
+	; 	MUSIC S,S
+	db $3f,$3f,$00,$00
+	; 	MUSIC S,S
+	db $3f,$3f,$00,$00
+	; 	MUSIC S,S
+	db $3f,$3f,$00,$00
+	; 	MUSIC STOP
+	db $fe,$00,$00,$00
+	; 
+	; 	' Mecha-8 level 5: alone
+	; 	' Fragment
+	; tune_2: DATA BYTE 5
+cvb_TUNE_2:
+	DB $05
+	; 	MUSIC G5#Y,C3#,-,M1
+	db $ad,$0e,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC F5#,G3#,-,M2
+	db $ab,$15,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC E5,C3#,-,M1
+	db $a9,$0e,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC D5#,G3#,-,M2
+	db $a8,$15,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC E5,C3#,-,M1
+	db $a9,$0e,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC F5#,G3#,-,M2
+	db $ab,$15,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC G5#,C3#,-,M1
+	db $ad,$0e,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,G3#,-,M2
+	db $3f,$15,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,C3#,-,M1
+	db $3f,$0e,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC C5#,G3#,-,M2
+	db $a6,$15,$00,$02
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC G5#,C3#,-,M1
+	db $ad,$0e,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC E5,G3#,-,M2
+	db $a9,$15,$00,$02
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC F5#,B2,-,M1
+	db $ab,$0c,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,F3#,-,M2
+	db $3f,$13,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,B2,-,M1
+	db $3f,$0c,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC -,F3#,-,M2
+	db $00,$13,$00,$02
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,B2,-,M1
+	db $00,$0c,$00,$01
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,F3#,-,M2
+	db $00,$13,$00,$02
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,B2,-,M1
+	db $00,$0c,$00,$01
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,F3#,-,M1
+	db $00,$13,$00,$01
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC C5#,B2,-,M1
+	db $a6,$0c,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC F5#,F3#,-,M1
+	db $ab,$13,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC C5#,B2,-,M1
+	db $a6,$0c,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC E5,A2,-,M1
+	db $a9,$0a,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,E3,-,M1
+	db $3f,$11,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,A2,-,M1
+	db $3f,$0a,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,E3,-,M1
+	db $3f,$11,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,A2,-,M1
+	db $3f,$0a,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,E3,-,M1
+	db $3f,$11,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,A2,-,M1
+	db $3f,$0a,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC F5#,E3,-,M1
+	db $ab,$11,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC E5,A2,-,M2
+	db $a9,$0a,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC D5#,E3,-,M1
+	db $a8,$11,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,A2,-,M2
+	db $3f,$0a,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC C5,G2#,-,M1
+	db $a5,$09,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,D3#,-,M2
+	db $3f,$10,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,G2#,-,M1
+	db $3f,$09,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,D3#,-,M2
+	db $3f,$10,$00,$02
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC S,G2#,-,M1
+	db $3f,$09,$00,$01
+	; 	MUSIC S,S,-,M2
+	db $3f,$3f,$00,$02
+	; 	MUSIC -,D3#,-,M2
+	db $00,$10,$00,$02
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,G2#,-,M1
+	db $00,$09,$00,$01
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,D3#,-,M2
+	db $00,$10,$00,$02
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,G2#,-,M1
+	db $00,$09,$00,$01
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,D3#,-,M1
+	db $00,$10,$00,$01
+	; 	MUSIC -,S,-,M3
+	db $00,$3f,$00,$03
+	; 	MUSIC -,G2#,-,M1
+	db $00,$09,$00,$01
+	; 	MUSIC -,S,-,M2
+	db $00,$3f,$00,$02
+	; 	MUSIC -,D3#,-,M1
+	db $00,$10,$00,$01
+	; 	MUSIC -,S,-,M3
+	db $00,$3f,$00,$03
+	; 	MUSIC -,G2#,-,M1
+	db $00,$09,$00,$01
+	; 	MUSIC -,S,-,M1
+	db $00,$3f,$00,$01
+	; 	MUSIC -,D3#,-,M1
+	db $00,$10,$00,$01
+	; 	MUSIC -,S,-,M1
+	db $00,$3f,$00,$01
+	; 	MUSIC REPEAT
+	db $fd,$00,$00,$00
+	;
+	; CVBasic epilogue (BASIC compiler for Colecovision)
+	;
+	; by Oscar Toledo G.
+	; https://nanochess.org/
+	;
+	; Creation date: Feb/27/2024.
+	; Revision date: Feb/29/2024. Added joystick, keypad, frame, random, and
+	;                             read_pointer variables.
+	; Revision date: Mar/04/2024. Added music player.
+	; Revision date: Mar/05/2024. Added support for Sega SG1000.
+	; Revision date: Mar/12/2024. Added support for MSX.
+	; Revision date: Mar/13/2024. Added Pletter decompressor.
+	; Revision date: Mar/19/2024. Added support for sprite flicker.
+	; Revision date: Apr/11/2024. Added support for Super Game Module.
+	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
+	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
+	;                             can remain accessible in bank 0 (bank switching).
+	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
+	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
+	; Revision date: Nov/12/2024. Added vdp_status.
+	; Revision date: Feb/03/2025. Round final ROM size to 8K multiples.
+	;
+
+rom_end:
+
+	; ROM final size rounding
+    if MSX+COLECO+SG1000+SMS+SVI+SORD
+        TIMES (($+$1FFF)&$1e000)-$ DB $ff
+    endif
+    if MEMOTECH+EINSTEIN+NABU
+	; Align following data to a 256-byte page.
+        TIMES $100-($&$ff) DB $4f
+    endif
+    if PV2000
+	TIMES $10000-$ DB $ff
+    endif
+    if SG1000+SMS
+	forg $7FF0
+	org $7FF0
+	db "TMR SEGA"
+	db 0,0
+	db 0,0		; Checksum
+	db $11,$78	; Product code
+	db $00		; Version
+	db $4c		; SMS Export + 32KB for checksum
+    endif
+    if COLECO+SG1000+SMS+MSX+SVI+SORD+PV2000
+	org BASE_RAM
+    endif
+ram_start:
+
+sprites:
+    if SMS
+	rb 256
+    else
+	rb 128
+    endif
+sprite_data:
+	rb 4
+frame:
+	rb 2
+read_pointer:
+	rb 2
+cursor:
+	rb 2
+lfsr:
+	rb 2
+mode:
+	rb 1
+flicker:
+	rb 1
+joy1_data:
+	rb 1
+joy2_data:
+	rb 1
+key1_data:
+	rb 1
+key2_data:
+	rb 1
+ntsc:
+	rb 1
+vdp_status:
+	rb 1
+    if NABU
+nabu_data0: rb 1
+nabu_data1: rb 1
+nabu_data2: rb 1
+    endif
+
+    if CVBASIC_MUSIC_PLAYER
+music_tick:             rb 1
+music_mode:             rb 1
+
+    if CVBASIC_BANK_SWITCHING
+music_bank:             rb 1
+    endif
+music_start:		rb 2
+music_pointer:		rb 2
+music_playing:		rb 1
+music_timing:		rb 1
+music_note_counter:	rb 1
+music_instrument_1:	rb 1
+music_counter_1:	rb 1
+music_note_1:		rb 1
+music_instrument_2:	rb 1
+music_counter_2:	rb 1
+music_note_2:		rb 1
+music_instrument_3:	rb 1
+music_counter_3:	rb 1
+music_note_3:		rb 1
+music_counter_4:	rb 1
+music_drum:		rb 1
+
+audio_freq1:		rb 2
+audio_freq2:		rb 2
+audio_freq3:		rb 2
+audio_noise:		rb 1
+audio_mix:		rb 1
+audio_vol1:		rb 1
+audio_vol2:		rb 1
+audio_vol3:		rb 1
+
+audio_control:		rb 1
+audio_vol4hw:		rb 1
+    endif
+
+    if SGM
+	org $2000	; Start for variables.
+    endif
+cvb_C:	rb 1
+cvb_V:	rb 1
+ram_end:

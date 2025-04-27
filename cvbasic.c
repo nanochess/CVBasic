@@ -3524,10 +3524,15 @@ void compile_statement(int check_for_else)
                         } else {
                             cpuz80_2op("ADD", "HL", "HL");
                             cpuz80_2op("ADD", "HL", "HL");
-                            cpuz80_2op("LD", "H", "$07");
+                            if (machine == SMS)
+                                cpuz80_2op("SET", "1", "H");
+                            else
+                                cpuz80_2op("LD", "H", "$07");
                             cpuz80_2op("ADD", "HL", "HL");
                             cpuz80_2op("ADD", "HL", "HL");
                             cpuz80_2op("ADD", "HL", "HL");
+                            if (machine == SMS)
+                                cpuz80_2op("ADD", "HL", "HL");
                             cpuz80_2op("EX", "DE", "HL");
                         }
                         if (lex == C_COMMA)
@@ -3966,9 +3971,9 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "BITMAP") == 0) {
                 generic_dump();
                 get_lex();
-                if (lex != C_STRING || (name_size != 8 && name_size != 16)) {
+                if (lex != C_STRING ) {
                     emit_error("syntax error in BITMAP");
-                } else if (name_size == 16) {   /* Sprites */
+                } else if (name_size == 16 && machine != SMS) {   /* Sprites */
                     int c;
                     
                     value = 0;
@@ -3997,18 +4002,50 @@ void compile_statement(int check_for_else)
                         }
                     }
                     
-                } else {
+                } else if (name_size == 8) {
                     int c;
                     
                     value = 0;
-                    for (c = 0; c < 8; c++) {
-                        if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
-                            && name[c] != 0x20 && name[c] != 0x2e)  /* space and . */
-                            value |= 0x80 >> c;
+                    if (machine == SMS) {
+                        int first_time = 1;
+                        
+                        for (c = 0; c < 8; c++) {
+                            if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
+                                && name[c] != 0x20 && name[c] != 0x2e) {  /* space and . */
+                                int d;
+
+                                if (isxdigit(name[c])) {
+                                    d = toupper(name[c]) - 0x30;
+                                    if (d > 9)
+                                        d -= 7;
+                                } else {
+                                    if (first_time) {
+                                        emit_warning("invalid hexadecimal value in BITMAP");
+                                        first_time = 0;
+                                    }
+                                    d = 0;
+                                }
+                                value |= ((d & 1) << 7) >> c;
+                                value |= ((d & 2) << 6) >> c << 8;
+                                value |= ((d & 4) << 5) >> c << 16;
+                                value |= ((d & 8) << 4) >> c << 24;
+                            }
+                        }
+                        get_lex();
+                        bitmap[bitmap_byte++] = value;
+                        bitmap[bitmap_byte++] = value >> 8;
+                        bitmap[bitmap_byte++] = value >> 16;
+                        bitmap[bitmap_byte++] = value >> 24;
+                    } else {
+                        for (c = 0; c < 8; c++) {
+                            if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
+                                && name[c] != 0x20 && name[c] != 0x2e)  /* space and . */
+                                value |= 0x80 >> c;
+                        }
+                        get_lex();
+                        bitmap[bitmap_byte] = value;
+                        bitmap_byte++;
                     }
-                    get_lex();
-                    bitmap[bitmap_byte] = value;
-                    bitmap_byte++;
                     if (bitmap_byte >= 8) {
                         bitmap_byte = 0;
                         c = 0;
@@ -4023,32 +4060,123 @@ void compile_statement(int check_for_else)
                         }
                         fprintf(output, "%s", temp);
                     }
+                } else {
+                    emit_error("width error in BITMAP");
                 }
             } else if (strcmp(name, "BORDER") == 0) {
                 int type;
                 
                 get_lex();
-                type = evaluate_expression(1, TYPE_8, 0);
-                if (target == CPU_6502) {
-                    cpu6502_1op("LDX", "#7");
-                    generic_interrupt_disable();
-                    cpu6502_1op("JSR", "WRTVDP");
-                } else if (target == CPU_9900) {
-                    /* this is just a lot faster inline than jumping through hoops... */
-                    cpu9900_2op("srl","r0","8");
-                    cpu9900_2op("ori","r0",">8700");
-                    cpu9900_1op("swpb","r0");
-                    generic_interrupt_disable();
-                    cpu9900_2op("movb","r0","@VDPWADR");
-                    cpu9900_1op("swpb","r0");
-                    cpu9900_2op("movb","r0","@VDPWADR");
-                } else {
-                    cpuz80_2op("LD", "B", "A");
-                    cpuz80_2op("LD", "C", "7");
-                    generic_interrupt_disable();
-                    cpuz80_1op("CALL", "WRTVDP");
+                if (lex != C_COMMA) {
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (target == CPU_6502) {
+                        cpu6502_1op("LDX", "#7");
+                        generic_interrupt_disable();
+                        cpu6502_1op("JSR", "WRTVDP");
+                    } else if (target == CPU_9900) {
+                        /* this is just a lot faster inline than jumping through hoops... */
+                        cpu9900_2op("srl","r0","8");
+                        cpu9900_2op("ori","r0",">8700");
+                        cpu9900_1op("swpb","r0");
+                        generic_interrupt_disable();
+                        cpu9900_2op("movb","r0","@VDPWADR");
+                        cpu9900_1op("swpb","r0");
+                        cpu9900_2op("movb","r0","@VDPWADR");
+                    } else {
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "7");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                    }
+                    generic_interrupt_enable();
                 }
-                generic_interrupt_enable();
+                if (lex == C_COMMA) {
+                    get_lex();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (machine != SMS) {
+                        emit_error("The 2nd BORDER argument only available on Sega Master System");
+                    } else {
+                        cpuz80_1op("AND", "$07");
+                        cpuz80_1op("OR", "$20");
+                        cpuz80_noop("RRCA");
+                        cpuz80_noop("RRCA");
+                        cpuz80_noop("RRCA");
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "0");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        generic_interrupt_enable();
+                    }
+                }
+            } else if (strcmp(name, "SCROLL") == 0) {   /* Sega Master System */
+                int type;
+                
+                get_lex();
+                if (machine != SMS)
+                    emit_error("The SCROLL sentence is only available on Sega Master System");
+                if (lex != C_COMMA) {
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (machine == SMS) {
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "8");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        generic_interrupt_enable();
+                    }
+                }
+                if (lex == C_COMMA) {
+                    get_lex();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (machine == SMS) {
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "9");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        generic_interrupt_enable();
+                    }
+                }
+            } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System */
+                int type;
+                struct node *source;
+
+                get_lex();
+                if (machine != SMS)
+                    emit_error("The PALETTE sentence is only available on Sega Master System");
+                if (lex == C_NAME && strcmp(name, "LOAD") == 0) {
+                    get_lex();
+                    if (lex != C_NAME) {
+                        emit_error("missing label in PALETTE LOAD");
+                    } else if (strcmp(name, "VARPTR") == 0) {
+                        source = evaluate_save_expression(1, TYPE_16);  /* CPU address (variable) */
+                        node_generate(source, 0);
+                        node_delete(source);
+                    } else {
+                        if (machine == SMS) {
+                            strcpy(temp, LABEL_PREFIX);
+                            strcat(temp, name);
+                            cpuz80_2op("LD", "HL", temp);
+                        }
+                        get_lex();
+                    }
+                    generic_call("palette_load");
+                } else {
+                    generic_interrupt_disable();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (machine == SMS) {
+                        cpuz80_2op("LD", "L", "A");
+                        cpuz80_2op("LD", "H", "$C0");
+                        cpuz80_1op("CALL", "SETWRT");
+                    }
+                    if (lex != C_COMMA)
+                        emit_error("missing comma in PALETTE");
+                    else
+                        get_lex();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (machine == SMS) {
+                        cpuz80_2op("OUT", "(VDP)", "A");
+                    }
+                    generic_interrupt_enable();
+                }
             } else if (strcmp(name, "SIGNED") == 0) {
                 struct signedness *c;
                 
@@ -4241,9 +4369,11 @@ void compile_statement(int check_for_else)
                         get_lex();
                         addr = node_create(N_ADDR, 0, NULL, NULL);
                         addr->label = array;
-                        final = evaluate_level_0(&type);    /* Source */
+                        final = evaluate_level_0(&type);    /* Source offset */
                         if ((type & MAIN_TYPE) == TYPE_8)
                             final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
+                        if (machine == SMS)
+                            final = node_create(N_MUL16, 0, final, node_create(N_NUM16, 2, NULL, NULL));
                         final = node_create(N_PLUS16, 0, addr, final);
                         node_label(final);
                         node_generate(final, 0);
@@ -4262,10 +4392,12 @@ void compile_statement(int check_for_else)
                             break;
                         }
                         get_lex();
-                        final = evaluate_level_0(&type);    /* Target */
+                        final = evaluate_level_0(&type);    /* Target offset */
                         if ((type & MAIN_TYPE) == TYPE_8)
                             final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
-                        final = node_create(N_PLUS16, 0, node_create(N_NUM16, 0x1800, NULL, NULL), final);
+                        if (machine == SMS)
+                            final = node_create(N_MUL16, 0, final, node_create(N_NUM16, 2, NULL, NULL));
+                        final = node_create(N_PLUS16, 0, node_create(N_NUM16, (machine == SMS ? 0x3800 : 0x1800), NULL, NULL), final);
                         node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
@@ -4282,9 +4414,11 @@ void compile_statement(int check_for_else)
                             break;
                         }
                         get_lex();
-                        final = evaluate_level_0(&type);    /* Width */
+                        final = evaluate_level_0(&type);    /* Source/target Width */
                         if ((type & MAIN_TYPE) == TYPE_16)
                             final = node_create(N_REDUCE16, 0, final, NULL);
+                        if (machine == SMS)
+                            final = node_create(N_MUL8, 0, final, node_create(N_NUM8, 2, NULL, NULL));
                         node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
@@ -4300,7 +4434,7 @@ void compile_statement(int check_for_else)
                             break;
                         }
                         get_lex();
-                        final = evaluate_level_0(&type);    /* Height */
+                        final = evaluate_level_0(&type);    /* Source/target height */
                         if ((type & MAIN_TYPE) == TYPE_16)
                             final = node_create(N_REDUCE16, 0, final, NULL);
                         node_label(final);
@@ -4322,6 +4456,8 @@ void compile_statement(int check_for_else)
                             } else {
                                 if ((type & MAIN_TYPE) == TYPE_16)
                                     final = node_create(N_REDUCE16, 0, final, NULL);
+                                if (machine == SMS)
+                                    final = node_create(N_MUL8, 0, final, node_create(N_NUM8, 2, NULL, NULL));
                             }
                             node_label(final);
                             node_generate(final, 0);
@@ -4386,8 +4522,8 @@ void compile_statement(int check_for_else)
                             cpu9900_1op("data","LDIRVM");
                         } else {
                             cpuz80_2op("LD", "HL", assigned);
-                            cpuz80_2op("LD", "DE", "$1800");
-                            cpuz80_2op("LD", "BC", "$0300");
+                            cpuz80_2op("LD", "DE", (machine == SMS ? "$3800" : "$1800"));
+                            cpuz80_2op("LD", "BC", (machine == SMS ? "$0600" : "$0300"));
                             generic_interrupt_disable();
                             cpuz80_1op("CALL", "LDIRVM");
                         }

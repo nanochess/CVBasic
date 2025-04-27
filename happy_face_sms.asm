@@ -1,3 +1,32 @@
+	; CVBasic compiler v0.8.0 Apr/26/2025
+	; Command: ./cvbasic --sms examples/happy_face_sms.bas happy_face_sms.asm 
+	; Created: Sat Apr 26 19:18:25 2025
+
+COLECO:	equ 0
+SG1000:	equ 0
+MSX:	equ 0
+SGM:	equ 0
+SVI:	equ 0
+SORD:	equ 0
+MEMOTECH:	equ 0
+EINSTEIN:	equ 0
+CPM:	equ 0
+PENCIL:	equ 0
+PV2000:	equ 0
+TI99:	equ 0
+NABU:	equ 0
+SMS:	equ 1
+
+CVBASIC_MUSIC_PLAYER:	equ 0
+CVBASIC_COMPRESSION:	equ 0
+CVBASIC_BANK_SWITCHING:	equ 0
+
+BASE_RAM:	equ $c000	; Base of RAM
+STACK:	equ $e000	; Base stack pointer
+VDP:	equ $be	; VDP port (write)
+VDPR:	equ $be	; VDP port (read)
+PSG:	equ $7f	; PSG port (write)
+
 	;
 	; CVBasic prologue (BASIC compiler for Colecovision and other consoles)
 	;
@@ -2584,7 +2613,6 @@ nmi_handler:
 	call nz,music_generate
 .3:
     endif
-	;CVBASIC MARK DON'T CHANGE
 
   if CVBASIC_BANK_SWITCHING
 	pop af
@@ -3972,3 +4000,305 @@ WRITE_VRAM:	equ $1fdf
     endif
 
 	; CVBasic program start.
+	; 	'
+	; 	' Bouncing happy face (demo for CVBasic)
+	; 	'
+	; 	' by Oscar Toledo G.
+	; 	' https://nanochess.org/
+	; 	'
+	; 	' Creation date: Feb/28/2024.
+	; 	'
+	; 
+	; 	DEFINE SPRITE 0,2,happy_face
+	LD HL,0
+	PUSH HL
+	LD A,2
+	LD HL,cvb_HAPPY_FACE
+	CALL define_sprite
+	; 
+	; 	PRINT AT 36,"Happy face!"
+	LD HL,72
+	LD (cursor),HL
+	LD HL,cv1
+	LD A,11
+	CALL print_string
+	JP cv2
+cv1:
+	DB $48,$61,$70,$70,$79,$20,$66,$61
+	DB $63,$65,$21
+cv2:
+	; 
+	; 	x = 50
+	LD A,50
+	LD (cvb_X),A
+	; 	y = 100
+	LD A,100
+	LD (cvb_Y),A
+	; 	dx = 1
+	LD A,1
+	LD (cvb_DX),A
+	; 	dy = 1
+	LD A,1
+	LD (cvb_DY),A
+	; 
+	; game_loop:
+cvb_GAME_LOOP:
+	; 	WAIT
+	HALT
+	; 	WAIT
+	HALT
+	; 	SPRITE 0,y-1,x,0
+	SUB A
+	PUSH AF
+	LD A,(cvb_Y)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X)
+	PUSH AF
+	SUB A
+	CALL update_sprite
+	; 	SPRITE 1,y-1,x+8,1
+	LD A,1
+	PUSH AF
+	LD A,(cvb_Y)
+	DEC A
+	PUSH AF
+	LD A,(cvb_X)
+	ADD A,8
+	PUSH AF
+	LD A,1
+	CALL update_sprite
+	; 
+	; 	x = x + dx
+	LD HL,cvb_X
+	LD A,(cvb_DX)
+	ADD A,(HL)
+	LD (HL),A
+	; 	IF x = 0 THEN dx = -dx
+	LD A,(HL)
+	AND A
+	JP NZ,cv3
+	LD A,(cvb_DX)
+	NEG
+	LD (cvb_DX),A
+cv3:
+	; 	IF x = 240 THEN dx = -dx
+	LD A,(cvb_X)
+	CP 240
+	JP NZ,cv4
+	LD A,(cvb_DX)
+	NEG
+	LD (cvb_DX),A
+cv4:
+	; 	y = y + dy
+	LD HL,cvb_Y
+	LD A,(cvb_DY)
+	ADD A,(HL)
+	LD (HL),A
+	; 	IF y = 0 THEN dy = -dy
+	LD A,(HL)
+	AND A
+	JP NZ,cv5
+	LD A,(cvb_DY)
+	NEG
+	LD (cvb_DY),A
+cv5:
+	; 	IF y = 176 THEN dy = -dy
+	LD A,(cvb_Y)
+	CP 176
+	JP NZ,cv6
+	LD A,(cvb_DY)
+	NEG
+	LD (cvb_DY),A
+cv6:
+	; 	GOTO game_loop
+	JP cvb_GAME_LOOP
+	; 
+	; 	' The face includes the color for the sprite
+	; 	' A = Yellow in the default palette.
+	; happy_face:
+cvb_HAPPY_FACE:
+	; 	BITMAP "......AA"
+	; 	BITMAP "....AAAA"
+	DB $00,$03,$00,$03,$00,$0f,$00,$0f
+	; 	BITMAP "...AAAAA"
+	; 	BITMAP "..AAAAAA"
+	DB $00,$1f,$00,$1f,$00,$3f,$00,$3f
+	; 	BITMAP ".AAAAAAA"
+	; 	BITMAP ".AAFFFAA"
+	DB $00,$7f,$00,$7f,$1c,$7f,$1c,$7f
+	; 	BITMAP "AAAFFFAA"
+	; 	BITMAP "AAAFF4AA"
+	DB $1c,$ff,$1c,$ff,$18,$fb,$1c,$fb
+	; 	BITMAP "AAAAAAAA"
+	; 	BITMAP "AAAAAAAA"
+	DB $00,$ff,$00,$ff,$00,$ff,$00,$ff
+	; 	BITMAP ".AAAAAAA"
+	; 	BITMAP ".AAA66AA"
+	DB $00,$7f,$00,$7f,$00,$7f,$0c,$73
+	; 	BITMAP "..AAA666"
+	; 	BITMAP "...AAA66"
+	DB $00,$3f,$07,$38,$00,$1f,$03,$1c
+	; 	BITMAP "....AAAA"
+	; 	BITMAP "......AA"
+	DB $00,$0f,$00,$0f,$00,$03,$00,$03
+	; 
+	; 	BITMAP "AA......"
+	; 	BITMAP "AAAA...."
+	DB $00,$c0,$00,$c0,$00,$f0,$00,$f0
+	; 	BITMAP "AAAAA..."
+	; 	BITMAP "AAAAAA.."
+	DB $00,$f8,$00,$f8,$00,$fc,$00,$fc
+	; 	BITMAP "AAAAAAA."
+	; 	BITMAP "AAFFFAA."
+	DB $00,$fe,$00,$fe,$38,$fe,$38,$fe
+	; 	BITMAP "AAFFFAAA"
+	; 	BITMAP "AA4FFAAA"
+	DB $38,$ff,$38,$ff,$18,$df,$38,$df
+	; 	BITMAP "AAAAAAAA"
+	; 	BITMAP "AAAAAAAA"
+	DB $00,$ff,$00,$ff,$00,$ff,$00,$ff
+	; 	BITMAP "AAAAAAA."
+	; 	BITMAP "AA66AAA."
+	DB $00,$fe,$00,$fe,$00,$fe,$30,$ce
+	; 	BITMAP "666AAA.."
+	; 	BITMAP "66AAA..."
+	DB $00,$fc,$e0,$1c,$00,$f8,$c0,$38
+	; 	BITMAP "AAAA...."
+	; 	BITMAP "AA......"
+	DB $00,$f0,$00,$f0,$00,$c0,$00,$c0
+	;
+	; CVBasic epilogue (BASIC compiler for Colecovision)
+	;
+	; by Oscar Toledo G.
+	; https://nanochess.org/
+	;
+	; Creation date: Feb/27/2024.
+	; Revision date: Feb/29/2024. Added joystick, keypad, frame, random, and
+	;                             read_pointer variables.
+	; Revision date: Mar/04/2024. Added music player.
+	; Revision date: Mar/05/2024. Added support for Sega SG1000.
+	; Revision date: Mar/12/2024. Added support for MSX.
+	; Revision date: Mar/13/2024. Added Pletter decompressor.
+	; Revision date: Mar/19/2024. Added support for sprite flicker.
+	; Revision date: Apr/11/2024. Added support for Super Game Module.
+	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
+	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
+	;                             can remain accessible in bank 0 (bank switching).
+	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
+	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
+	; Revision date: Nov/12/2024. Added vdp_status.
+	; Revision date: Feb/03/2025. Round final ROM size to 8K multiples.
+	;
+
+rom_end:
+
+	; ROM final size rounding
+    if MSX+COLECO+SG1000+SMS+SVI+SORD
+        TIMES (($+$1FFF)&$1e000)-$ DB $ff
+    endif
+    if MEMOTECH+EINSTEIN+NABU
+	; Align following data to a 256-byte page.
+        TIMES $100-($&$ff) DB $4f
+    endif
+    if PV2000
+	TIMES $10000-$ DB $ff
+    endif
+    if SG1000+SMS
+	forg $7FF0
+	org $7FF0
+	db "TMR SEGA"
+	db 0,0
+	db 0,0		; Checksum
+	db $11,$78	; Product code
+	db $00		; Version
+	db $4c		; SMS Export + 32KB for checksum
+    endif
+    if COLECO+SG1000+SMS+MSX+SVI+SORD+PV2000
+	org BASE_RAM
+    endif
+ram_start:
+
+sprites:
+    if SMS
+	rb 256
+    else
+	rb 128
+    endif
+sprite_data:
+	rb 4
+frame:
+	rb 2
+read_pointer:
+	rb 2
+cursor:
+	rb 2
+lfsr:
+	rb 2
+mode:
+	rb 1
+flicker:
+	rb 1
+joy1_data:
+	rb 1
+joy2_data:
+	rb 1
+key1_data:
+	rb 1
+key2_data:
+	rb 1
+ntsc:
+	rb 1
+vdp_status:
+	rb 1
+    if NABU
+nabu_data0: rb 1
+nabu_data1: rb 1
+nabu_data2: rb 1
+    endif
+
+    if CVBASIC_MUSIC_PLAYER
+music_tick:             rb 1
+music_mode:             rb 1
+
+    if CVBASIC_BANK_SWITCHING
+music_bank:             rb 1
+    endif
+music_start:		rb 2
+music_pointer:		rb 2
+music_playing:		rb 1
+music_timing:		rb 1
+music_note_counter:	rb 1
+music_instrument_1:	rb 1
+music_counter_1:	rb 1
+music_note_1:		rb 1
+music_instrument_2:	rb 1
+music_counter_2:	rb 1
+music_note_2:		rb 1
+music_instrument_3:	rb 1
+music_counter_3:	rb 1
+music_note_3:		rb 1
+music_counter_4:	rb 1
+music_drum:		rb 1
+
+audio_freq1:		rb 2
+audio_freq2:		rb 2
+audio_freq3:		rb 2
+audio_noise:		rb 1
+audio_mix:		rb 1
+audio_vol1:		rb 1
+audio_vol2:		rb 1
+audio_vol3:		rb 1
+
+audio_control:		rb 1
+audio_vol4hw:		rb 1
+    endif
+
+    if SGM
+	org $2000	; Start for variables.
+    endif
+cvb_X:	rb 1
+cvb_Y:	rb 1
+cvb_DX:	rb 1
+cvb_DY:	rb 1
+ram_end:
