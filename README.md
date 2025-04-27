@@ -1,5 +1,5 @@
-# CVBasic compiler v0.7.1
-*(c) Copyright 2024 Óscar Toledo Gutiérrez*
+# CVBasic compiler v0.8.0
+*(c) Copyright 2024-2025 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
 CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic originally written for the Colecovision video game console.
@@ -19,8 +19,11 @@ Later it was extended to support the following platforms:
 * Casio PV2000.
 * Hanimex/Soundic Pencil II.
 * NABU PC.
+* Sega Master System (supporting bank switching with Sega mapper)
 
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
+
+The only difference currently is the Sega Master System, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS versions for every game so you can see what's required to change.
 
 The following files compose the compiler:
 
@@ -51,22 +54,32 @@ The following files compose the compiler:
     
     examples/bank.bas           Bank-switching example.
     examples/brinquitos.bas     Jumping game.
+    examples/brinquitos_sms.bas Jumping game (Sega Master System)
     examples/controller.bas     Controller test.
     examples/demo.bas           Demo of graphics.
+    examples/demo_sms.bas       Demo of graphics (Sega Master System)
     examples/face_joystick.bas  Moving face with joystick.
+    examples/face_joystick_sms.bas  Moving face with joystick (Sega Master System)
     examples/happy_face.bas     Bouncing face.
+    examples/happy_face_sms.bas Bouncing face (Sega Master System).
     examples/music.bas          Music example.
     examples/oscar_compressed.bas  High-resolution graphics example compressed with Pletter.
     examples/oscar.bas          High-resolution graphics example.
     examples/portrait.bas       Data used by demo.bas
+    examples/portrait_sms.bas   Data used by demo_sms.bas
     examples/space_attack.bas   Game example.
+    examples/space_attack_sms.bas   Game example (Sega Master System)
     examples/test1.bas          Moving stars.
     examples/test2.bas          Arithmetic test.
     examples/test3.bas          Shows usage of SELECT CASE / END CASE
+    examples/test3_sms.bas      Shows usage of SELECT CASE / END CASE (Sega Master System)
     examples/varptr.bas         VARPTR example for redefining graphics.
+    examples/varptr_sms.bas     VARPTR example for redefining graphics (Sega Master System)
     examples/vgm.bas            VGM audio player.
     examples/viboritas.bas      Game example.
+    examples/viboritas_sms.bas  Game example (Sega Master System)
     examples/vramcopy.bas       VRAM copy example.
+    examples/vramcopy_sms.bas   VRAM copy example (Sega Master System)
 
 
 ### Usage guide
@@ -159,9 +172,16 @@ The .npz file is directlty usable by [MAME NABU port](https://github.com/onthesl
 
 I don't have tested the COM files for NABU CP/M yet.
 
+Using CVBasic to compile a Sega Master System program:
+
+    cvbasic --sms game.bas game.asm
+    gasm80 game.asm -o game.rom -sms
+    
+The -sms option of gasm80 will generate automatically a valid checksum so the game can run on a real console.
+
 ### Notes
 
-The current official version is v0.7.0.
+The current official version is v0.8.0.
 
 All platforms have been tested in emulation.
 
@@ -177,7 +197,7 @@ Untested:
 
 MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
 
-The Sega SG1000 doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD) and for CONT1.KEY using the keys 0-9, Delete and CR.
+The Sega SG1000 and Sega Master System doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD) and for CONT1.KEY using the keys 0-9, Delete and CR.
 
 The Spectravideo SVI-328 only has one button in the joystick. The keyboard can be used for the second button (letter M) and to have keypad (CONT1.KEY only) using the keys 0-9, Backspace and Return.
 
@@ -200,6 +220,8 @@ Many people is developing games using CVBasic, feel free to check some of these 
 
 There are some very good examples of games developed with CVBasic.
 
+* Airlock II game by OriginalJohn. Demo available from [https://forums.atariage.com/topic/379104-cvbasic-airlock-ii-in-progress/](https://forums.atariage.com/topic/379104-cvbasic-airlock-ii-in-progress/)
+
 * Beachhead by Eric Damain. Demo screenshots [https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/](https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/)
 
 * Camelot Knights by nanochess. Available from [https://forums.atariage.com/topic/363252-camelot-knights-game/](https://forums.atariage.com/topic/363252-camelot-knights-game/)
@@ -208,7 +230,11 @@ There are some very good examples of games developed with CVBasic.
 
 * Donkey.BAS by Claus Bækkel. Available for purchase from [https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/](https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/)
 
+* Duocide by Jess Ragan. Demo available from [https://forums.atariage.com/topic/379738-duocide-the-side-switching-shooter/](https://forums.atariage.com/topic/379738-duocide-the-side-switching-shooter/)
+
 * Gorilla.BAS by nanochess. Available from [https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/](https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/)
+
+* Gun Fight by Eric Damain. Video at [https://forums.atariage.com/topic/379102-gun-fight-dev-log-cvbasic/](https://forums.atariage.com/topic/379102-gun-fight-dev-log-cvbasic/)
 
 * Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
 
@@ -216,7 +242,7 @@ There are some very good examples of games developed with CVBasic.
 
 * Rogue-like Wip by Skywaffle. Available from [https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/](https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/)
 
-* Unnamed game by OriginalJohn. Demo screenshot [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5471429)
+* Sub Hunt by Eric Damain. Demo videos [https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/](https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/)
 
 * Whack'em Smack'em Byron by Jess Ragan. Available from [https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961](https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961)
 
