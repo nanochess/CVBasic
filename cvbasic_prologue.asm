@@ -3834,13 +3834,13 @@ Z80_CTC:	equ $28
 	ld (de),a
 	inc de
       if PV2000
-        bit 7,d
+        bit 7,d		; 2.5K of RAM
       endif
       if PENCIL
-        bit 3,d
+        bit 3,d		; 2K of RAM
       endif
       if COLECO+SG1000+SORD
-	bit 2,d
+	bit 2,d		; 1K of RAM
       endif
 	jp z,$-4
 	ld (lfsr),hl

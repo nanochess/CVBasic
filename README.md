@@ -56,6 +56,7 @@ The following files compose the compiler:
     examples/brinquitos.bas     Jumping game.
     examples/brinquitos_sms.bas Jumping game (Sega Master System)
     examples/controller.bas     Controller test.
+    examples/cats_sms.bas       Cats example (Sega Master System)
     examples/demo.bas           Demo of graphics.
     examples/demo_sms.bas       Demo of graphics (Sega Master System)
     examples/face_joystick.bas  Moving face with joystick.

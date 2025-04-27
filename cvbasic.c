@@ -90,6 +90,10 @@ struct console consoles[TOTAL_TARGETS] = {
     {"nabu",    "-cpm",     "NABU PC (64K RAM)",
         "Nabu PC",
         0,      0xe000, 0,       0xa0,   0xa0, 0,    1, CPU_Z80},
+    /*
+    ** For Sega Master System the stack cannot start at $e000, because
+    ** when using Bank Switching writing to $fffd-$ffff destroys $dffd-$dfff
+    */
     {"sms",     "",         "Sega Master System (8K RAM)",
         "Sega Master System",
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
