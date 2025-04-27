@@ -105,7 +105,7 @@
 		READ BYTE c
 		IF c = 0 THEN EXIT DO
 
-		VPOKE #pointer, c
+		PRINT AT #pointer, CHR$(c)
 		#pointer = #pointer + 1		
 	LOOP WHILE 1
 

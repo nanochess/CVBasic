@@ -5,6 +5,7 @@
 	' https://nanochess.org/
 	'
 	' Creation date: Feb/29/2024.
+	' Revision date: Apr/27/2025. Uses new CHR$ syntax.
 	'
 
 	DIM #stars(24)
@@ -20,10 +21,10 @@
 
 		WAIT
 		FOR c = 0 TO 23
-			VPOKE $1800 + #stars(c), 32
+			PRINT AT #stars(c), CHR$(32)
 			#stars(c) = #stars(c) + 32
 			IF #stars(c) >= 768 THEN #stars(c) = #stars(c) - 736
-			VPOKE $1800 + #stars(c), 42
+			PRINT AT #stars(c), CHR$(42)
 		NEXT c
 	WEND
 
