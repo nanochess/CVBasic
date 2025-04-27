@@ -636,7 +636,9 @@ The following statements are available:
      X contains the X-coordinate for the sprite (0-255)
 
      F contains the sprite frame. You must multiply the desired sprite
-     definition (0-63) by 4 to show the right sprite.
+     definition (0-63) by 4 to show the right sprite. For Sega Master
+     System the sprite frame is based on 8x8 blocks, so you need to use
+     multiplies of 2 for each 8x16 sprite (0-254)
 
      C contains the color for the sprite (0-15). Alternatively, you can
      add the flag $80 (128 decimal) to displace the sprite by 32 pixels
@@ -863,7 +865,9 @@ The following statements are available:
 
     Every other character will be interpreted as one.
 
-    For the Sega Master System, the colors are specified by using 1 to 9,
+    For the Sega Master System, the sprites are composed by 8x16 pixels. If you
+    use a 16x16 bitmap, it is automatically divided into 2 sprites of 8x16 pixels.
+    The colors for each pixel are specified by using hexadecimal digits 1 to 9,
     and A to F.
 
 

@@ -71,10 +71,10 @@ main_loop:
 	' Jump sound effect.
 	'
 	IF jump_state >= 33 THEN	' Jumping
-		f = 2
+		f = 4
 		SOUND 2, y, 12
 	ELSEIF jump_state THEN		' Falling
-		f = 4
+		f = 8
 		SOUND 2, y, 12
 	ELSE				' Standing
 		f = 0
@@ -83,12 +83,12 @@ main_loop:
 
 	' Show the player sprite
 	SPRITE 0, y - 1, x - 8, f
-	SPRITE 1, y - 1, x, f + 1
+	SPRITE 1, y - 1, x, f + 2
 	
 	' Show sprites for clouds
 	FOR c = 0 TO 3
-		SPRITE c * 2 + 2, cloud_y(c) - 1, cloud_x(c) - 8, 6
-		SPRITE c * 2 + 3, cloud_y(c) - 1, cloud_x(c), 7
+		SPRITE c * 2 + 2, cloud_y(c) - 1, cloud_x(c) - 8, 12
+		SPRITE c * 2 + 3, cloud_y(c) - 1, cloud_x(c), 14
 	NEXT c
 
 	' Video synchronization

@@ -767,28 +767,22 @@ define_sprite:
 	
 update_sprite:
     if SMS
-	pop bc
-	add a,a
-	ld (sprite_data+2),a
-	pop af
-	ld (sprite_data+1),a
-	pop af
-	ld (sprite_data),a
-	pop af
-	; A = Sprite number
-	push bc
-	and $3f
-	ld e,a
-	ld d,sprites>>8
-	ld a,(sprite_data)
-	ld (de),a
-	sla e
-	set 7,e
-	ld a,(sprite_data+1)
-	ld (de),a
-	inc e
-	ld a,(sprite_data+2)
-	ld (de),a	
+	pop bc		; Pop return address.
+	pop de		; 3th. argument in D (Y-coordinate)
+	ld e,a		; 4th. argument in E (frame)
+	pop af		; 2nd. argument in A (X-coordinate)
+	pop hl		; 1st. argument in H (sprite number)
+	push bc		; Push return address.
+	ld l,h
+	res 7,l
+	res 6,l
+	ld h,sprites>>8
+	ld (hl),a
+	sla l
+	set 7,l
+	ld (hl),d
+	inc l
+	ld (hl),e
     else
 	pop bc
 	ld (sprite_data+3),a
