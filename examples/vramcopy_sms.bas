@@ -1,0 +1,47 @@
+	'
+	' Example of DEFINE VRAM READ
+	'
+	' by Oscar Toledo G.
+	' https://nanochess.org/
+	'
+	' Creation date: Oct/15/2024.
+	' Revision date: Apr/27/2025. Adapted for Sega Master System.
+	'
+
+	DIM array(128)
+
+	CLS
+	MODE 4
+	DEFINE CHAR 16,2,wall_bitmaps
+	
+	FOR #c = 0 TO 126 STEP 2
+		VPOKE $3800 + #c, RANDOM(2) + 16
+	NEXT #c
+
+	DEFINE VRAM READ $3800,$0080,VARPTR array(0)
+
+	FOR #c = 128 TO 1408 STEP 128
+		DEFINE VRAM $3800 + #c, $0080, VARPTR array(0)
+	NEXT #c
+	
+	WHILE 1: WEND
+
+wall_bitmaps:
+	BITMAP "666E6666"
+	BITMAP "666E6666"
+	BITMAP "666E6666"
+	BITMAP "EEEEEEEE"
+	BITMAP "6666666E"
+	BITMAP "6666666E"
+	BITMAP "6666666E"
+	BITMAP "EEEEEEEE"
+
+	BITMAP "FFFFFFF1"
+	BITMAP "F55F55FF"
+	BITMAP "F55F55FF"
+	BITMAP "F44F44FF"
+	BITMAP "F44F44FF"
+	BITMAP "F44F44FF"
+	BITMAP "FFFFFFFF"
+	BITMAP "1FFFFFFF"
+

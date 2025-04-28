@@ -265,5 +265,36 @@ void generic_comparison_16bit(int min, int max, char *label)
     }
 }
 
+/*
+ ** Generic disable interrupt
+ */
+void generic_interrupt_disable(void)
+{
+    if (consoles[machine].int_pin == 0) {
+        generic_call("nmi_off");
+    } else {
+        if (target == CPU_Z80)
+            cpuz80_noop("DI");
+        else if (target == CPU_6502)
+            cpu6502_noop("SEI");
+        else if (target == CPU_9900)
+            cpu9900_1op("limi", "0");
+    }
+}
 
-
+/*
+ ** Generic enable interrupt
+ */
+void generic_interrupt_enable(void)
+{
+    if (consoles[machine].int_pin == 0) {
+        generic_call("nmi_on");
+    } else {
+        if (target == CPU_Z80)
+            cpuz80_noop("EI");
+        else if (target == CPU_6502)
+            cpu6502_noop("CLI");
+        else if (target == CPU_9900)
+            cpu9900_1op("limi", "2");
+    }
+}

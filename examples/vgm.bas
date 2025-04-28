@@ -12,7 +12,7 @@
 	'
 	' I/O port where the PSG is located in hardware.
 	'
-'	CONST VGM_PSG_PORT = $7F	' For SG-1000
+'	CONST VGM_PSG_PORT = $7F	' For SG-1000/SMS
 	CONST VGM_PSG_PORT = $FF	' For Colecovision
 
 	ON FRAME GOSUB vgm_play

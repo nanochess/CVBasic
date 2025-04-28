@@ -15,6 +15,32 @@
 
 #define MAX_LINE_SIZE    1024
 
+/*
+ ** Supported platforms.
+ */
+enum supported_machine {
+    COLECOVISION,
+    SG1000,
+    MSX,
+    COLECOVISION_SGM,
+    SVI,
+    SORD,
+    MEMOTECH,
+    CREATIVISION,
+    PENCIL,
+    EINSTEIN,
+    PV2000,
+    TI994A,
+    NABU,
+    SMS,
+    TOTAL_TARGETS
+};
+
+extern enum supported_machine machine;
+
+/*
+ ** Supported target CPUs
+ */
 enum cpu_target {
     CPU_Z80,
     CPU_6502,
@@ -22,6 +48,27 @@ enum cpu_target {
 };
 
 extern enum cpu_target target;
+
+/*
+ ** Information about supported machines
+ */
+struct console {
+    char *name;         /* Machine name */
+    char *options;      /* Options */
+    char *description;  /* Description (for usage guide) */
+    char *canonical;    /* Canonical name */
+    int base_ram;       /* Where the RAM starts */
+    int stack;          /* Where the stack will start */
+    int memory_size;    /* Memory available */
+    int vdp_port_write; /* VDP port for writing */
+    int vdp_port_read;  /* VDP port for reading (needed for SVI-318/328, sigh) */
+    int psg_port;       /* PSG port (SN76489) */
+    int int_pin;        /* Indicates if it uses the INT pin for video frame interrupt */
+    enum cpu_target target;
+};
+
+extern struct console consoles[TOTAL_TARGETS];
+
 extern char temp[MAX_LINE_SIZE];
 extern int optimized;
 extern FILE *output;

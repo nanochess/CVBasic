@@ -462,14 +462,16 @@ print_digit:
 .4:	DEX
 	BEQ .6
 	LDX temp+1
-	BNE .5
+	BNE print_char
 .6:
 	LDX #$30
 .3:	PHA
 	LDA #1
 	STA temp
 	PLA
-.5:	PHA
+
+print_char:
+	PHA
 	TYA
 	PHA
 	LDA cursor+1
