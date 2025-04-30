@@ -206,6 +206,11 @@ The following statements are available:
 
      Constants that start with the # prefix are treated as 16-bit numbers, and
      if this isn't present then the constant will be treated as an 8-bit number.
+
+     Constants can be passed-in to CVBasic via the command-line:
+
+       cvbasic -DMYCONST=123 in.bas output.asm
+       cvbasic -D#MYBIGCONST=12345 in.bas output.asm
   
   GOTO label        
   
