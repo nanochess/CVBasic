@@ -5700,7 +5700,7 @@ void compile_basic(void)
     struct label *label;
     int label_exists;
     char *p;
-
+    int skip = 0;
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
@@ -5719,6 +5719,36 @@ void compile_basic(void)
         label_exists = 0;
         label = NULL;
         get_lex();
+
+        /* pre-processor #IF, #ELSE, #ENDIF
+         * currently supports a single level
+         */
+        if (lex == C_NAME && name[0] == '#') {
+            if (strcmp(name, "#IF") == 0) {
+                if (skip) {
+                    emit_error("Nested #IF not supported");
+                }
+                get_lex();
+                if (lex == C_NAME) {
+                    struct constant *c = constant_search(name);
+                    if (c && (c->value == 0)) {
+                        skip = 1;
+                    }
+                }
+                get_lex();
+                if (lex != C_END)
+                    emit_error("Extra characters");            
+            } else if (strcmp(name, "#ENDIF") == 0) {
+                skip = 0;
+                continue;
+            } else if (strcmp(name, "#ELSE") == 0) {
+                skip = !skip;
+                continue;
+            }            
+        }
+
+        if (skip) continue;
+
         if (lex == C_LABEL) {
             if (value == 0)
                 strcpy(global_label, name);
