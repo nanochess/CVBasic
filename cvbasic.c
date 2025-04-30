@@ -6078,7 +6078,11 @@ int main(int argc, char *argv[])
             exit(2);
         }
     }
-    if (argv[c][0] == '-' && argv[c][1] == 'D') {
+
+     /*
+      ** passed-in constants
+      */
+    while (argv[c][0] == '-' && argv[c][1] == 'D') {
         int i = 1;
         char ch = 0;
         struct constant *d = NULL;
@@ -6095,11 +6099,12 @@ int main(int argc, char *argv[])
             }
         }
         if (d == NULL) {
-            fprintf(stderr, "%s missing assignment. Syntax: -DMYCONSTANT=123\n", argv[c]);
+            fprintf(stderr, "%s missing assignment. Syntax: -DMYCONSTANT=123 -D#MYBIGCONSTANT=12345\n", argv[c]);
             exit(2);
         }
         c++;
     }
+
     strcpy(current_file, argv[c]);
     err_code = 0;
     input = fopen(current_file, "r");
