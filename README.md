@@ -1,3 +1,10 @@
+# visrealm fork of CVBasic
+
+Changes:
+ * Rudimentary preprocessor support. #IF, #ELSE, #ENDIF, #INFO, #WARN, #ERROR
+ * Added support for passing in constants: eg: `cvbasic -DMYCONST=123 -D#MYBIGCONST=12345 in.bas output.asm`
+ * Added RDVST native subroutines to pro/epilogues to check VDP status immediately with `USR RDVST`
+
 # CVBasic compiler v0.8.0
 *(c) Copyright 2024-2025 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
