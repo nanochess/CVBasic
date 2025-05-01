@@ -280,6 +280,13 @@ void emit_warning(char *string)
 }
 
 /*
+ ** Emit info
+ */
+void emit_info(char *string)
+{
+    fprintf(stderr, "INFO: %s at line %d (%s)\n", string, current_line, current_file);
+}
+/*
  ** Finish a bank
  */
 void bank_finish(void)
@@ -464,7 +471,13 @@ struct constant *constant_add(char *name)
     }
     new_one->value = 0;
     strcpy(new_one->name, name);
-    previous = &constant_hash[label_hash_value(name)];
+    char *c = new_one->name;
+    while (*c)
+    {
+        if (isalpha(*c)) *c = toupper(*c);
+        c++;
+    }
+    previous = &constant_hash[label_hash_value(new_one->name)];
     new_one->next = *previous;
     *previous = new_one;
     return new_one;
@@ -5726,16 +5739,25 @@ void compile_basic(void)
          * currently supports a single level
          */
         if (lex == C_NAME && name[0] == '#') {
+            int inv = 0;
             if (strcmp(name, "#IF") == 0) {
                 if (skip) {
                     emit_error("Nested #IF not supported");
                 }
                 get_lex();
                 if (lex == C_NAME) {
+                    if (strcmp(name, "NOT") == 0) {
+                        get_lex();
+                        inv = -1;
+                    }
+                }
+                if (lex == C_NAME) {
                     struct constant *c = constant_search(name);
-                    if (c && (c->value == 0)) {
+                    if (!c || (c->value == 0)) {
                         skip = 1;
                     }
+                } else if (lex == C_NUM) {
+                    if (value == 0) skip = 1;
                 }
                 get_lex();
                 if (lex != C_END)
@@ -5746,10 +5768,30 @@ void compile_basic(void)
             } else if (strcmp(name, "#ELSE") == 0) {
                 skip = !skip;
                 continue;
-            }            
+            }
+
+            if (inv) skip = !skip;
+            
         }
 
         if (skip) continue;
+
+        if (lex == C_NAME && name[0] == '#') {
+            if (strcmp(name, "#INFO") == 0) {
+                get_lex();
+                emit_info(name);
+                continue;
+            } else if (strcmp(name, "#WARN") == 0) {
+                get_lex();
+                emit_warning(name);
+                continue;
+            } else if (strcmp(name, "#ERROR") == 0) {
+                get_lex();
+                emit_error(name);
+                continue;
+            }            
+        }
+
 
         if (lex == C_LABEL) {
             if (value == 0)
@@ -6069,7 +6111,13 @@ int main(int argc, char *argv[])
     } else {
         pencil = 0;
     }
-    
+
+    /* adding machine constants*/
+    {
+        struct constant *mnc = constant_add(consoles[machine].name);
+        mnc->value = 1;
+    }
+
     /*
      ** Extra options.
      */
