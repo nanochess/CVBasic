@@ -14,7 +14,7 @@ This software is provided 'as-is', without any express or implied warranty.
 In no event will the author be held liable for any damages or loss arising 
 from the use of this software.
 
-It is prohibited to modify, decompile, disassemble or reverse engineer this 
+It is prohibited to modify, decompile, disassemble or reverse engineer this  
 software.
 
 All trademarks are property of their respective owners.
@@ -1196,7 +1196,51 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   MUSIC.PLAYING
     Returns zero if music is not currently playing, returns a non-zero
     value otherwise.
-    
+
+>>>>>>>>>>>>>>  Preprocessor
+
+The preprocessor can be used to confitionnaly include or exclude
+CVBasic code from being compiled. This can be useful for including
+platform-dependant user instructions or to enable or disable
+diagnostics displays.
+
+  #IF [NOT] constant
+    [statement]
+    [statement]
+  #ELSE
+    [statement]
+    [statement]
+  #ENDIF
+
+Unlike regular IF-THEN-ELSE statements, the excluded code is not
+compiled at all so will not take up additional space in your compiled
+rom image.
+
+One of the following pre-defined constants will be available and
+set to equal 1 depending on the build target chosen:
+
+  COLECOVISION, SG1000, MSX, SGM, SVI, SORD, MEMOTECH, CREATIVISION,
+  PENCIL, EINSTEIN, PV2000, TI994A, NABU, SMS
+
+These can be used to include or exclude CVBasic code for a given 
+target platform. eg:
+
+  #IF TI994A
+    CONST BANKSIZE=8
+  #ELSE
+    CONST BANKSIZE=16
+  #ENDIF
+
+Compile-time logging:
+
+  #INFO string
+    Output an information message at compile time.
+
+  #WARN string
+    Output a warning message at compile time.
+
+  #ERROR string
+    Output an error message and halt compilation at compile time.
 
 >>>>>>>>>>>>>>  Useful VRAM addresses
 
