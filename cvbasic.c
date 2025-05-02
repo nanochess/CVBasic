@@ -5976,11 +5976,11 @@ int main(int argc, char *argv[])
         machine = COLECOVISION;
         while (machine < TOTAL_TARGETS) {
             if (machine == COLECOVISION)
-                fprintf(stderr, "    cvbasic input.bas output.asm [library_path]\n");
+                fprintf(stderr, "    cvbasic [-DMYCONST=123] input.bas output.asm [library_path]\n");
             else
-                fprintf(stderr, "    cvbasic --%s input.bas output.asm [library_path]\n", consoles[machine].name);
+                fprintf(stderr, "    cvbasic --%s [-DMYCONST=123] input.bas output.asm [library_path]\n", consoles[machine].name);
             if (consoles[machine].options[0])
-                fprintf(stderr, "    cvbasic --%s %s input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
+                fprintf(stderr, "    cvbasic --%s %s [-DMYCONST=123] input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
             fprintf(stderr, "        %s\n",
                     consoles[machine].description);
             machine++;
@@ -6078,6 +6078,33 @@ int main(int argc, char *argv[])
             exit(2);
         }
     }
+
+     /*
+      ** passed-in constants
+      */
+    while (argv[c][0] == '-' && argv[c][1] == 'D') {
+        int i = 1;
+        char ch = 0;
+        struct constant *d = NULL;
+        while (ch = argv[c][++i]) {
+            if (!isalnum(ch) && ch != '_' && ch != '#' && ch != '=') {
+                fprintf(stderr, "%s name includes invalid characters.\n", argv[c]);
+                exit(2);
+                }
+            if (ch == '=') {
+                argv[c][i] = '\0';
+                d = constant_add(&argv[c][2]);
+                d->value = atoi(&argv[c][i + 1]);
+                break;
+            }
+        }
+        if (d == NULL) {
+            fprintf(stderr, "%s missing assignment. Syntax: -DMYCONSTANT=123 -D#MYBIGCONSTANT=12345\n", argv[c]);
+            exit(2);
+        }
+        c++;
+    }
+
     strcpy(current_file, argv[c]);
     err_code = 0;
     input = fopen(current_file, "r");
