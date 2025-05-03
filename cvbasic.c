@@ -6160,22 +6160,35 @@ int main(int argc, char *argv[])
     }
 
      /*
-      ** passed-in constants
+      ** Passed-in constants
       */
-    while (argv[c][0] == '-' && argv[c][1] == 'D') {
+    while (argv[c][0] == '-' && tolower(argv[c][1]) == 'd') {
         int i = 1;
         char ch = 0;
+        char *p = name;
         struct constant *d = NULL;
-        while (ch = argv[c][++i]) {
+        
+        while (1) {
+            ch = argv[c][++i];
+            if (ch == '\0')
+                break;
             if (!isalnum(ch) && ch != '_' && ch != '#' && ch != '=') {
                 fprintf(stderr, "%s name includes invalid characters.\n", argv[c]);
                 exit(2);
-                }
+            }
             if (ch == '=') {
-                argv[c][i] = '\0';
-                d = constant_add(&argv[c][2]);
-                d->value = atoi(&argv[c][i + 1]);
+                *p = '\0';
+                d = constant_search(name);
+                if (d != NULL) {
+                    fprintf(stderr, "constant redefined %s\n", argv[c]);
+                } else {
+                    d = constant_add(name);
+                    d->value = atoi(&argv[c][i + 1]);
+                }
                 break;
+            } else {
+                if (p < name + sizeof(name) - 1)
+                    *p++ = toupper(ch);
             }
         }
         if (d == NULL) {
