@@ -135,7 +135,7 @@ lastsp              equ $
 ; reads VDP status for us (no choice).
 
 intcnt              equ >8379   ; interrupt counter byte, adds 1 (from GPLWS r14) every frame
-vdp_status        equ >837B   ; VDP status byte mirror
+vdp_status          equ >837B   ; VDP status byte mirror
 intwsr1             equ >83c2   ; INT WS R1  - interrupt control flags - must be >8000
 intwsr2             equ >83c4   ; INT WS R2  - address of user interrupt routine (point to int_handler)
 intwsr11            equ >83d6   ; screen timeout counter - must be odd (init to 1, is inct every frame)
@@ -1516,16 +1516,17 @@ define_color_unpack
 ; entered from one of the above two functions    
 unpack3
     mov r11,r9      ; save return address
-    mov r4,r12      ; save VDP address
-    mov r2,r4
+    mov r4,r15      ; save VDP address
+    mov r2,r14      ; save CPU address
+    mov r15,r1
     bl @unpack
-    ai r12,>800
-    mov r12,r1
-    mov r4,r2
+    ai r15,>800
+    mov r15,r1
+    mov r14,r2
     bl @unpack
-    ai r12,>800
-    mov r12,r1
-    mov r4,r2
+    ai r15,>800
+    mov r15,r1
+    mov r14,r2
     bl @unpack
     b *r9
 
@@ -1534,15 +1535,6 @@ unpack3
 ; Ported by hand from https://gitea.zaclys.com/Mokona/Unpletter/src/branch/main/pletter.cpp
 ; Unpack data to VDP: VDP address in R1, CPU data in R2
 ; Original: pointer = VDP, temp = CPU address, a = number chars
-
-; The challenge with porting is the 8 bit vs 16-bit registers, and the behaviour of rotate
-; 9900 shifts and rotates are always 16 bits wide, and do not include the carry bit
-; rather, shifted out bits are /copied/ to carry, but carry is never copied in. This makes
-; most of the optimized code difficult to port - but if we knew the original intent, it
-; wouldn't be so bad. In addition, the 9900 has very few instructions that preserve
-; status flags, meaning we can't execute an instruction and then check status for the
-; instruction before it in nearly any case, the code uses this too. 
-; I've not been able to locate any C code for the unpacker which would probably be easier to port.
 
 r0lsb   equ mywp+1
 r1lsb   equ mywp+3
