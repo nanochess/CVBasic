@@ -18,6 +18,7 @@
 ; Revision date Aug/18/2024. Ported bugfixes to TMS9900 version
 ; Revision date Aug/30/2024. All samples except pletter and banking working on TMS9900 version
 ; Revision date Oct/15/2024. Added LDIRMV.
+; Revision date May/03/2025. Fix for unpack3 which was using the stack pointer as a temp register
 
 ;
 ; Platforms supported:
@@ -1515,15 +1516,15 @@ define_color_unpack
 ; entered from one of the above two functions    
 unpack3
     mov r11,r9      ; save return address
-    mov r4,r10      ; save VDP address
+    mov r4,r12      ; save VDP address
     mov r2,r4
     bl @unpack
-    ai r10,>800
-    mov r10,r1
+    ai r12,>800
+    mov r12,r1
     mov r4,r2
     bl @unpack
-    ai r10,>800
-    mov r10,r1
+    ai r12,>800
+    mov r12,r1
     mov r4,r2
     bl @unpack
     b *r9
