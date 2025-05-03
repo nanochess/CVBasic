@@ -2,7 +2,7 @@
 
 Changes:
  * Rudimentary preprocessor support. #IF, #ELSE, #ENDIF, #INFO, #WARN, #ERROR
- * Added support for passing in constants: eg: `cvbasic -DMYCONST=123 -D#MYBIGCONST=12345 in.bas output.asm`
+ * Added support for passing in constants: eg: `cvbasic -DMYCONST=123 -D#MYBIGCONST=12345 in.bas output.asm` (Now in nanochess/CVBasic)
  * Added RDVST native subroutines to pro/epilogues to check VDP status immediately with `USR RDVST`
 
 # CVBasic compiler v0.8.0
