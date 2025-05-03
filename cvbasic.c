@@ -3494,10 +3494,12 @@ void compile_statement(int check_for_else)
                                 emit_error("syntax error in CHR$");
                             else
                                 get_lex();
-                            if (target == CPU_6502)
+                            if (target == CPU_6502) {
                                 cpu6502_noop("TAX");
-                            else if (target == CPU_9900)
+                            } else if (target == CPU_9900) {
                                 cpu9900_2op("mov", "r0", "r2");
+                                cpu9900_1op("swpb", "r2");
+                            }
                             generic_call("print_char");
                         } else {
                             type = evaluate_expression(1, TYPE_16, 0);
@@ -6048,11 +6050,11 @@ int main(int argc, char *argv[])
         machine = COLECOVISION;
         while (machine < TOTAL_TARGETS) {
             if (machine == COLECOVISION)
-                fprintf(stderr, "    cvbasic input.bas output.asm [library_path]\n");
+                fprintf(stderr, "    cvbasic [-DMYCONST=123] input.bas output.asm [library_path]\n");
             else
-                fprintf(stderr, "    cvbasic --%s input.bas output.asm [library_path]\n", consoles[machine].name);
+                fprintf(stderr, "    cvbasic --%s [-DMYCONST=123] input.bas output.asm [library_path]\n", consoles[machine].name);
             if (consoles[machine].options[0])
-                fprintf(stderr, "    cvbasic --%s %s input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
+                fprintf(stderr, "    cvbasic --%s %s [-DMYCONST=123] input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
             fprintf(stderr, "        %s\n",
                     consoles[machine].description);
             machine++;
@@ -6156,6 +6158,46 @@ int main(int argc, char *argv[])
             exit(2);
         }
     }
+
+     /*
+      ** Passed-in constants
+      */
+    while (argv[c][0] == '-' && tolower(argv[c][1]) == 'd') {
+        int i = 1;
+        char ch = 0;
+        char *p = name;
+        struct constant *d = NULL;
+        
+        while (1) {
+            ch = argv[c][++i];
+            if (ch == '\0')
+                break;
+            if (!isalnum(ch) && ch != '_' && ch != '#' && ch != '=') {
+                fprintf(stderr, "%s name includes invalid characters.\n", argv[c]);
+                exit(2);
+            }
+            if (ch == '=') {
+                *p = '\0';
+                d = constant_search(name);
+                if (d != NULL) {
+                    fprintf(stderr, "constant redefined %s\n", argv[c]);
+                } else {
+                    d = constant_add(name);
+                    d->value = atoi(&argv[c][i + 1]);
+                }
+                break;
+            } else {
+                if (p < name + sizeof(name) - 1)
+                    *p++ = toupper(ch);
+            }
+        }
+        if (d == NULL) {
+            fprintf(stderr, "%s missing assignment. Syntax: -DMYCONSTANT=123 -D#MYBIGCONSTANT=12345\n", argv[c]);
+            exit(2);
+        }
+        c++;
+    }
+
     strcpy(current_file, argv[c]);
     err_code = 0;
     input = fopen(current_file, "r");
