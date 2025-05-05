@@ -5716,6 +5716,7 @@ void compile_basic(void)
     int label_exists;
     char *p;
     int skip = 0;
+    int ppcDepth = 0;
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
@@ -5740,9 +5741,22 @@ void compile_basic(void)
          */
         if (lex == C_NAME && name[0] == '#') {
             int inv = 0;
-            if (strcmp(name, "#IF") == 0) {
-                if (skip) {
-                    emit_error("Nested #IF not supported");
+            if ((strcmp(name, "#IF") == 0) ||
+                (strcmp(name, "#ELIF") == 0)) {
+                if (name[1] == 'I') /* #IF */
+                {
+                    if (ppcDepth) {
+                        emit_error("Nested #IF not supported");
+                    }
+                } else { /* #ELIF */
+                    if (!ppcDepth) {
+                        emit_error("#ELIF without matching #IF");
+                    }
+                    if (ppcDepth < 0 || !skip) {
+                        ppcDepth = -1;
+                        skip = 1;
+                        continue;
+                    }
                 }
                 get_lex();
                 if (lex == C_NAME) {
@@ -5751,22 +5765,32 @@ void compile_basic(void)
                         inv = -1;
                     }
                 }
+                ppcDepth = 1;
                 if (lex == C_NAME) {
                     struct constant *c = constant_search(name);
-                    if (!c || (c->value == 0)) {
-                        skip = 1;
-                    }
+                    skip = (!c || (c->value == 0));
                 } else if (lex == C_NUM) {
-                    if (value == 0) skip = 1;
+                    skip = (value == 0);
                 }
                 get_lex();
-                if (lex != C_END)
+                if (lex != C_END) {
                     emit_error("Extra characters");            
+                }
             } else if (strcmp(name, "#ENDIF") == 0) {
+                if (!ppcDepth) {
+                    emit_error("#ENDIF without matching #IF");
+                }
+                ppcDepth = 0;
                 skip = 0;
-                continue;
+            continue;
             } else if (strcmp(name, "#ELSE") == 0) {
-                skip = !skip;
+                if (ppcDepth > 0) {
+                    skip = !skip;
+                } else if (ppcDepth < 0) {
+                    skip = 1;
+                } else {
+                    emit_error("Unexpected #ELSE. No matching #IF");
+                }
                 continue;
             }
 
