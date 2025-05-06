@@ -1213,7 +1213,7 @@ struct node *evaluate_level_6(int *type)
     if (lex == C_MINUS) {
         get_lex();
         
-        left = evaluate_level_7(type);
+        left = evaluate_level_6(type);
         if ((*type & MAIN_TYPE) == TYPE_8)
             left = node_create(N_NEG8, 0, left, NULL);
         else
@@ -1221,7 +1221,7 @@ struct node *evaluate_level_6(int *type)
     } else if (lex == C_NAME && strcmp(name, "NOT") == 0) {
         get_lex();
         
-        left = evaluate_level_7(type);
+        left = evaluate_level_6(type);
         if ((*type & MAIN_TYPE) == TYPE_8)
             left = node_create(N_NOT8, 0, left, NULL);
         else
