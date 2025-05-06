@@ -1207,6 +1207,9 @@ diagnostics displays.
   #IF [NOT] constant
     [statement]
     [statement]
+  #ELIF [NOT] constant
+    [statement]
+    [statement]
   #ELSE
     [statement]
     [statement]
