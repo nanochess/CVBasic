@@ -966,6 +966,7 @@ vdp_generic_mode:
 	LDA #$01
 	INX
 	JSR WRTVDP
+IF INCLUDE_FONT_DATA
 	LDA #font_bitmaps
 	LDY #font_bitmaps>>8
 	STA temp
@@ -977,6 +978,7 @@ vdp_generic_mode:
 	STA pointer+1
 	LDA #$03
 	STA temp2+1
+ENDIF
 	RTS
 
 mode_0:
@@ -2050,6 +2052,7 @@ unpack:
 	dw .mode6
     endif
 
+IF INCLUDE_FONT_DATA
 	; Required for Creativision because it doesn't provide an ASCII charset.
 	;
         ; My personal font for TMS9928.
@@ -2155,6 +2158,8 @@ font_bitmaps:
         db $c0,$20,$20,$10,$20,$20,$c0,$00      ; $7d } 
         db $00,$00,$40,$a8,$10,$00,$00,$00      ; $7e
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
+
+ENDIF
 
 START:
 	SEI

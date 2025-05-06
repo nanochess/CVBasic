@@ -41,6 +41,9 @@
 	; Revision date: Nov/12/2024. Saves the VDP status.
 	;
 
+
+INCLUDE_FONT_DATA: equ 0
+
 JOYSEL:	equ $c0
 KEYSEL:	equ $80
 
@@ -1280,7 +1283,7 @@ mode_0:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
+    if INCLUDE_FONT_DATA
 	ld hl,font_bitmaps
     endif
     if MSX
@@ -1357,7 +1360,7 @@ mode_2:
 	ld de,-128
 	add hl,de
     endif
-    if SG1000+SMS+SVI+SORD+MEMOTECH+EINSTEIN+PV2000+NABU
+    if INCLUDE_FONT_DATA
 	ld hl,font_bitmaps
     endif
     if MSX
