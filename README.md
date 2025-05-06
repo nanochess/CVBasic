@@ -185,7 +185,7 @@ I don't have tested the COM files for NABU CP/M yet.
 Using CVBasic to compile a Sega Master System program:
 
     cvbasic --sms game.bas game.asm
-    gasm80 game.asm -o game.rom -sms
+    gasm80 game.asm -o game.sms -sms
     
 The -sms option of gasm80 will generate automatically a valid checksum so the game can run on a real console.
 
@@ -200,6 +200,7 @@ All platforms have been tested in emulation.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
 * NABU tested in real hardware by Sektor.
+* Sega Master System tested in real hardware and Sega Genesis/Megadrive by myself.
 
 Untested:
 
