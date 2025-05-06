@@ -5831,6 +5831,12 @@ void compile_basic(void)
             } else {
                 label = label_add(name);
             }
+
+            if (target == CPU_9900) {
+                // code MUST be even aligned - most of the time this will do nothing
+                cpu9900_noop("even");
+            }
+
             label->used |= LABEL_DEFINED;
             strcpy(temp, LABEL_PREFIX);
             strcat(temp, name);
