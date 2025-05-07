@@ -85,7 +85,8 @@ The following files compose the compiler:
     examples/test3_sms.bas      Shows usage of SELECT CASE / END CASE (Sega Master System)
     examples/varptr.bas         VARPTR example for redefining graphics.
     examples/varptr_sms.bas     VARPTR example for redefining graphics (Sega Master System)
-    examples/vgm.bas            VGM audio player.
+    examples/vgm.bas            VGM audio player for SN76489.
+    examples/vgm_ay.bas         VGM audio player for AY-3-8910.
     examples/viboritas.bas      Game example.
     examples/viboritas_sms.bas  Game example (Sega Master System)
     examples/vramcopy.bas       VRAM copy example.
