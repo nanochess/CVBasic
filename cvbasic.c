@@ -5737,11 +5737,26 @@ void compile_basic(void)
             } else {
                 label = label_add(name);
             }
+
+            // first build up the label into temp
             label->used |= LABEL_DEFINED;
             strcpy(temp, LABEL_PREFIX);
             strcat(temp, name);
-            generic_label(temp);
+
+            // we can look ahead a little - get_lex won't mess with temp[]
+            // and we can use it to tell if the TI port needs to output an EVEN directive
             get_lex();
+
+            if ((target == CPU_9900) && (lex == C_NAME) && (0 == strcmp(name, "PROCEDURE"))) {
+                // code MUST be even aligned
+                // this won't trigger for inline labels, but I don't think inline labels
+                // can become misaligned?
+                cpu9900_noop("even");
+            }
+
+            // now we can emit the label
+            // remember, we already get_lex'd
+            generic_label(temp);
             label_exists = 1;
         }
         if (lex == C_NAME) {
