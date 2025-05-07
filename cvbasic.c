@@ -993,6 +993,14 @@ int evaluate_expression(int cast, int to_type, int label)
 }
 
 /*
+ ** Check for macro replacement
+ */
+void check_for_macro(void) {
+    if (lex == C_NAME && macro_search(name) != NULL)
+        replace_macro();
+}
+
+/*
  ** Expression evaluation level 0 (OR)
  */
 struct node *evaluate_level_0(int *type)
@@ -1001,10 +1009,12 @@ struct node *evaluate_level_0(int *type)
     struct node *right;
     int type2;
     
+    check_for_macro();
     left = evaluate_level_1(type);
     while (1) {
         if (lex == C_NAME && strcmp(name, "OR") == 0) {
             get_lex();
+            check_for_macro();
             right = evaluate_level_1(&type2);
             *type = mix_types(&left, *type, &right, type2);
             if ((*type & MAIN_TYPE) == TYPE_8)
@@ -1027,10 +1037,12 @@ struct node *evaluate_level_1(int *type)
     struct node *right;
     int type2;
     
+    check_for_macro();
     left = evaluate_level_2(type);
     while (1) {
         if (lex == C_NAME && strcmp(name, "XOR") == 0) {
             get_lex();
+            check_for_macro();
             right = evaluate_level_2(&type2);
             *type = mix_types(&left, *type, &right, type2);
             if ((*type & MAIN_TYPE) == TYPE_8)
@@ -1053,10 +1065,12 @@ struct node *evaluate_level_2(int *type)
     struct node *right;
     int type2;
     
+    check_for_macro();
     left = evaluate_level_3(type);
     while (1) {
         if (lex == C_NAME && strcmp(name, "AND") == 0) {
             get_lex();
+            check_for_macro();
             right = evaluate_level_3(&type2);
             *type = mix_types(&left, *type, &right, type2);
             if ((*type & MAIN_TYPE) == TYPE_8)
@@ -1083,6 +1097,7 @@ struct node *evaluate_level_3(int *type)
     enum node_type operation8s;
     enum node_type operation16s;
 
+    check_for_macro();
     left = evaluate_level_4(type);
     while (1) {
         if (lex == C_EQUAL) {
@@ -1119,6 +1134,7 @@ struct node *evaluate_level_3(int *type)
             break;
         }
         get_lex();
+        check_for_macro();
         right = evaluate_level_4(&type2);
         *type = mix_types(&left, *type, &right, type2);
         if ((*type & MAIN_TYPE) == TYPE_8)
@@ -1138,28 +1154,29 @@ struct node *evaluate_level_4(int *type)
     struct node *left;
     struct node *right;
     int type2;
-    
+    enum node_type operation8;
+    enum node_type operation16;
+
+    check_for_macro();
     left = evaluate_level_5(type);
     while (1) {
         if (lex == C_PLUS) {
-            get_lex();
-            right = evaluate_level_5(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_PLUS8, 0, left, right);
-            else
-                left = node_create(N_PLUS16, 0, left, right);
+            operation8 = N_PLUS8;
+            operation16 = N_PLUS16;
         } else if (lex == C_MINUS) {
-            get_lex();
-            right = evaluate_level_5(&type2);
-            *type = mix_types(&left, *type, &right, type2);
-            if ((*type & MAIN_TYPE) == TYPE_8)
-                left = node_create(N_MINUS8, 0, left, right);
-            else
-                left = node_create(N_MINUS16, 0, left, right);
+            operation8 = N_MINUS8;
+            operation16 = N_MINUS16;
         } else {
             break;
         }
+        get_lex();
+        check_for_macro();
+        right = evaluate_level_5(&type2);
+        *type = mix_types(&left, *type, &right, type2);
+        if ((*type & MAIN_TYPE) == TYPE_8)
+            left = node_create(operation8, 0, left, right);
+        else
+            left = node_create(operation16, 0, left, right);
     }
     return left;
 }
@@ -1172,33 +1189,32 @@ struct node *evaluate_level_5(int *type)
     struct node *left;
     struct node *right;
     int type2;
-    
+    enum node_type operation16;
+    enum node_type operation16s;
+
+    check_for_macro();
     left = evaluate_level_6(type);
     while (1) {
         if (lex == C_MUL) {
-            get_lex();
-            right = evaluate_level_6(&type2);
-            *type = extend_types(&left, *type, &right, type2);
-            left = node_create(N_MUL16, 0, left, right);
+            operation16 = N_MUL16;
+            operation16s = N_MUL16;
         } else if (lex == C_DIV) {
-            get_lex();
-            right = evaluate_level_6(&type2);
-            *type = extend_types(&left, *type, &right, type2);
-            if (*type & TYPE_SIGNED)
-                left = node_create(N_DIV16S, 0, left, right);
-            else
-                left = node_create(N_DIV16, 0, left, right);
+            operation16 = N_DIV16;
+            operation16s = N_DIV16S;
         } else if (lex == C_MOD) {
-            get_lex();
-            right = evaluate_level_6(&type2);
-            *type = extend_types(&left, *type, &right, type2);
-            if (*type & TYPE_SIGNED)
-                left = node_create(N_MOD16S, 0, left, right);
-            else
-                left = node_create(N_MOD16, 0, left, right);
+            operation16 = N_MOD16;
+            operation16s = N_MOD16S;
         } else {
             break;
         }
+        get_lex();
+        check_for_macro();
+        right = evaluate_level_6(&type2);
+        *type = extend_types(&left, *type, &right, type2);
+        if (*type & TYPE_SIGNED)
+            left = node_create(operation16s, 0, left, right);
+        else
+            left = node_create(operation16, 0, left, right);
     }
     return left;
 }
@@ -1212,7 +1228,7 @@ struct node *evaluate_level_6(int *type)
     
     if (lex == C_MINUS) {
         get_lex();
-        
+        check_for_macro();
         left = evaluate_level_6(type);
         if ((*type & MAIN_TYPE) == TYPE_8)
             left = node_create(N_NEG8, 0, left, NULL);
@@ -1220,13 +1236,14 @@ struct node *evaluate_level_6(int *type)
             left = node_create(N_NEG16, 0, left, NULL);
     } else if (lex == C_NAME && strcmp(name, "NOT") == 0) {
         get_lex();
-        
+        check_for_macro();
         left = evaluate_level_6(type);
         if ((*type & MAIN_TYPE) == TYPE_8)
             left = node_create(N_NOT8, 0, left, NULL);
         else
             left = node_create(N_NOT16, 0, left, NULL);
     } else {
+        check_for_macro();
         left = evaluate_level_7(type);
     }
     return left;
@@ -1671,11 +1688,6 @@ struct node *evaluate_level_7(int *type)
             if (machine == SMS)
                 tree = node_create(N_DIV16, 0, tree, node_create(N_NUM16, 2, NULL, NULL));
             return tree;
-        }
-        if (macro_search(name) != NULL) {  /* Function (macro) */
-            if (replace_macro())
-                return node_create(N_NUM8, 0, NULL, NULL);
-            return evaluate_level_0(type);
         }
         if (lex_sneak_peek() == '(') {  /* Indexed access */
             int type2;
@@ -5747,10 +5759,10 @@ void compile_basic(void)
             // and we can use it to tell if the TI port needs to output an EVEN directive
             get_lex();
 
-            if ((target == CPU_9900) && (lex == C_NAME) && (0 == strcmp(name, "PROCEDURE"))) {
+            if (target == CPU_9900 && lex == C_NAME && strcmp(name, "PROCEDURE") == 0) {
                 // code MUST be even aligned
-                // this won't trigger for inline labels, but I don't think inline labels
-                // can become misaligned?
+                // this won't trigger for inline labels, but I don't
+                // think inline labels can become misaligned?
                 cpu9900_noop("even");
             }
 
