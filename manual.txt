@@ -22,6 +22,9 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
+v0.8.1 May/07/2025  o Solved bug in DEF FN precedence inside expressions.
+                    o Corrected bug in CHR$ and DEFINE VRAM READ for TI-99/4A.
+
 v0.8.0 Apr/26/2025  o Added support for Sega Master System using --sms
                     o Added support for VDP.STATUS (for reading VDP status)
                     o Added SELECT CASE / END SELECT
