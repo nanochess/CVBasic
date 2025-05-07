@@ -431,6 +431,9 @@ print_char
     movb r2,@VDPWDATA
     inc @cursor         ; track it
     b *r6
+print_char2
+    mov r11,r6
+    b @print_char
 
 ; Load sprite definitions: Sprite number in R4, CPU data in R0, count of sprites in R5 (MSB)
 ; Original: pointer = sprite number, temp = CPU address, a = number sprites

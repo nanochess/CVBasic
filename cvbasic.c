@@ -3487,7 +3487,9 @@ void compile_statement(int check_for_else)
                                 cpu9900_2op("mov", "r0", "r2");
                                 cpu9900_1op("swpb", "r2");
                             }
+                            generic_interrupt_disable();
                             generic_call("print_char");
+                            generic_interrupt_enable();
                         } else {
                             type = evaluate_expression(1, TYPE_16, 0);
                             if (target == CPU_9900)
