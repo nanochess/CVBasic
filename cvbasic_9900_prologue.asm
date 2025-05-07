@@ -416,13 +416,13 @@ print_digit
     ci r5,>0200
     jl !6
     mov r5,r2
-    jne print_char
+    jne print_char2
 !6
     li r2,>30
 !3
     andi r5,>00ff
     ori r5,>0100
-print_char
+print_char2
     mov @cursor,r0      ; get cursor
     andi r0,>07ff       ; enforce position - large range for two screen pages
     ai r0,>1800         ; add is safer than OR, and we have that option
@@ -431,9 +431,9 @@ print_char
     movb r2,@VDPWDATA
     inc @cursor         ; track it
     b *r6
-print_char2
+print_char
     mov r11,r6
-    b @print_char
+    b @print_char2
 
 ; Load sprite definitions: Sprite number in R4, CPU data in R0, count of sprites in R5 (MSB)
 ; Original: pointer = sprite number, temp = CPU address, a = number sprites
