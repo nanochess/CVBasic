@@ -247,8 +247,7 @@ RDVST
 ; Fill VRAM - address in R0, byte in R2, count in R3
 ; Original: address in pointer, byte in temp, count in temp2 (ZP)
 ; Inline address set to avoid needing to cache r11
-FILVRM
-    ori r0,>4000
+LDIRMV
     swpb r0
     movb r0,@VDPWADR
     swpb r0
