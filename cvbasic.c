@@ -3498,7 +3498,6 @@ void compile_statement(int check_for_else)
                                 cpu6502_noop("TAX");
                             } else if (target == CPU_9900) {
                                 cpu9900_2op("mov", "r0", "r2");
-                                cpu9900_1op("swpb", "r2");
                             }
                             generic_call("print_char");
                         } else {
