@@ -32,7 +32,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.8.0 Apr/26/2025"
+#define VERSION "v0.8.1 Jun/05/2025"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -57,7 +57,7 @@ struct console consoles[TOTAL_TARGETS] = {
     {"sg1000",  "",         "Sega SG-1000/SC-3000 (1K RAM)",
         "Sega SG-1000/SC-3000",
         0xc000, 0xc400, 0x0400,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
-    {"msx",     "-ram16",   "MSX (8K RAM), use -ram16 for 16K of RAM",
+    {"msx",     "-ram16",   "MSX (8K RAM), use -ram16 for 16K of RAM,\n        use -konami for Konami mapper instead of ASCII16",
         "MSX",
         0xe000, 0xf380, 0x1380,  0x98,   0x98, 0,    1, CPU_Z80},
     {"sgm",     "",         "Colecovision with Opcode's Super Game Module",
@@ -97,6 +97,9 @@ struct console consoles[TOTAL_TARGETS] = {
     {"sms",     "",         "Sega Master System (8K RAM)",
         "Sega Master System",
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
+/*    {"nes",     "",         "NES/Famicom (2K RAM)",
+        "NES/Famicom",
+        0x0000, 0x01ff, 0x0800,  0,      0,    0,    1, CPU_6502},*/
 };
 
 static int err_code;
@@ -110,6 +113,7 @@ static int compression_used;
 static int bank_switching;
 static int bank_rom_size;
 static int bank_current;
+static int bank_konami;
 
 static char current_file[MAX_LINE_SIZE];
 static int current_line;
@@ -198,6 +202,7 @@ struct node *process_usr(int);
 
 int optimized;
 
+void check_for_macro(void);
 struct node *evaluate_level_0(int *);
 struct node *evaluate_level_1(int *);
 struct node *evaluate_level_2(int *);
@@ -259,6 +264,7 @@ void accumulated_push(enum lexical_component, int, char *);
 void compile_assignment(int);
 void compile_statement(int);
 void compile_basic(void);
+int process_variables(void);
 
 /*
  ** Emit an error
@@ -302,7 +308,7 @@ void bank_finish(void)
             fprintf(output, "BANK_%d_FREE:\tEQU $bfff-$\n", bank_current);
             fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
         }
-        fprintf(output, "\tDB $%02x\n", bank_current);
+        fprintf(output, "\tDB $%02x\n", bank_konami ? bank_current * 2 : bank_current);
     } else if (machine == TI994A) {
         if (bank_current == 0) {
             // bank 0 is copied to RAM so is 24k
@@ -1297,8 +1303,8 @@ struct node *evaluate_level_7(int *type)
             }
             get_lex();
             *type = TYPE_8;
-            if ((machine == CREATIVISION)||(machine == TI994A))
-                emit_warning("Ignoring INP (not supported in Creativision or TI994A)");
+            if (machine == CREATIVISION || machine == TI994A || machine == NES)
+                emit_warning("Ignoring INP (not supported in this platform)");
             return tree;
         }
         if (strcmp(name, "PEEK") == 0) {
@@ -1508,6 +1514,7 @@ struct node *evaluate_level_7(int *type)
         if (strcmp(name, "VARPTR") == 0) {  /* Access to variable/array/label address */
             *type = TYPE_16;
             get_lex();
+            check_for_macro();
             if (lex != C_NAME) {
                 emit_error("missing variable name for VARPTR");
                 return node_create(N_NUM16, 0, NULL, NULL);
@@ -2554,7 +2561,6 @@ void compile_statement(int check_for_else)
                     emit_error("bad nested LOOP");
                 }
             } else if (strcmp(name, "SELECT") == 0) {
-                int label_loop;
                 int label_exit;
                 int type;
                 struct loop *new_loop;
@@ -2633,6 +2639,7 @@ void compile_statement(int check_for_else)
                         } else {
                             min = tree->value;
                         }
+                        max = min;
                         node_delete(tree);
                         if (lex == C_NAME && strcmp(name, "TO") == 0) {
                             get_lex();
@@ -2651,8 +2658,6 @@ void compile_statement(int check_for_else)
                                 max = tree->value;
                             }
                             node_delete(tree);
-                        } else {
-                            max = min;
                         }
                         if (loops->var[0] == (TYPE_8 | TYPE_SIGNED)) {
                             min ^= 0x80;
@@ -2833,7 +2838,7 @@ void compile_statement(int check_for_else)
                 generic_call("cls");
             } else if (strcmp(name, "WAIT") == 0) {
                 get_lex();
-                if (machine == SORD || machine == CREATIVISION || machine == EINSTEIN || machine == TI994A)
+                if (machine == SORD || machine == CREATIVISION || machine == NES || machine == EINSTEIN || machine == TI994A)
                     generic_call("wait");
                 else
                     cpuz80_noop("HALT");
@@ -2958,6 +2963,7 @@ void compile_statement(int check_for_else)
                             int type2;
                             
                             get_lex();
+                            check_for_macro();
                             if (lex != C_NAME) {
                                 emit_error("missing variable name for VARPTR");
                             } else {
@@ -3162,6 +3168,7 @@ void compile_statement(int check_for_else)
                 struct node *tree;
                 
                 get_lex();
+                label2 = 0;
                 start = 1;
                 cursor_value = 0;
                 cursor_pos = 0;
@@ -4664,11 +4671,9 @@ void compile_statement(int check_for_else)
                 unsigned int notes;
                 int note;
                 int c;
-                int label;
                 
                 generic_dump();
                 get_lex();
-                label = 0;
                 notes = 0;
                 arg = 0;
                 while (1) {
@@ -5437,7 +5442,7 @@ void compile_statement(int check_for_else)
                         emit_error("BANK ROM used twice");
                         get_lex();
                     } else {
-                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN || machine == PV2000) {
+                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == NES || machine == EINSTEIN || machine == PV2000) {
                             emit_error("Bank-switching not supported with current platform");
                         } else {
                             bank_switching = 1;
@@ -5494,9 +5499,19 @@ void compile_statement(int check_for_else)
                                 cpuz80_2op("LD", "A", temp);
                                 cpuz80_2op("LD", "($fffe)", "A");
                             } else if (machine == MSX) {
-                                sprintf(temp, "%d", c & 0x3f);
-                                cpuz80_2op("LD", "A", temp);
-                                cpuz80_2op("LD", "($7000)", "A");
+                                if (bank_konami) {
+                                    sprintf(temp, "%d", (c & 0x3f) * 2);
+                                    cpuz80_noop("DI");
+                                    cpuz80_2op("LD", "A", temp);
+                                    cpuz80_2op("LD", "($8000)", "A");
+                                    cpuz80_1op("INC", "A");
+                                    cpuz80_2op("LD", "($a000)", "A");
+                                    cpuz80_noop("EI");
+                                } else {
+                                    sprintf(temp, "%d", c & 0x3f);
+                                    cpuz80_2op("LD", "A", temp);
+                                    cpuz80_2op("LD", "($7000)", "A");
+                                }
                             } else {
                                 if (bank_rom_size == 128)
                                     c |= 0xfff8;
@@ -5583,6 +5598,7 @@ void compile_statement(int check_for_else)
                     get_lex();
                 if (lex != C_NUM) {
                     emit_error("Not a constant in VDP");
+                    vdp_reg = 0;
                 } else {
                     vdp_reg = value;
                     get_lex();
@@ -5791,8 +5807,7 @@ int process_variables(void)
     int size;
     int address;
     
-    if (machine == CREATIVISION || machine == TI994A)
-        address = consoles[machine].base_ram;
+    address = consoles[machine].base_ram; /* Only Creativision, NES and TI994A */
     bytes_used = 0;
     for (c = 0; c < HASH_PRIME; c++) {
         label = label_hash[c];
@@ -5912,10 +5927,8 @@ int process_variables(void)
  */
 int main(int argc, char *argv[])
 {
-    struct label *label;
     FILE *prologue;
     int c;
-    int size;
     char *p;
     char *p1;
     int bytes_used;
@@ -5940,11 +5953,11 @@ int main(int argc, char *argv[])
         machine = COLECOVISION;
         while (machine < TOTAL_TARGETS) {
             if (machine == COLECOVISION)
-                fprintf(stderr, "    cvbasic [-DMYCONST=123] input.bas output.asm [library_path]\n");
+                fprintf(stderr, "    cvbasic [-DCONST=5] input.bas output.asm [library_path]\n");
             else
-                fprintf(stderr, "    cvbasic --%s [-DMYCONST=123] input.bas output.asm [library_path]\n", consoles[machine].name);
+                fprintf(stderr, "    cvbasic --%s input.bas output.asm [library_path]\n", consoles[machine].name);
             if (consoles[machine].options[0])
-                fprintf(stderr, "    cvbasic --%s %s [-DMYCONST=123] input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
+                fprintf(stderr, "    cvbasic --%s %s input.bas output.asm [library_path]\n", consoles[machine].name, consoles[machine].options);
             fprintf(stderr, "        %s\n",
                     consoles[machine].description);
             machine++;
@@ -6001,6 +6014,7 @@ int main(int argc, char *argv[])
     } else {
         pencil = 0;
     }
+    bytes_used = 0;
     
     /*
      ** Extra options.
@@ -6014,6 +6028,18 @@ int main(int argc, char *argv[])
             extra_ram = 8192;
         } else {
             fprintf(stderr, "-ram16 option only applies to MSX.\n");
+            exit(2);
+        }
+    }
+    bank_konami = 0;
+    if (argv[c][0] == '-' && tolower(argv[c][1]) == 'k' && tolower(argv[c][2] == 'o') &&
+        tolower(argv[c][3] == 'n') && tolower(argv[c][4]) == 'a' && tolower(argv[c][5]) == 'm' && tolower(argv[c][6]) == 'i' &&
+        argv[c][7] == '\0') {
+        c++;
+        if (machine == MSX) {
+            bank_konami = 1;
+        } else {
+            fprintf(stderr, "-konami option only applies to MSX.\n");
             exit(2);
         }
     }
@@ -6076,7 +6102,7 @@ int main(int argc, char *argv[])
             }
         }
         if (d == NULL) {
-            fprintf(stderr, "%s missing assignment. Syntax: -DMYCONSTANT=123 -D#MYBIGCONSTANT=12345\n", argv[c]);
+            fprintf(stderr, "%s missing assignment. Syntax: -DCONST=123 -D#BIGCONST=12345\n", argv[c]);
             exit(2);
         }
         c++;
@@ -6159,6 +6185,8 @@ int main(int argc, char *argv[])
             (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
     fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
+    if (machine == MSX)
+        fprintf(output, "KONAMI:\tequ %d\n", bank_konami);
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
     fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);
@@ -6202,8 +6230,10 @@ int main(int argc, char *argv[])
         }
     }
     strcpy(path, library_path);
-    if (target == CPU_6502)
+    if (target == CPU_6502 && machine == CREATIVISION)
         strcat(path, "cvbasic_6502_prologue.asm");
+    else if (target == CPU_6502 && machine == NES)
+        strcat(path, "cvbasic_nes_prologue.asm");
     else if (target == CPU_9900)
         strcat(path, "cvbasic_9900_prologue.asm");
     else
@@ -6262,8 +6292,10 @@ int main(int argc, char *argv[])
     remove(TEMPORARY_ASSEMBLER);
     
     strcpy(path, library_path);
-    if (target == CPU_6502)
+    if (target == CPU_6502 && machine == CREATIVISION)
         strcat(path, "cvbasic_6502_epilogue.asm");
+    else if (target == CPU_6502 && machine == NES)
+        strcat(path, "cvbasic_nes_epilogue.asm");
     else if (target == CPU_9900)
         strcat(path, "cvbasic_9900_epilogue.asm");
     else

@@ -33,6 +33,7 @@ enum supported_machine {
     TI994A,
     NABU,
     SMS,
+    NES,
     TOTAL_TARGETS
 };
 
@@ -96,16 +97,16 @@ struct label {
 /*
  ** These flags are used in labels
  */
-#define LABEL_USED      0x10
-#define LABEL_DEFINED   0x20
+#define LABEL_USED              0x10
+#define LABEL_DEFINED           0x20
 #define LABEL_CALLED_BY_GOTO    0x40
 #define LABEL_CALLED_BY_GOSUB   0x80
-#define LABEL_IS_PROCEDURE  0x100
-#define LABEL_IS_VARIABLE   0x200
-#define LABEL_IS_ARRAY      0x400
+#define LABEL_IS_PROCEDURE      0x100
+#define LABEL_IS_VARIABLE       0x200
+#define LABEL_IS_ARRAY          0x400
 
-#define LABEL_VAR_READ  0x0800
-#define LABEL_VAR_WRITE 0x1000
-#define LABEL_VAR_ACCESS (LABEL_VAR_READ | LABEL_VAR_WRITE)
+#define LABEL_VAR_READ          0x0800
+#define LABEL_VAR_WRITE         0x1000
+#define LABEL_VAR_ACCESS        (LABEL_VAR_READ | LABEL_VAR_WRITE)
 
 extern void emit_error(char *);

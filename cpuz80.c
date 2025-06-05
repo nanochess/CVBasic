@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "cvbasic.h"
 #include "node.h"
+#include "cpuz80.h"
 
 static char z80_line[MAX_LINE_SIZE];
 
@@ -27,8 +28,6 @@ static void z80_emit_line(void);
 
 void z80_emit_line(void)
 {
-    int c;
-    int d;
     
     /*
      ** Optimize the following cases:

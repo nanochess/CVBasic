@@ -10,11 +10,10 @@
 #include <string.h>
 #include "cvbasic.h"
 #include "node.h"
+#include "driver.h"
 #include "cpuz80.h"
 #include "cpu6502.h"
 #include "cpu9900.h"
-
-static char driver_temp[MAX_LINE_SIZE];
 
 /*
  ** Dump peephole optimization

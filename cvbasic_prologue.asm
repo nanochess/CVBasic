@@ -2595,7 +2595,13 @@ nmi_handler:
 	ld ($fffe),a
     endif
     if MSX
+      if KONAMI
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
 	ld ($7000),a
+      endif
     endif
   endif
 	pop de
@@ -2900,7 +2906,13 @@ music_generate:
         ld ($fffe),a
     endif
     if MSX
+      if KONAMI
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
 	ld ($7000),a
+      endif
     endif
   endif
         ld b,(hl)
@@ -3805,8 +3817,17 @@ Z80_CTC:	equ $28
         ld ($fffe),a
     endif
     if MSX
+      if KONAMI
+        ld a,1	
+        ld ($6000),a
+        inc a
+        ld ($8000),a
+        inc a	
+        ld ($a000),a
+      else
         ld a,1		; ASCII 16K
         ld ($7000),a
+      endif
     endif
   endif
     if MEMOTECH+EINSTEIN+NABU

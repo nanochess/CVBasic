@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "cvbasic.h"
 #include "node.h"
+#include "cpu9900.h"
 
 /*
  ** Conventions of register usage:
@@ -46,7 +47,11 @@ static char op1[128], op2[128], op3[128], op4[128];
 static char s1[128], s2[128], s3[128], s4[128], s5[128], s6[128], s7[128], s8[128];
 
 static void cpu9900_emit_line(void);
+static void nomatch(char *);
 static int getargument(char *src, char *dest, int start);
+static int skipcomma(char *src, int start);
+static void parseline(char *buf, char *op, char *s1, char *s2);
+static int loadsr0(char *op, char *s1, char *s2);
 
 // set to a unique string that will never match
 void nomatch(char *src)
@@ -76,7 +81,7 @@ int getargument(char *src, char *dest, int start)
     
     *dest = '\0';
     
-    return src - p;
+    return (int) (src - p);
 }
 
 /*
@@ -91,7 +96,7 @@ int skipcomma(char *src, int start)
         ++src;
     if (*src == ',')
         ++src; /* skip past */
-    return src - p;
+    return (int) (src - p);
 }
 
 /*

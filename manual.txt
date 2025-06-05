@@ -22,7 +22,8 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.8.1 May/07/2025  o Solved bug in DEF FN precedence inside expressions.
+v0.8.1 Jun/05/2025  o MSX: Added support for Konami mapper using -konami
+                    o Solved bug in DEF FN precedence inside expressions.
                     o Corrected bug in CHR$ and DEFINE VRAM READ for TI-99/4A.
 
 v0.8.0 Apr/26/2025  o Added support for Sega Master System using --sms
@@ -1207,9 +1208,11 @@ Currently CVBasic handles in its own the bitmap, color and sprites tables.
 
 However, you probably will need direct access to the screen.
 
-The screen is a 32x24 grid located at the VRAM address $1800-$1aff. It can be accessed using VPOKE (writing) and VPEEK (reading).
+The screen is a 32x24 grid located at the VRAM addresses  $1800-$1aff. It can be accessed using VPOKE (writing) and VPEEK (reading).
 
 See the included example viboritas.bas for examples.
+
+For Sega Master System the screen is a 32x28 grid located at the VRAM addresses $3800-$3dff. It can be accessed using VPOKE and VPEEK. SMS uses two bytes for each pattern to display on the screen, the first byte is the pattern number, and the second byte are flags. See the SCREEN statement for further details on the flags.
 
 
 >>>>>>>>>>>>>>  Assembly language interfacing

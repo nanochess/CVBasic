@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "cvbasic.h"
 #include "node.h"
+#include "cpu6502.h"
 
 static char temp2[MAX_LINE_SIZE];
 

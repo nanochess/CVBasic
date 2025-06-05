@@ -172,7 +172,7 @@ Using CVBasic to compile a NABU PC program:
     cvbasic --nabu -cpm game.bas game.asm
     gasm80 game.asm -o game.com
 
-The .npz file is directlty usable by [MAME NABU port](https://github.com/ontheslab/nabu-mame-builds/releases) (put it in the nabu directory). The 000001.nabu name is important or it doesn't work. I've used the script _boot-built-in-adapter-local.sh_
+The .npz file is directly usable by [MAME NABU port](https://github.com/ontheslab/nabu-mame-builds/releases) (put it in the nabu directory). The 000001.nabu name is important or it doesn't work. I've used the script _boot-built-in-adapter-local.sh_
 
 I don't have tested the COM files for NABU CP/M yet.
 
