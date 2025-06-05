@@ -5972,7 +5972,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
-        fprintf(stderr, "Many thanks to Albert, abeker, aotta, artrag, atari2600land,\n");
+        fprintf(stderr, "Many thanks to acadiel, Albert, abeker, aotta, artrag, atari2600land,\n");
         fprintf(stderr, "carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
         fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, SiRioKD, Tarzilla,\n");
         fprintf(stderr, "Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
