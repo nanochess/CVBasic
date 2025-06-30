@@ -606,7 +606,7 @@ rmask
     data >b400          ; mask for 16 bit
     .endif    
 
-; Set SN Frequency: R0=freqency code, R2=channel command (MSB)
+; Set SN Frequency: R0=frequency code, R2=channel command (MSB)
 ; Original: A=least significant byte  X=channel command  Y=most significant byte
 sn76489_freq
     mov r0,r3
