@@ -1513,7 +1513,7 @@ define_color_unpack
     mov r0,r2
     andi r4,>00ff   ; mask off to 0-255
     sla r4,3        ; char times 8
-    li r0,>4000     ; base of color table
+    li r0,>2000     ; base of color table
     a r0,r4         ; set base for color then fall through
 
 ; entered from one of the above two functions    
