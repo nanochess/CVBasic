@@ -1063,7 +1063,7 @@ void cpu9900_node_generate(struct node *node, int decision)
                     break;
                 }
             }
-            if (node->type == N_EQUAL16) {
+            if (node->type == N_EQUAL16 || node->type == N_NOTEQUAL16) {
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
                     int c;
                     
@@ -1082,12 +1082,12 @@ void cpu9900_node_generate(struct node *node, int decision)
                         optimized = 1;
                         sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                         sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                        cpu9900_1op("jeq", temp + 100);
+                        cpu9900_1op((node->type == N_EQUAL16 ? "jeq" : "jne"), temp + 100);
                         cpu9900_1op("b", temp);
                         cpu9900_label(temp + 100);
                     } else {
                         sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                        cpu9900_1op("jeq", temp);
+                        cpu9900_1op((node->type == N_EQUAL16 ? "jeq" : "jne"), temp);
                         cpu9900_1op("clr", "r0");
                         cpu9900_1op("jmp", "$+4");
                         cpu9900_label(temp);
@@ -1097,31 +1097,30 @@ void cpu9900_node_generate(struct node *node, int decision)
                     break;
                 }
             }
-            if (node->type == N_NOTEQUAL16) {
-                if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
+            if (node->type == N_LESS16 || node->type == N_GREATER16) {
+                if (node->right->type == N_NUM16) {
                     int c;
-                    
-                    if (node->left->type == N_NUM16)
-                        explore = node->left;
-                    else
-                        explore = node->right;
-                    if (node->left != explore)
-                        cpu9900_node_generate(node->left, 0);
-                    else
-                        cpu9900_node_generate(node->right, 0);
-                    c = explore->value;
+
+                    cpu9900_node_generate(node->left, 0);
+                    c = node->right->value;
                     sprintf(temp, "%d", c);
                     cpu9900_2op("ci", "r0", temp);
                     if (decision) {
                         optimized = 1;
                         sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
                         sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                        cpu9900_1op("jne", temp + 100);
+                        if (node->type == N_LESS16)
+                            cpu9900_1op("jlt", temp + 100);
+                        else if (node->type == N_GREATER16)
+                            cpu9900_1op("jgt", temp + 100);
                         cpu9900_1op("b", temp);
                         cpu9900_label(temp + 100);
                     } else {
                         sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
-                        cpu9900_1op("jne", temp);
+                        if (node->type == N_LESS16)
+                            cpu9900_1op("jlt", temp);
+                        else if (node->type == N_GREATER16)
+                            cpu9900_1op("jgt", temp);
                         cpu9900_1op("clr", "r0");
                         cpu9900_1op("jmp", "$+4");
                         cpu9900_label(temp);
@@ -1256,11 +1255,17 @@ void cpu9900_node_generate(struct node *node, int decision)
                 cpu9900_node_generate(node->left, 0);
                 node_get_label(node->right, ADDRESS);
             } else {
-                cpu9900_node_generate(node->right, 0);
-                cpu9900_1op("dect", "r10");
-                cpu9900_2op("mov", "r0", "*r10");
-                cpu9900_node_generate(node->left, 0);
-                cpu9900_2op("mov", "*r10+", "r1");
+                if (node->right->type == N_NUM16) {
+                    cpu9900_node_generate(node->left, 0);
+                    sprintf(temp, "%d", node->right->value);
+                    cpu9900_2op("li", "r1", temp);
+                } else {
+                    cpu9900_node_generate(node->right, 0);
+                    cpu9900_1op("dect", "r10");
+                    cpu9900_2op("mov", "r0", "*r10");
+                    cpu9900_node_generate(node->left, 0);
+                    cpu9900_2op("mov", "*r10+", "r1");
+                }
                 strcpy(temp, "r1");
             }
             if (node->type == N_OR16) {
