@@ -640,6 +640,14 @@ void cpu9900_node_label(struct node *node)
         case N_MINUS8:  /* 8-bit - */
         case N_MUL8:    /* 8-bit * */
         case N_DIV8:    /* 8-bit / */
+            if (node->type == N_PLUS8 && node->right->type == N_NUM8) {
+                cpu9900_node_label(node->left);
+                break;
+            }
+            if (node->type == N_MINUS8 && node->right->type == N_NUM8) {
+                cpu9900_node_label(node->left);
+                break;
+            }
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 cpu9900_node_label(node->left);
                 break;
@@ -1061,6 +1069,24 @@ void cpu9900_node_generate(struct node *node, int decision)
         case N_MINUS8:  /* 8-bit - */
         case N_MUL8:    /* 8-bit * */
         case N_DIV8:    /* 8-bit / */
+            if (node->type == N_PLUS8 && node->right->type == N_NUM8) {
+                int value;
+                
+                cpu9900_node_generate(node->left, 0);
+                value = node->right->value;
+                sprintf(temp, "%d\t; %d", value * 256, value);
+                cpu9900_2op("ai", "r0", temp);
+                break;
+            }
+            if (node->type == N_MINUS8 && node->right->type == N_NUM8) {
+                int value;
+                
+                cpu9900_node_generate(node->left, 0);
+                value = -node->right->value & 0xff;
+                sprintf(temp, "%d\t; -%d", value * 256, node->right->value);
+                cpu9900_2op("ai", "r0", temp);
+                break;
+            }
             if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
                 int c,cnt;
                 
