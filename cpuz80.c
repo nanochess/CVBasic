@@ -14,6 +14,8 @@
 #include "node.h"
 #include "cpuz80.h"
 
+#define REG_ALL (REG_AF | REG_BC | REG_DE | REG_HL)
+
 static char z80_line[MAX_LINE_SIZE];
 
 static char z80_line_1[MAX_LINE_SIZE];

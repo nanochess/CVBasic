@@ -20,8 +20,6 @@
 #define REG_DE  (REG_D | REG_E)
 #define REG_HL  (REG_H | REG_L)
 
-#define REG_ALL (REG_AF | REG_BC | REG_DE | REG_HL)
-
 extern void cpuz80_dump(void);
 extern void cpuz80_label(char *);
 extern void cpuz80_empty(void);

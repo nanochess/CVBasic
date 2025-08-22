@@ -14,6 +14,8 @@
 #include "node.h"
 #include "cpu9900.h"
 
+#define REG_ALL  (REG_0 | REG_1 | REG_2 | REG_3 | REG_4 | REG_5 | REG_6 | REG_7)
+
 /*
  ** Conventions of register usage:
  ** r0-r3 Available for expression evaluation and support subroutines (div16s/mod16s)

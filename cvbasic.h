@@ -33,8 +33,8 @@ enum supported_machine {
     TI994A,
     NABU,
     SMS,
-    NES,
-    TOTAL_TARGETS
+    TOTAL_TARGETS,
+    NES
 };
 
 extern enum supported_machine machine;

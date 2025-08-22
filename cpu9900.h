@@ -15,8 +15,6 @@
 #define REG_6    0x40
 #define REG_7    0x80
 
-#define REG_ALL  (REG_0 | REG_1 | REG_2 | REG_3 | REG_4 | REG_5 | REG_6 | REG_7)
-
 extern void cpu9900_dump(void);
 extern void cpu9900_label(char *);
 extern void cpu9900_empty(void);
