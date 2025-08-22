@@ -373,10 +373,15 @@ struct node *node_create(enum node_type type, int value, struct node *left, stru
             
             /*
              ** Optimize a 16-bit variable read to a 8-bit variable read
+             **
+             ** This optimization isn't possible with TMS9900 because
+             ** byte read gets data from the high byte.
              */
-            if (left->type == N_LOAD16) {
-                left->type = N_LOAD8;
-                return left;
+            if (target != CPU_9900) {
+                if (left->type == N_LOAD16) {
+                    left->type = N_LOAD8;
+                    return left;
+                }
             }
             
             /*

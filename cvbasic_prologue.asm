@@ -2664,53 +2664,53 @@ keyboard_handler:
 .8:	ld (nabu_data2),a
 	jr .1
 .7:
-	cp $a0
+	cp $a0		; Is it data for joystick?
 	jr c,.2
 	cp $c0
-	jr c,.joystick
+	jr c,.joystick	; Yes, jump.
 .2:
 	ld hl,nabu_data0
 	cp $80
 	jr nz,.3
-	res 4,(hl)
+	res 4,(hl)	; Now data for joystick 1.
 	jr .1
 .3:
 	cp $81
 	jr nz,.4
-	set 4,(hl)
+	set 4,(hl)	; Now data for joystick 2.
 	jr .1
 .4:
-	cp $e0
-	jr c,.1
-	and $0f
+	cp $e0		; Keys with up/down event?
+	jr c,.1		; No, jump.
+	and $0f		; Arrow right
 	ld b,2
 	jr z,.5
-	dec a
+	dec a		; Arrow left
 	ld b,8
 	jr z,.5
-	dec a
+	dec a		; Arrow up
 	ld b,1
 	jr z,.5
-	dec a
+	dec a		; Arrow down
 	ld b,4
 	jr z,.5
-	dec a
+	dec a		; |||>
 	ld b,$80
 	jr z,.5
-	dec a
+	dec a		; <|||
 	ld b,$40
 	jr nz,.1
 .5:	bit 4,c
-	jr nz,.6
+	jr nz,.6	; Jump if depress event.
 	ld a,(hl)
-	or b
+	or b		; Key pressed.
 	ld (hl),a
 	jr .1
 
 .6:
 	ld a,b
 	cpl
-	and (hl)
+	and (hl)	; Key depressed.
 	ld (hl),a
 	jr .1
 

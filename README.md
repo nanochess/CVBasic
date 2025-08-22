@@ -118,7 +118,7 @@ Using CVBasic to compile a Spectravideo SVI-318/328 program:
     cvbasic --svi game.bas game.asm
     gasm80 game.asm -o game.rom
 
-Using CVBasic to compile a Sord M5 program:
+Using CVBasic to compile a Sord M5 program (16K ROM):
 
     cvbasic --sord game.bas game.asm
     gasm80 game.asm -o game.rom
@@ -136,7 +136,9 @@ Using CVBasic to compile a VTech Creativision (Dick Smith's Wizzard / Vtech Lase
     cvbasic --creativision game.bas game.asm
     gasm80 game.asm -o game.rom
     
-You can use the -rom16 option to generate a 16K ROM instead of a 32K ROM, and it is provided utility/switch.c to switch the two 8K banks in a 16K ROM and run it with MAME, as MAME doesn't yet support 32K ROM. For 32K ROM you can use the Creativision emulator.
+You can use the -rom16 option to generate a 16K ROM instead of a 32K ROM, and it is provided utility/switch.c to switch the two 8K banks in a 16K ROM and run it with MAME, as MAME doesn't yet support 32K ROM. For 32K ROM you can use the [Creativision emulator](https://sourceforge.net/projects/creativisionemulator/), and the command line is:
+
+    creativision -g -b ..\BIOS\BIOSCV.ROM -r game.rom
 
 Using CVBasic to compile a Hanimex/Soundic Pencil II program (almost exactly like a Colecovision, but with 2K of RAM and different cartridge header):
 
@@ -148,7 +150,7 @@ Using CVBasic to compile a Tatung Einstein program:
     cvbasic --einstein game.bas game.asm
     gasm80 game.asm -o game.com
     
-Using CVBasic to compile a Casio PV-2000 program:
+Using CVBasic to compile a Casio PV-2000 program (16k ROM):
     
     cvbasic --pv2000 game.bas game.asm
     gasm80 game.asm -o game.rom
@@ -172,7 +174,7 @@ Using CVBasic to compile a NABU PC program:
     cvbasic --nabu -cpm game.bas game.asm
     gasm80 game.asm -o game.com
 
-The .npz file is directly usable by [MAME NABU port](https://github.com/ontheslab/nabu-mame-builds/releases) (put it in the nabu directory). The 000001.nabu name is important or it doesn't work. I've used the script _boot-built-in-adapter-local.sh_
+The .npz file is directly usable by [MAME NABU port v1.0.2](https://github.com/ontheslab/nabu-mame-builds/releases) (put it in the nabu directory). The 000001.nabu name is important or it doesn't work. I've used the script _boot-built-in-adapter-local.sh_
 
 I don't have tested the COM files for NABU CP/M yet.
 
@@ -216,7 +218,7 @@ The Creativision can only use binaries up to 32 kb, the joysticks are controller
 
 The TI-99/4A can only generate non-banked binaries up to 24 kb. When banking, the fixed space is 24k and pages are 8k. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick. The program supports FCTN-= (Alt-= on PC emulation) to reset.
 
-The NABU PC can only use binaries up to 32 kb, joysticks can be used for both controllers, keyboard arrows are handled as controller 1, and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del and Enter.
+The NABU PC can only use binaries up to 32 kb, joysticks can be used for both controllers, keyboard arrows are handled as controller 1 (&lt;||| is the primary button and |||&gt; is the secondary button), and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del and Enter.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 

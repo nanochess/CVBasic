@@ -325,7 +325,6 @@ ENASCR
 ; address in R8, CPU data at R9, count per row in R6 (MSB), number rows in R4 (MSB), CPU stride in R5 (MSB) (VDP stride fixed at 32)
 ; original: address in pointer, CPU address at temp, count per row in temp2, num rows in temp2+1, stride in YYXX
 CPYBLK
-    limi 0
     mov r11,r7      ; save return
     srl r6,8
     srl r4,8
@@ -334,13 +333,13 @@ CPYBLK
     mov r8,r0       ; get vdp address
     mov r9,r2       ; get cpu address
     mov r6,r3       ; get count
-!2
+    limi 0
     bl @LDIRVM      ; copy one row
+    limi 2
     a r5,r9         ; add stride to CPU address
     ai r8,32        ; add 32 to VDP
     dec r4          ; count down rows
     jne -!1         ; loop till done
-    limi 2
     b *r7           ; back to caller
 
 ; clear screen and reset cursor to >1800
@@ -1505,6 +1504,7 @@ define_char_unpack
     movb @mode,r0   ; get mode
     andi r0,>0800   ; check bitmap bit
     jeq unpack3     ; 3 times if yes
+    mov r4,r1
     jmp unpack      ; once if no
 
 ; Load bitmap color definitions: Char number in R4, CPU data in R0, count in R5 (MSB)
@@ -1513,8 +1513,7 @@ define_color_unpack
     mov r0,r2
     andi r4,>00ff   ; mask off to 0-255
     sla r4,3        ; char times 8
-    li r0,>4000     ; base of color table
-    a r0,r4         ; set base for color then fall through
+    ai r4,>2000     ; base of color table
 
 ; entered from one of the above two functions    
 unpack3

@@ -1555,6 +1555,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                     cpuz80_node_generate(node->left, 0);
                     if ((node->right->regs & REG_DE) == 0) {
                         cpuz80_2op("EX", "DE", "HL");
+                        cpuz80_node_generate(node->right, 0);
                     } else {
                         cpuz80_1op("PUSH", "HL");
                         cpuz80_node_generate(node->right, 0);

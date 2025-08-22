@@ -298,7 +298,7 @@ void cpu9900_emit_line(void)
         // first check - labels cancels all bets. We can try to get smarter with the registers like
         // the other ports later...
         if (buf[0] > ' ') {
-            strcpy(last_r0_load,"");
+            strcpy(last_r0_load, "");
         } else {
             // is r0 the target?
             if (strcmp(op1, "mov") == 0 && strcmp(s2, "r0") == 0) {
@@ -1060,6 +1060,74 @@ void cpu9900_node_generate(struct node *node, int decision)
                     c = explore->value;
                     sprintf(temp, "%d", c);
                     cpu9900_2op("ai", "r0", temp);
+                    break;
+                }
+            }
+            if (node->type == N_EQUAL16) {
+                if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
+                    int c;
+                    
+                    if (node->left->type == N_NUM16)
+                        explore = node->left;
+                    else
+                        explore = node->right;
+                    if (node->left != explore)
+                        cpu9900_node_generate(node->left, 0);
+                    else
+                        cpu9900_node_generate(node->right, 0);
+                    c = explore->value;
+                    sprintf(temp, "%d", c);
+                    cpu9900_2op("ci", "r0", temp);
+                    if (decision) {
+                        optimized = 1;
+                        sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
+                        sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
+                        cpu9900_1op("jeq", temp + 100);
+                        cpu9900_1op("b", temp);
+                        cpu9900_label(temp + 100);
+                    } else {
+                        sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                        cpu9900_1op("jeq", temp);
+                        cpu9900_1op("clr", "r0");
+                        cpu9900_1op("jmp", "$+4");
+                        cpu9900_label(temp);
+                        cpu9900_1op("seto", "r0");
+                        cpu9900_empty();
+                    }
+                    break;
+                }
+            }
+            if (node->type == N_NOTEQUAL16) {
+                if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
+                    int c;
+                    
+                    if (node->left->type == N_NUM16)
+                        explore = node->left;
+                    else
+                        explore = node->right;
+                    if (node->left != explore)
+                        cpu9900_node_generate(node->left, 0);
+                    else
+                        cpu9900_node_generate(node->right, 0);
+                    c = explore->value;
+                    sprintf(temp, "%d", c);
+                    cpu9900_2op("ci", "r0", temp);
+                    if (decision) {
+                        optimized = 1;
+                        sprintf(temp, "@" INTERNAL_PREFIX "%d", decision);
+                        sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
+                        cpu9900_1op("jne", temp + 100);
+                        cpu9900_1op("b", temp);
+                        cpu9900_label(temp + 100);
+                    } else {
+                        sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                        cpu9900_1op("jne", temp);
+                        cpu9900_1op("clr", "r0");
+                        cpu9900_1op("jmp", "$+4");
+                        cpu9900_label(temp);
+                        cpu9900_1op("seto", "r0");
+                        cpu9900_empty();
+                    }
                     break;
                 }
             }

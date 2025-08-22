@@ -32,7 +32,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.8.1 Jun/05/2025"
+#define VERSION "v0.9.0 Jul/19/2025"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -48,6 +48,10 @@ enum cpu_target target;
 
 /*
  ** Base information about each platform.
+ **
+ ** Machine name (for command line), extra options, description, canonical name
+ ** base address of ram, base address of stack, available ram bytes
+ ** vdp port for writing, vdp port for reading, psg port, 1 it uses INT for VDP
  */
 struct console consoles[TOTAL_TARGETS] = {
     /*  RAM   STACK    Size  VDP R   VDP W  PSG */
@@ -99,7 +103,7 @@ struct console consoles[TOTAL_TARGETS] = {
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
 /*    {"nes",     "",         "NES/Famicom (2K RAM)",
         "NES/Famicom",
-        0x0000, 0x01ff, 0x0800,  0,      0,    0,    1, CPU_6502},*/
+        0x0000, 0x00ff, 0x0800,  0,      0,    0,    1, CPU_6502},*/
 };
 
 static int err_code;
@@ -4983,7 +4987,7 @@ void compile_statement(int check_for_else)
                 } else {
                     if (value < 3 && (machine == MSX || machine == SVI || machine == EINSTEIN || machine == NABU))
                         emit_warning("using SOUND 0-3 with AY-3-8910 target");
-                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH)
+                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH && machine != NABU)
                         emit_warning("using SOUND 5-9 with SN76489 target");
                     switch (value) {
                         case 0:
@@ -5534,7 +5538,7 @@ void compile_statement(int check_for_else)
 
                     tree = evaluate_level_0(&type);
                     if (tree->type != N_NUM8 && tree->type != N_NUM16) {
-                        emit_error("not a constant expression in BANK SELECT");
+                        emit_error("not a constant expression in BANK");
                         break;
                     }
                     c = tree->value;

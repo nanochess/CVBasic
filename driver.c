@@ -157,9 +157,18 @@ void generic_comparison_8bit(int min, int max, char *label)
             cpu6502_1op("BNE.L", label);
         }
         if (target == CPU_9900) {
-            sprintf(value, "%d", min * 256);
-            cpu9900_2op("ci", "r0", value);
-            cpu9900_1op("jne", label);
+            char internal_label[256], internal_label2[256];
+            int number = next_local++;
+            
+            sprintf(internal_label, INTERNAL_PREFIX "%d", number);
+            sprintf(internal_label2, "@%s", label);
+            
+            sprintf(value, "%d   ; %d*256", min * 256, min);
+            cpu9900_2op("li", "r1", value);
+            cpu9900_2op("cb", "r1", "r0");
+            cpu9900_1op("jeq", internal_label);
+            cpu9900_1op("b", internal_label2);
+            cpu9900_label(internal_label);
         }
         return;
     }
@@ -180,12 +189,24 @@ void generic_comparison_8bit(int min, int max, char *label)
         cpu6502_1op("BCS.L", label);
     }
     if (target == CPU_9900) {
+        char internal_label[256], internal_label2[256], internal_label3[256];
+        int number;
+        
+        number = next_local++;
+        sprintf(internal_label, INTERNAL_PREFIX "%d", number);
+        sprintf(internal_label2, "@%s", label);
+        number = next_local++;
+        sprintf(internal_label3, INTERNAL_PREFIX "%d", number);
+
         sprintf(value, "%d", min * 256);
         cpu9900_2op("ci", "r0", value);
-        cpu9900_1op("jl", label);
-        sprintf(value, "%d", max * 256);
+        cpu9900_1op("jl", internal_label3);
+        sprintf(value, "%d", max * 256 + 255);
         cpu9900_2op("ci", "r0", value);
-        cpu9900_1op("jh", label);
+        cpu9900_1op("jle", internal_label);
+        cpu9900_label(internal_label3);
+        cpu9900_1op("b", internal_label2);
+        cpu9900_label(internal_label);
     }
 }
 
@@ -214,9 +235,17 @@ void generic_comparison_16bit(int min, int max, char *label)
             cpu6502_1op("BNE.L", label);
         }
         if (target == CPU_9900) {
+            char internal_label[256], internal_label2[256];
+            int number = next_local++;
+            
+            sprintf(internal_label, INTERNAL_PREFIX "%d", number);
+            sprintf(internal_label2, "@%s", label);
+            
             sprintf(value, "%d", min);
             cpu9900_2op("ci", "r0", value);
-            cpu9900_1op("jne", label);
+            cpu9900_1op("jeq", internal_label);
+            cpu9900_1op("b", internal_label2);
+            cpu9900_label(internal_label);
         }
         return;
     }
@@ -255,12 +284,24 @@ void generic_comparison_16bit(int min, int max, char *label)
         cpu6502_1op("BCS.L", label);
     }
     if (target == CPU_9900) {
+        char internal_label[256], internal_label2[256], internal_label3[256];
+        int number;
+        
+        number = next_local++;
+        sprintf(internal_label, INTERNAL_PREFIX "%d", number);
+        sprintf(internal_label2, "@%s", label);
+        number = next_local++;
+        sprintf(internal_label3, INTERNAL_PREFIX "%d", number);
+        
         sprintf(value, "%d", min);
         cpu9900_2op("ci", "r0", value);
-        cpu9900_1op("jl", label);
+        cpu9900_1op("jl", internal_label3);
         sprintf(value, "%d", max);
         cpu9900_2op("ci", "r0", value);
-        cpu9900_1op("jh", label);
+        cpu9900_1op("jle", internal_label);
+        cpu9900_label(internal_label3);
+        cpu9900_1op("b", internal_label2);
+        cpu9900_label(internal_label);
     }
 }
 
