@@ -329,17 +329,17 @@ CPYBLK
     srl r6,8
     srl r4,8
     srl r5,8        ; bytes to words
+    limi 0
 !1
     mov r8,r0       ; get vdp address
     mov r9,r2       ; get cpu address
     mov r6,r3       ; get count
-    limi 0
     bl @LDIRVM      ; copy one row
-    limi 2
     a r5,r9         ; add stride to CPU address
     ai r8,32        ; add 32 to VDP
     dec r4          ; count down rows
     jne -!1         ; loop till done
+    limi 2
     b *r7           ; back to caller
 
 ; clear screen and reset cursor to >1800
@@ -1513,7 +1513,7 @@ define_color_unpack
     mov r0,r2
     andi r4,>00ff   ; mask off to 0-255
     sla r4,3        ; char times 8
-    ai r4,>2000     ; base of color table
+    ai >2000,r4     ; base of color table
 
 ; entered from one of the above two functions    
 unpack3
