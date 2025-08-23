@@ -20,6 +20,7 @@ Later it was extended to support the following platforms:
 * Hanimex/Soundic Pencil II.
 * NABU PC.
 * Sega Master System (supporting bank switching with Sega mapper)
+* NES/Famicom (preliminary, currently only CHRROM/SPRITE support)
 
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
 
@@ -63,6 +64,7 @@ The following files compose the compiler:
     examples/face_joystick_sms.bas  Moving face with joystick (Sega Master System)
     examples/happy_face.bas     Bouncing face.
     examples/happy_face_sms.bas Bouncing face (Sega Master System).
+    examples/happy_face_nes.bas Bouncing face (NES/Famicom).
     examples/music.bas          Music example.
     examples/oscar_compressed.bas  High-resolution graphics example compressed with Pletter.
     examples/oscar_compressed_sms.bas  High-resolution graphics example compressed with Pletter (Sega Master System)
@@ -107,6 +109,11 @@ Using CVBasic to compile a MSX program for 8K RAM (wider compatibility) and 16K 
 
     cvbasic --msx -ram16 game.bas game.asm
     gasm80 game.asm -o game.rom
+
+    cvbasic --msx -ram16 -konami game.bas game.asm
+    gasm80 game.asm -o game.rom
+    
+For bank-switched programs the default mapper is ASCII16, but you have the option of using a standard Konami 8K mapper using the -konami switch.
 
 Using CVBasic to compile a Colecovision Super Game Module program:
 
@@ -185,6 +192,12 @@ Using CVBasic to compile a Sega Master System program:
     
 The -sms option of gasm80 will generate automatically a valid checksum so the game can run on a real console.
 
+Using CVBasic to compile a NES/Famicom program:
+
+    cvbasic --nes game.bas game.asm
+    gasm80 game.asm -o game.nes
+    
+
 ### Notes
 
 The current official version is v0.8.0.
@@ -195,8 +208,9 @@ All platforms have been tested in emulation.
 * Sega SG1000/SC3000 tested in real hardware by aotta.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
-* NABU tested in real hardware by Sektor.
+* NABU tested in real hardware by Sektor and rietveld.
 * Sega Master System tested in real hardware and Sega Genesis/Megadrive by myself.
+* TI-99/4A tested in real hardware by retroclouds.
 
 Untested:
 
@@ -219,6 +233,8 @@ The Creativision can only use binaries up to 32 kb, the joysticks are controller
 The TI-99/4A can only generate non-banked binaries up to 24 kb. When banking, the fixed space is 24k and pages are 8k. Both joysticks are supported with a single button. The second button is simulated on the keyboard with control for player 1 and fctn for player 2. CONT1.KEY will also return uppercase ASCII characters from the keyboard in addition to the stock 0-9, #, * for compatibility with Coleco programs. No keypad is implemented for controller 2 - only the joystick. The program supports FCTN-= (Alt-= on PC emulation) to reset.
 
 The NABU PC can only use binaries up to 32 kb, joysticks can be used for both controllers, keyboard arrows are handled as controller 1 (&lt;||| is the primary button and |||&gt; is the secondary button), and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del and Enter.
+
+The NES support is highly experimental, currently only 32K ROM, CHRROM definition, SPRITE, and controller support are implemented (this is great if you want to make a silent game :P )
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
@@ -263,7 +279,7 @@ You can also get my book **Programming Games for Colecovision** including an int
 
 The foreword is written by the legendary David R. Megarry, programmer of Zaxxon™ for Colecovision, and creator of the Dungeon!™ Board game.
 
-All the games in the book will compile for **all** the platforms (exception of Dungeon Warrior for Casio PV2000 because the small 16KB ROM size)
+All the games in the book will compile for **all** the platforms (exception of Dungeon Warrior for Sord M5 and Casio PV2000 because the small 16KB ROM size)
 
 * [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)

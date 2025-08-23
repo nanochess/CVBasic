@@ -32,7 +32,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.0 Aug/22/2025"
+#define VERSION "v0.9.0 Aug/23/2025"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -101,9 +101,9 @@ struct console consoles[TOTAL_TARGETS] = {
     {"sms",     "",         "Sega Master System (8K RAM)",
         "Sega Master System",
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
-/*    {"nes",     "",         "NES/Famicom (2K RAM)",
+    {"nes",     "",         "NES/Famicom (2K RAM)",
         "NES/Famicom",
-        0x0000, 0x00ff, 0x0800,  0,      0,    0,    1, CPU_6502},*/
+        0x0000, 0x00ff, 0x0800,  0,      0,    0,    1, CPU_6502},
 };
 
 static int err_code;
@@ -233,6 +233,16 @@ static struct loop *loops;
 
 static unsigned char bitmap[128];
 static int bitmap_byte;
+
+/*
+ ** NES definitions
+ */
+#define CHRROM_PAGE   8192
+
+int current_chrrom;
+int chrrom_pointer;
+int chrrom_size;
+unsigned char *chrrom_data;
 
 /*
  ** Prototypes
@@ -3457,6 +3467,10 @@ void compile_statement(int check_for_else)
                 int vram_read = 0;
                 
                 get_lex();
+                if (machine == NES) {
+                    emit_error("DEFINE isn't implemented for NES");
+                    break;
+                }
                 if (lex != C_NAME) {
                     emit_error("syntax error in DEFINE");
                 } else if (strcmp(name, "SPRITE") == 0) {
@@ -3900,9 +3914,12 @@ void compile_statement(int check_for_else)
                     else
                         emit_error("missing comma in SPRITE");
                     type = evaluate_expression(1, TYPE_8, 0);
-                    if (target == CPU_6502)
-                        cpu6502_1op("STA", "sprite_data+1");
-                    else if (target == CPU_9900)
+                    if (target == CPU_6502) {
+                        if (machine == NES)
+                            cpu6502_1op("STA", "sprite_data+3");
+                        else
+                            cpu6502_1op("STA", "sprite_data+1");
+                    } else if (target == CPU_9900)
                         cpu9900_2op("movb","r0","r6");
                     else
                         cpuz80_1op("PUSH", "AF");
@@ -3912,9 +3929,12 @@ void compile_statement(int check_for_else)
                         emit_error("missing comma in SPRITE");
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (machine != SMS) {
-                        if (target == CPU_6502)
-                            cpu6502_1op("STA", "sprite_data+2");
-                        else if (target == CPU_9900)
+                        if (target == CPU_6502) {
+                            if (machine == NES)
+                                cpu6502_1op("STA", "sprite_data+1");
+                            else
+                                cpu6502_1op("STA", "sprite_data+2");
+                        } else if (target == CPU_9900)
                             cpu9900_2op("movb","r0","r7");
                         else
                             cpuz80_1op("PUSH", "AF");
@@ -3924,7 +3944,10 @@ void compile_statement(int check_for_else)
                             emit_error("missing comma in SPRITE");
                         type = evaluate_expression(1, TYPE_8, 0);
                         if (target == CPU_6502) {
-                            cpu6502_1op("STA", "sprite_data+3");
+                            if (machine == NES)
+                                cpu6502_1op("STA", "sprite_data+2");
+                            else
+                                cpu6502_1op("STA", "sprite_data+3");
                             cpu6502_noop("PLA");
                         }
                     }
@@ -3935,10 +3958,53 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (lex != C_STRING ) {
                     emit_error("syntax error in BITMAP");
-                } else if (name_size == 16) {   /* Sprites */
+                } else if (name_size == 16) {   /* 16x16 sprites */
                     int c;
                     
-                    if (machine == SMS) {
+                    if (machine == NES) {
+                        int first_time = 1;
+                        
+                        for (c = 0; c < 16; c++) {
+                            if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
+                                && name[c] != 0x20 && name[c] != 0x2e) {  /* space and . */
+                                int d;
+                                
+                                if (name[c] >= '0' && name[c] <= '3') {
+                                    d = name[c] - 0x30;
+                                } else {
+                                    if (first_time) {
+                                        emit_warning("only 0-3 can be used in BITMAP");
+                                        first_time = 0;
+                                    }
+                                    d = 0;
+                                }
+                                if (c < 8) {
+                                    value |= ((d & 1) << 7) >> c;
+                                    value |= ((d & 2) << 6) >> c << 8;
+                                } else {
+                                    value |= ((d & 1) << 7) >> (c & 7) << 16;
+                                    value |= ((d & 2) << 6) >> (c & 7) << 24;
+                                }
+                            }
+                        }
+                        get_lex();
+                        if (current_chrrom == -1) {
+                            emit_error("BITMAP used without setting pattern table");
+                        } else if (chrrom_pointer + 48 >= CHRROM_PAGE) {
+                            emit_error("More than 512 patterns");
+                        } else {
+                            c = current_chrrom * CHRROM_PAGE + chrrom_pointer;
+                            chrrom_data[c] = value;
+                            chrrom_data[c + 8] = value >> 8;
+                            chrrom_data[c + 32] = value >> 16;
+                            chrrom_data[c + 40] = value >> 24;
+                            chrrom_pointer++;
+                            if ((chrrom_pointer & 7) == 0)
+                                chrrom_pointer += 8;
+                            if ((chrrom_pointer & 31) == 0)
+                                chrrom_pointer += 32;
+                        }
+                    } else if (machine == SMS) {
                         int first_time = 1;
                         
                         value = 0;
@@ -4037,7 +4103,40 @@ void compile_statement(int check_for_else)
                     int c;
                     
                     value = 0;
-                    if (machine == SMS) {
+                    if (machine == NES) {
+                        int first_time = 1;
+                        
+                        for (c = 0; c < 8; c++) {
+                            if (name[c] != 0x30 && name[c] != 0x5f   /* 0 and _ */
+                                && name[c] != 0x20 && name[c] != 0x2e) {  /* space and . */
+                                int d;
+                                
+                                if (name[c] >= '0' && name[c] <= '3') {
+                                    d = name[c] - 0x30;
+                                } else {
+                                    if (first_time) {
+                                        emit_warning("only 0-3 can be used in BITMAP");
+                                        first_time = 0;
+                                    }
+                                    d = 0;
+                                }
+                                value |= ((d & 1) << 7) >> c;
+                                value |= ((d & 2) << 6) >> c << 8;
+                            }
+                        }
+                        get_lex();
+                        if (current_chrrom == -1) {
+                            emit_error("BITMAP used without setting pattern table");
+                        } else if (chrrom_pointer == 8192) {
+                            emit_error("More than 256 patterns");
+                        } else {
+                            chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer] = c;
+                            chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer + 8] = c;
+                            chrrom_pointer++;
+                            if ((chrrom_pointer & 7) == 0)
+                                chrrom_pointer += 8;
+                        }
+                    } else if (machine == SMS) {
                         int first_time = 1;
                         
                         for (c = 0; c < 8; c++) {
@@ -4144,7 +4243,7 @@ void compile_statement(int check_for_else)
                 
                 get_lex();
                 if (machine != SMS)
-                    emit_error("The SCROLL sentence is only available on Sega Master System");
+                    emit_error("SCROLL is only available on Sega Master System");
                 if (lex != C_COMMA) {
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
@@ -4169,10 +4268,10 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System */
                 int type;
                 struct node *source;
-
+                
                 get_lex();
                 if (machine != SMS)
-                    emit_error("The PALETTE sentence is only available on Sega Master System");
+                    emit_error("PALETTE is only available on Sega Master System");
                 if (lex == C_NAME && strcmp(name, "LOAD") == 0) {
                     get_lex();
                     if (lex != C_NAME) {
@@ -4207,6 +4306,52 @@ void compile_statement(int check_for_else)
                         cpuz80_2op("OUT", "(VDP)", "A");
                     }
                     generic_interrupt_enable();
+                }
+            } else if (strcmp(name, "CHRROM") == 0) { /* Select CHRROM */
+                int type;
+                struct node *tree;
+                int c;
+                
+                get_lex();
+                if (strcmp(name, "PATTERN") == 0) {
+                    get_lex();
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("Not a constant expression in CHRROM");
+                        c = 0;
+                    } else {
+                        c = tree->value;
+                    }
+                    node_delete(tree);
+                    if (c < 0 || c > 511) {
+                        emit_error("CHRROM PATTERN out of range 0-511");
+                        c = 0;
+                    }
+                    chrrom_pointer = c * 16;
+                } else {
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("Not a constant expression in CHRROM");
+                        c = 0;
+                    } else {
+                        c = tree->value;
+                    }
+                    node_delete(tree);
+                    if (c + 1 > chrrom_size) {    /* Grow the CHRROM */
+                        unsigned char *p;
+                        
+                        p = realloc(chrrom_data, (c + 1) * CHRROM_PAGE);
+                        if (p == NULL) {
+                            emit_error("Not enough memory for CHRROM");
+                            break;
+                        }
+                        chrrom_data = p;
+                        /* Reset pixel data in new space */
+                        memset(chrrom_data + chrrom_size * CHRROM_PAGE, 0, (c + 1 - chrrom_size) * CHRROM_PAGE);
+                        chrrom_size = c + 1;
+                    }
+                    current_chrrom = c;
+                    chrrom_pointer = 0;
                 }
             } else if (strcmp(name, "SIGNED") == 0) {
                 struct signedness *c;
@@ -4309,9 +4454,10 @@ void compile_statement(int check_for_else)
                         tree = evaluate_level_0(&type);
                         if (tree->type != N_NUM8 && tree->type != N_NUM16) {
                             emit_error("not a constant expression in DIM");
-                            break;
+                            c = 10;
+                        } else {
+                            c = tree->value;
                         }
-                        c = tree->value;
                         node_delete(tree);
                         if (lex != C_RPAREN) {
                             emit_error("missing right parenthesis in DIM");
@@ -5464,6 +5610,7 @@ void compile_statement(int check_for_else)
                     tree = evaluate_level_0(&type);
                     if (tree->type != N_NUM8 && tree->type != N_NUM16) {
                         emit_error("not a constant expression in BANK SELECT");
+                        node_delete(tree);
                         break;
                     }
                     c = tree->value;
@@ -5539,6 +5686,7 @@ void compile_statement(int check_for_else)
                     tree = evaluate_level_0(&type);
                     if (tree->type != N_NUM8 && tree->type != N_NUM16) {
                         emit_error("not a constant expression in BANK");
+                        node_delete(tree);
                         break;
                     }
                     c = tree->value;
@@ -5679,6 +5827,9 @@ void compile_basic(void)
 
         generic_dump();
         fprintf(output, "\t; %s\n", line);
+        
+        /* For debugging purposes */
+/*        fprintf(stderr, "%s\n", line);*/
         
         line_start = 1;
         line_pos = 0;
@@ -5826,18 +5977,34 @@ int process_variables(void)
             }
             if (label->used & LABEL_IS_VARIABLE) {
                 if (target == CPU_6502) {
-                    if ((label->used & MAIN_TYPE) == TYPE_8) {
-                        if (address < 0x0200 && address + 1 > 0x0140)
-                            address = 0x0200;
-                        sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
-                        address++;
-                        bytes_used++;
+                    if (machine == NES) {
+                        if ((label->used & MAIN_TYPE) == TYPE_8) {
+                            if (address < 0x0300 && address + 1 > 0x0140)
+                                address = 0x0300;
+                            sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
+                            address++;
+                            bytes_used++;
+                        } else {
+                            if (address < 0x0300 && address + 2 > 0x0140)
+                                address = 0x0300;
+                            sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
+                            address += 2;
+                            bytes_used += 2;
+                        }
                     } else {
-                        if (address < 0x0200 && address + 2 > 0x0140)
-                            address = 0x0200;
-                        sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
-                        address += 2;
-                        bytes_used += 2;
+                        if ((label->used & MAIN_TYPE) == TYPE_8) {
+                            if (address < 0x0200 && address + 1 > 0x0140)
+                                address = 0x0200;
+                            sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
+                            address++;
+                            bytes_used++;
+                        } else {
+                            if (address < 0x0200 && address + 2 > 0x0140)
+                                address = 0x0200;
+                            sprintf(temp, "%s%s:\tequ $%04x", LABEL_PREFIX, label->name, address);
+                            address += 2;
+                            bytes_used += 2;
+                        }
                     }
                     fprintf(output, "%s\n", temp);
                 } else if (target == CPU_9900) {
@@ -6073,9 +6240,9 @@ int main(int argc, char *argv[])
         }
     }
 
-     /*
-      ** Passed-in constants
-      */
+    /*
+     ** Passed-in constants
+     */
     while (argv[c][0] == '-' && tolower(argv[c][1]) == 'd') {
         int i = 1;
         char ch = 0;
@@ -6112,6 +6279,9 @@ int main(int argc, char *argv[])
         c++;
     }
 
+    /*
+     ** Here is compiled the source code and generates a temporary assembler file.
+     */
     strcpy(current_file, argv[c]);
     err_code = 0;
     input = fopen(current_file, "r");
@@ -6131,6 +6301,12 @@ int main(int argc, char *argv[])
     option_warnings = 1;
     inside_proc = NULL;
     frame_drive = NULL;
+
+    current_chrrom = -1;  /* Only NES */
+    chrrom_pointer = 0;   /* Only NES */
+    chrrom_size = 0;  /* Only NES */
+    chrrom_data = NULL;   /* Only NES */
+
     compile_basic();
     if (loops != NULL)
         emit_error("End of source with control block still open");
@@ -6146,6 +6322,9 @@ int main(int argc, char *argv[])
     fclose(input);
     fclose(output);
     
+    /*
+     ** Now build the real output (prologue + compiled program + epilogue)
+     */
     output = fopen(argv[c], "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
@@ -6202,6 +6381,10 @@ int main(int argc, char *argv[])
     fprintf(output, "TI99:\tequ %d\n", (machine == TI994A) ? 1 : 0);
     fprintf(output, "NABU:\tequ %d\n", (machine == NABU) ? 1 : 0);
     fprintf(output, "SMS:\tequ %d\n", (machine == SMS) ? 1 : 0);
+    if (machine == NES) {
+        fprintf(output, "NES_PRG_BANKS:\tequ 2\t; Each one 16K.\n");
+        fprintf(output, "NES_CHR_BANKS:\tequ %d\t; Each one 4K.\n", chrrom_size);
+    }
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
@@ -6317,7 +6500,26 @@ int main(int argc, char *argv[])
     if (target == CPU_Z80 || target == CPU_9900) {
         bytes_used = process_variables();
     }
+    
+    /*
+     ** NES CHRROM output
+     */
+    if (machine == NES) {
+        fprintf(output, "\n; CHR data\n");
+        for (c = 0; c < chrrom_size * CHRROM_PAGE; c += 8) {
+            fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",
+                    chrrom_data[c], chrrom_data[c + 1],
+                    chrrom_data[c + 2], chrrom_data[c + 3],
+                    chrrom_data[c + 4], chrrom_data[c + 5],
+                    chrrom_data[c + 6], chrrom_data[c + 7]);
+        }
+        free(chrrom_data);
+    }
     fclose(output);
+    
+    /*
+     ** Final reports
+     */
     if (machine == MEMOTECH || machine == EINSTEIN || machine == NABU) {
         fprintf(stderr, "%d RAM bytes used for variables.\n", bytes_used);
     } else {
