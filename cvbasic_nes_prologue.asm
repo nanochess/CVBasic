@@ -19,6 +19,7 @@
 	; CVBasic variables in zero page.
 	;
 
+ppu_source:	equ $00	; Used in NMI for source address for PPU copy
 	; This is a block of 8 bytes that should stay together.
 temp:		equ $02
 temp2:		equ $04
@@ -28,6 +29,7 @@ pointer:	equ $08
 read_pointer:	equ $0a
 cursor:		equ $0c
 ppu_pointer:	equ $0e
+ppu_temp:	equ $0f	; Used in NMI to save X
 
 joy1_data:	equ $20
 joy2_data:	equ $21
@@ -39,6 +41,7 @@ mode:           equ $28
 cont_bits:	equ $29
 sprite_data:	equ $2a
 ntsc:		equ $2e
+flicker:	equ $2f
 vdp_status:	equ $30
 
 	IF CVBASIC_MUSIC_PLAYER
@@ -437,22 +440,73 @@ nmi_handler:
 	LDA PPUSTATUS	; VDP interruption clear.
 	STA vdp_status
 
-	LDA #$00	; !!! Can be used for flicker
+	; Load sprites
+	LDA mode
+	AND #4		; Flicker enabled?
+	BNE .5		; No, jump.
+	LDA flicker
+	CLC
+	ADC #28
+	STA flicker
+	JMP .6
+.5:
+	LDA #$00
+.6:
 	STA OAMADDR
 	LDA #SPRITE_PAGE	
-	STA SPRRAM
+	STA SPRRAM	; Use DMA for sprite loading
 
+	; Screen changes
 	LDX #$00
-	CPX ppu_pointer
-	BEQ .1
+	CPX ppu_pointer	; Any change?
+	BEQ .1		; No, jump.
+.0:	LDA $0101,X
+	STA PPUADDR
+	BMI .2
 	LDA $0100,X
 	STA PPUADDR
-	LDA $0101,X
+	LDA $0103,X
+	STA ppu_source
+	LDA $0104,X
+	STA ppu_source+1
+	LDY $0102,X
+	STX ppu_temp
+	LDX #0
+.4:
+	LDA ppu_source,X
+	STA PPUDATA
+	INX
+	DEY
+	BNE .4
+	LDA ppu_temp
+	CLC
+	ADC #5
+	TAX
+	CPX ppu_pointer
+	BNE .0
+	JMP .1
+
+	; Filling data	
+.2:
+	LDA $0100,X
 	STA PPUADDR
-	LDA $0102
+	LDY $0102,X
+	LDA $0103,X
+.3:
+	STA PPUDATA
+	DEY
+	BNE .3	
+	TXA
+	CLC
+	ADC #4
+	TAX
+	CPX ppu_pointer
+	BNE .0
 
-.1:
+.1:	LDA #0
+	STA ppu_pointer
 
+	; Read controllers
 	LDA #$01
 	STA CONT1
 	LDA #$00
@@ -536,10 +590,11 @@ nmi_handler:
 	PLA
 	STA temp+0
 
+	; Final settings for PPU
 	LDA #0
 	STA PPUADDR
 	STA PPUADDR
-	STA PPUSCROLL
+	STA PPUSCROLL	; !!! For scrolling
 	STA PPUSCROLL
 
 	PLA
