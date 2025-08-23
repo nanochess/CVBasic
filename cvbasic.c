@@ -5440,16 +5440,19 @@ void compile_statement(int check_for_else)
                     fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x\n", notes & 0xff, (notes >> 8) & 0xff, (notes >> 16) & 0xff, (notes >> 24) & 0xff);
                 }
             } else if (strcmp(name, "SOUND") == 0) {
-                /* !!! Implement for NES */
                 get_lex();
                 if (lex != C_NUM) {
                     emit_error("syntax error in SOUND");
                 } else {
-                    if (value < 3 && (machine == MSX || machine == SVI || machine == EINSTEIN || machine == NABU))
+                    if (value < 10 && machine == NES) {
+                        emit_warning("using SOUND 0-9 with NES/Famicom target");
+                    } else if (value >= 0 && value <= 4 && (machine == MSX || machine == SVI || machine == EINSTEIN || machine == NABU)) {
                         emit_warning("using SOUND 0-3 with AY-3-8910 target");
-                    else if (value >= 5 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH && machine != NABU)
+                    } else if (value >= 5 && value <= 9 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH && machine != NABU) {
                         emit_warning("using SOUND 5-9 with SN76489 target");
+                    }
                     switch (value) {
+                        /* Sound handling for SN76489 */
                         case 0:
                             get_lex();
                             if (lex != C_COMMA) {
@@ -5567,6 +5570,7 @@ void compile_statement(int check_for_else)
                                 generic_call("sn76489_vol");
                             }
                             break;
+                        /* Sound handling for AY-3-8910 */
                         case 5:
                             get_lex();
                             if (lex != C_COMMA) {
@@ -5728,6 +5732,119 @@ void compile_statement(int check_for_else)
                                     cpuz80_1op("CALL", "ay3_reg");
                                 }
                             }
+                            break;
+                        /* Sound handling for NES */
+                        case 10:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4002");
+                                    cpu6502_1op("STY", "$4003");
+                                }
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4000");
+                                }
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4001");
+                                }
+                            }
+                            break;
+                        case 11:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4006");
+                                    cpu6502_1op("STY", "$4007");
+                                }
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4004");
+                                }
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4005");
+                                }
+                            }
+                            break;
+                        case 12:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$400a");
+                                    cpu6502_1op("STY", "$400b");
+                                }
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$4008");
+                                }
+                            }
+                            break;
+                        case 14:
+                            get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
+                            if (lex != C_COMMA) {
+                                type = evaluate_expression(1, TYPE_16, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$400e");
+                                    cpu6502_1op("STY", "$400f");
+                                }
+                            }
+                            if (lex == C_COMMA) {
+                                get_lex();
+                                type = evaluate_expression(1, TYPE_8, 0);
+                                if (machine == NES) {
+                                    cpu6502_1op("STA", "$400c");
+                                }
+                            }
+                            break;
+                        case 15:
+                            get_lex();
+                            type = evaluate_expression(1, TYPE_8, 0);
+                            if (machine == NES) {
+                                cpu6502_1op("STA", "$4015");
+                            }
+                            break;
+                        default:
+                            emit_error("SOUND with unhandled channel number");
                             break;
                     }
                 }

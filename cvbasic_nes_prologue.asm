@@ -122,7 +122,10 @@ WRTVRM:
 	INX
 	INX
 	STX ppu_pointer
+	BMI .1
 	RTS
+.1:
+	JMP wait
 
 CLS:
 	LDX ppu_pointer
@@ -566,10 +569,9 @@ nmi_handler:
 	STA PPUADDR
 	LDA PPUBUF+2,X
 	STA PPUDATA
-	TXA
-	CLC
-	ADC #3
-	TAX
+	INX
+	INX
+	INX
 	CPX ppu_pointer
 	BNE .0
 	JMP .1
@@ -593,6 +595,13 @@ nmi_handler:
 
 .1:	LDA #0
 	STA ppu_pointer
+
+	; Final settings for PPU
+	LDA #0
+	STA PPUADDR
+	STA PPUADDR
+	STA PPUSCROLL	; !!! For scrolling
+	STA PPUSCROLL
 
 	; Read controllers
 	LDA #$01
@@ -681,13 +690,6 @@ nmi_handler:
 	STA temp+1
 	PLA
 	STA temp+0
-
-	; Final settings for PPU
-	LDA #0
-	STA PPUADDR
-	STA PPUADDR
-	STA PPUSCROLL	; !!! For scrolling
-	STA PPUSCROLL
 
 	PLA
 	TAY
@@ -932,8 +934,13 @@ START:
 
 	LDA #$40
 	STA $4017
+	LDA #$10
+	STA $4000	; Channel 1 silent
+	STA $4004	; Channel 2 silent
+	STA $400C	; Channel 4 silent
+	LDA #$0b
+	STA $4015	; Enable channel 1, 2 and 4.
 	LDA #$00
-	STA $4015
 	STA $4010
 
 	STA PPUCTRL
