@@ -8,9 +8,9 @@
 	' Revision date: Aug/23/2025. Adapted for NES.
 	'
 
-'	DEFINE SPRITE 0,1,happy_face
+	PALETTE $13, $38	' Yellow face
 
-'	PRINT AT 36,"Happy face!"
+	PRINT AT 68,"Happy face!"
 
 	x = 50
 	y = 100

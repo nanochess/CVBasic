@@ -244,6 +244,124 @@ int chrrom_pointer;
 int chrrom_size;
 unsigned char *chrrom_data;
 
+void reset_chrrom(unsigned char *page)
+{
+    /*
+     ** Font for NES/Famicom, because it doesn't provide an ASCII charset.
+     **
+     ** My personal font for TMS9928.
+     **
+     ** Patterned after the TMS9928 programming manual 6x8 letters
+     ** with better lowercase letters, also I made a proper
+     ** AT sign.
+     */
+    unsigned char font[] = {
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,    // 0x20 space
+        0x20,0x20,0x20,0x20,0x20,0x00,0x20,0x00,    // 0x21 !
+        0x50,0x50,0x50,0x00,0x00,0x00,0x00,0x00,    // 0x22 "
+        0x50,0x50,0xf8,0x50,0xf8,0x50,0x50,0x00,    // 0x23 #
+        0x20,0x78,0xa0,0x70,0x28,0xf0,0x20,0x00,    // 0x24 $
+        0xc0,0xc8,0x10,0x20,0x40,0x98,0x18,0x00,    // 0x25 %
+        0x40,0xa0,0x40,0xa0,0xa8,0x90,0x68,0x00,    // 0x26 &
+        0x60,0x20,0x40,0x00,0x00,0x00,0x00,0x00,    // 0x27 '
+        0x10,0x20,0x40,0x40,0x40,0x20,0x10,0x00,    // 0x28 (
+        0x40,0x20,0x10,0x10,0x10,0x20,0x40,0x00,    // 0x29 )
+        0x00,0xa8,0x70,0x20,0x70,0xa8,0x00,0x00,    // 0x2a *
+        0x00,0x20,0x20,0xf8,0x20,0x20,0x00,0x00,    // 0x2b +
+        0x00,0x00,0x00,0x00,0x00,0x60,0x20,0x40,    // 0x2c ,
+        0x00,0x00,0x00,0xfc,0x00,0x00,0x00,0x00,    // 0x2d -
+        0x00,0x00,0x00,0x00,0x00,0x00,0x60,0x00,    // 0x2e .
+        0x00,0x08,0x10,0x20,0x40,0x80,0x00,0x00,    // 0x2f /
+        0x70,0x88,0x98,0xa8,0xc8,0x88,0x70,0x00,    // 0x30 0
+        0x20,0x60,0x20,0x20,0x20,0x20,0xf8,0x00,    // 0x31 1
+        0x70,0x88,0x08,0x10,0x60,0x80,0xf8,0x00,    // 0x32 2
+        0x70,0x88,0x08,0x30,0x08,0x88,0x70,0x00,    // 0x33 3
+        0x30,0x50,0x90,0x90,0xf8,0x10,0x10,0x00,    // 0x34 4
+        0xf8,0x80,0xf0,0x08,0x08,0x08,0xf0,0x00,    // 0x35 5
+        0x30,0x40,0x80,0xf0,0x88,0x88,0x70,0x00,    // 0x36 6
+        0xf8,0x08,0x10,0x20,0x20,0x20,0x20,0x00,    // 0x37 7
+        0x70,0x88,0x88,0x70,0x88,0x88,0x70,0x00,    // 0x38 8
+        0x70,0x88,0x88,0x78,0x08,0x10,0x60,0x00,    // 0x39 9
+        0x00,0x00,0x00,0x60,0x00,0x60,0x00,0x00,    // 0x3a :
+        0x00,0x00,0x00,0x60,0x00,0x60,0x20,0x40,    // 0x3b ;
+        0x10,0x20,0x40,0x80,0x40,0x20,0x10,0x00,    // 0x3c <
+        0x00,0x00,0xf8,0x00,0xf8,0x00,0x00,0x00,    // 0x3d =
+        0x08,0x04,0x02,0x01,0x02,0x04,0x08,0x00,    // 0x3e >
+        0x70,0x88,0x08,0x10,0x20,0x00,0x20,0x00,    // 0x3f ?
+        0x70,0x88,0x98,0xa8,0x98,0x80,0x70,0x00,    // 0x40 @
+        0x20,0x50,0x88,0x88,0xf8,0x88,0x88,0x00,    // 0x41 A
+        0xf0,0x88,0x88,0xf0,0x88,0x88,0xf0,0x00,    // 0x42 B
+        0x70,0x88,0x80,0x80,0x80,0x88,0x70,0x00,    // 0x43 C
+        0xf0,0x88,0x88,0x88,0x88,0x88,0xf0,0x00,    // 0x44 D
+        0xf8,0x80,0x80,0xf0,0x80,0x80,0xf8,0x00,    // 0x45 E
+        0xf8,0x80,0x80,0xf0,0x80,0x80,0x80,0x00,    // 0x46 F
+        0x70,0x88,0x80,0xb8,0x88,0x88,0x70,0x00,    // 0x47 G
+        0x88,0x88,0x88,0xf8,0x88,0x88,0x88,0x00,    // 0x48 H
+        0x70,0x20,0x20,0x20,0x20,0x20,0x70,0x00,    // 0x49 I
+        0x08,0x08,0x08,0x08,0x88,0x88,0x70,0x00,    // 0x4A J
+        0x88,0x90,0xa0,0xc0,0xa0,0x90,0x88,0x00,    // 0x4B K
+        0x80,0x80,0x80,0x80,0x80,0x80,0xf8,0x00,    // 0x4C L
+        0x88,0xd8,0xa8,0xa8,0x88,0x88,0x88,0x00,    // 0x4D M
+        0x88,0xc8,0xc8,0xa8,0x98,0x98,0x88,0x00,    // 0x4E N
+        0x70,0x88,0x88,0x88,0x88,0x88,0x70,0x00,    // 0x4F O
+        0xf0,0x88,0x88,0xf0,0x80,0x80,0x80,0x00,    // 0x50 P
+        0x70,0x88,0x88,0x88,0x88,0xa8,0x90,0x68,    // 0x51 Q
+        0xf0,0x88,0x88,0xf0,0xa0,0x90,0x88,0x00,    // 0x52 R
+        0x70,0x88,0x80,0x70,0x08,0x88,0x70,0x00,    // 0x53 S
+        0xf8,0x20,0x20,0x20,0x20,0x20,0x20,0x00,    // 0x54 T
+        0x88,0x88,0x88,0x88,0x88,0x88,0x70,0x00,    // 0x55 U
+        0x88,0x88,0x88,0x88,0x50,0x50,0x20,0x00,    // 0x56 V
+        0x88,0x88,0x88,0xa8,0xa8,0xd8,0x88,0x00,    // 0x57 W
+        0x88,0x88,0x50,0x20,0x50,0x88,0x88,0x00,    // 0x58 X
+        0x88,0x88,0x88,0x70,0x20,0x20,0x20,0x00,    // 0x59 Y
+        0xf8,0x08,0x10,0x20,0x40,0x80,0xf8,0x00,    // 0x5A Z
+        0x78,0x60,0x60,0x60,0x60,0x60,0x78,0x00,    // 0x5B [
+        0x00,0x80,0x40,0x20,0x10,0x08,0x00,0x00,    // 0x5C backslash
+        0xF0,0x30,0x30,0x30,0x30,0x30,0xF0,0x00,    // 0x5D ]
+        0x20,0x50,0x88,0x00,0x00,0x00,0x00,0x00,    // 0x5E
+        0x00,0x00,0x00,0x00,0x00,0x00,0xf8,0x00,    // 0x5F _
+        0x40,0x20,0x10,0x00,0x00,0x00,0x00,0x00,    // 0x60
+        0x00,0x00,0x68,0x98,0x88,0x98,0x68,0x00,    // 0x61 a
+        0x80,0x80,0xf0,0x88,0x88,0x88,0xf0,0x00,    // 0x62 b
+        0x00,0x00,0x78,0x80,0x80,0x80,0x78,0x00,    // 0x63 c
+        0x08,0x08,0x68,0x98,0x88,0x98,0x68,0x00,    // 0x64 d
+        0x00,0x00,0x70,0x88,0xf8,0x80,0x70,0x00,    // 0x65 e
+        0x30,0x48,0x40,0xe0,0x40,0x40,0x40,0x00,    // 0x66 f
+        0x00,0x00,0x78,0x88,0x88,0x78,0x08,0x70,    // 0x67 g
+        0x80,0x80,0xf0,0x88,0x88,0x88,0x88,0x00,    // 0x68 h
+        0x20,0x00,0x60,0x20,0x20,0x20,0x70,0x00,    // 0x69 i
+        0x08,0x00,0x18,0x08,0x88,0x88,0x70,0x00,    // 0x6a j
+        0x80,0x80,0x88,0x90,0xe0,0x90,0x88,0x00,    // 0x6b k
+        0x60,0x20,0x20,0x20,0x20,0x20,0x70,0x00,    // 0x6c l
+        0x00,0x00,0xd0,0xa8,0xa8,0xa8,0xa8,0x00,    // 0x6d m
+        0x00,0x00,0xb0,0xc8,0x88,0x88,0x88,0x00,    // 0x6e n
+        0x00,0x00,0x70,0x88,0x88,0x88,0x70,0x00,    // 0x6f o
+        0x00,0x00,0xf0,0x88,0x88,0x88,0xf0,0x80,    // 0x70 p
+        0x00,0x00,0x78,0x88,0x88,0x88,0x78,0x08,    // 0x71 q
+        0x00,0x00,0xb8,0xc0,0x80,0x80,0x80,0x00,    // 0x72 r
+        0x00,0x00,0x78,0x80,0x70,0x08,0xf0,0x00,    // 0x73 s
+        0x20,0x20,0xf8,0x20,0x20,0x20,0x20,0x00,    // 0x74 t
+        0x00,0x00,0x88,0x88,0x88,0x98,0x68,0x00,    // 0x75 u
+        0x00,0x00,0x88,0x88,0x88,0x50,0x20,0x00,    // 0x76 v
+        0x00,0x00,0x88,0xa8,0xa8,0xa8,0x50,0x00,    // 0x77 w
+        0x00,0x00,0x88,0x50,0x20,0x50,0x88,0x00,    // 0x78 x
+        0x00,0x00,0x88,0x88,0x98,0x68,0x08,0x70,    // 0x79 y
+        0x00,0x00,0xf8,0x10,0x20,0x40,0xf8,0x00,    // 0x7a z
+        0x18,0x20,0x20,0x40,0x20,0x20,0x18,0x00,    // 0x7b {
+        0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x00,    // 0x7c |
+        0xc0,0x20,0x20,0x10,0x20,0x20,0xc0,0x00,    // 0x7d }
+        0x00,0x00,0x40,0xa8,0x10,0x00,0x00,0x00,    // 0x7e
+        0x70,0x70,0x20,0xf8,0x20,0x70,0x50,0x00,    // 0x7f
+    };
+    int c;
+    
+    memset(page, 0, CHRROM_PAGE);
+    for (c = 0; c < 0x60; c++) {
+        memcpy(page + (c + 32) * 16, &font[c * 8], 8);
+        memcpy(page + (c + 32) * 16 + 8, &font[c * 8], 8);
+    }
+}
+
 /*
  ** Prototypes
  */
@@ -2092,6 +2210,10 @@ void compile_statement(int check_for_else)
     while (1) {
         if (lex == C_NAME) {
             last_is_return = 0;
+          
+            /*
+             ** CVBasic core language
+             */
             if (strcmp(name, "GOTO") == 0) {
                 get_lex();
                 if (lex != C_NAME) {
@@ -2748,114 +2870,9 @@ void compile_statement(int check_for_else)
                         get_lex();
                     }
                 }
-            } else if (strcmp(name, "POKE") == 0) {
-                struct node *address;
-                struct node *value;
-                
-                get_lex();
-                address = evaluate_save_expression(1, TYPE_16);
-                if (lex == C_COMMA)
-                    get_lex();
-                else
-                    emit_error("missing comma in POKE");
-                value = evaluate_save_expression(1, TYPE_8);
-                if (target == CPU_6502) {
-                    node_generate(value, 0);
-                    cpu6502_noop("PHA");
-                    node_generate(address, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_1op("STY", "temp+1");
-                    cpu6502_noop("PLA");
-                    cpu6502_1op("LDY", "#0");
-                    cpu6502_1op("STA", "(temp),Y");
-                } else if (target == CPU_9900) {
-                    node_generate(value, 0);
-                    cpu9900_1op("dect", "r10");
-                    cpu9900_2op("mov", "r0", "*r10");
-                    node_generate(address, 0);
-                    cpu9900_2op("mov", "*r10+", "r1");
-                    cpu9900_2op("movb","r1","*r0");
-                } else {
-                    if ((value->regs & REG_HL) == 0) {
-                        node_generate(address, 0);
-                        node_generate(value, 0);
-                    } else if ((address->regs & REG_A) == 0) {
-                        node_generate(value, 0);
-                        node_generate(address, 0);
-                    } else {
-                        node_generate(address, 0);
-                        cpuz80_1op("PUSH", "HL");
-                        node_generate(value, 0);
-                        cpuz80_1op("POP", "HL");
-                    }
-                    cpuz80_2op("LD", "(HL)", "A");
-                }
-                node_delete(address);
-                node_delete(value);
-            } else if (strcmp(name, "VPOKE") == 0) {
-                struct node *address;
-                struct node *value;
-                
-                get_lex();
-                address = evaluate_save_expression(1, TYPE_16);
-                if (lex == C_COMMA)
-                    get_lex();
-                else
-                    emit_error("missing comma in VPOKE");
-                value = evaluate_save_expression(1, TYPE_8);
-                if (target == CPU_6502) {
-                    node_generate(value, 0);
-                    cpu6502_noop("PHA");
-                    node_generate(address, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_1op("STY", "temp+1");
-                    cpu6502_noop("PLA");
-                    cpu6502_noop("TAX");
-                    cpu6502_1op("LDA", "temp");
-                    generic_interrupt_disable();
-                    cpu6502_1op("JSR", "WRTVRM");
-                    generic_interrupt_enable();
-                } else if (target == CPU_9900) {
-                    node_generate(value, 0);
-                    cpu9900_1op("dect", "r10");
-                    cpu9900_2op("mov", "r0", "*r10");
-                    node_generate(address, 0);
-                    cpu9900_2op("mov", "*r10+", "r2");
-                    generic_interrupt_disable();
-                    cpu9900_1op("bl","@JSR");
-                    cpu9900_1op("data", "WRTVRM");
-                    generic_interrupt_enable();
-                } else {
-                    if ((value->regs & REG_HL) == 0) {
-                        node_generate(address, 0);
-                        node_generate(value, 0);
-                    } else if ((address->regs & REG_A) == 0) {
-                        node_generate(value, 0);
-                        node_generate(address, 0);
-                    } else {
-                        node_generate(address, 0);
-                        cpuz80_1op("PUSH", "HL");
-                        node_generate(value, 0);
-                        cpuz80_1op("POP", "HL");
-                    }
-                    generic_interrupt_disable();
-                    cpuz80_1op("CALL", "WRTVRM");
-                    generic_interrupt_enable();
-                }
-                node_delete(address);
-                node_delete(value);
             } else if (strcmp(name, "REM") == 0) {
                 line_pos = line_size;
                 get_lex();
-            } else if (strcmp(name, "CLS") == 0) {
-                get_lex();
-                generic_call("cls");
-            } else if (strcmp(name, "WAIT") == 0) {
-                get_lex();
-                if (machine == SORD || machine == CREATIVISION || machine == NES || machine == EINSTEIN || machine == TI994A)
-                    generic_call("wait");
-                else
-                    cpuz80_noop("HALT");
             } else if (strcmp(name, "RESTORE") == 0) {
                 get_lex();
                 if (lex != C_NAME) {
@@ -2902,7 +2919,7 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "DATA") == 0) {
                 struct node *tree;
                 int c = 0;
-
+                
                 generic_dump();
                 get_lex();
                 if (lex == C_NAME && strcmp(name, "BYTE") == 0) {
@@ -3132,6 +3149,600 @@ void compile_statement(int check_for_else)
                         fprintf(output, "\n");
                     }
                 }
+            } else if (strcmp(name, "SIGNED") == 0) {
+                struct signedness *c;
+                
+                get_lex();
+                while (1) {
+                    if (lex != C_NAME) {
+                        emit_error("missing name in SIGNED");
+                        break;
+                    }
+                    c = signed_search(name);
+                    if (c != NULL) {
+                        emit_error("variable already SIGNED/UNSIGNED");
+                    } else {
+                        c = signed_add(name);
+                    }
+                    c->sign = 1;
+                    get_lex();
+                    if (lex != C_COMMA)
+                        break;
+                    get_lex();
+                }
+            } else if (strcmp(name, "UNSIGNED") == 0) {
+                struct signedness *c;
+                
+                get_lex();
+                while (1) {
+                    if (lex != C_NAME) {
+                        emit_error("missing name in UNSIGNED");
+                        break;
+                    }
+                    c = signed_search(name);
+                    if (c != NULL) {
+                        emit_error("variable already SIGNED/UNSIGNED");
+                    } else {
+                        c = signed_add(name);
+                    }
+                    c->sign = 2;
+                    get_lex();
+                    if (lex != C_COMMA)
+                        break;
+                    get_lex();
+                }
+            } else if (strcmp(name, "CONST") == 0) {
+                struct constant *c;
+                
+                get_lex();
+                if (lex != C_NAME) {
+                    emit_error("name required for constant assignment");
+                    return;
+                }
+                c = constant_search(name);
+                if (c != NULL) {
+                    emit_error("constant redefined");
+                } else {
+                    c = constant_add(name);
+                }
+                strcpy(assigned, name);;
+                get_lex();
+                if (lex != C_EQUAL) {
+                    emit_error("required '=' for constant assignment");
+                } else {
+                    struct node *tree;
+                    int type;
+                    
+                    get_lex();
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("not a constant expression in CONST");
+                    } else {
+                        c->value = tree->value;
+                    }
+                    if (target == CPU_Z80 || target == CPU_6502) {
+                        sprintf(temp, CONST_PREFIX "%s:\tequ $%04x", assigned, c->value);
+                        fprintf(output, "%s\n", temp);
+                    } else if (target == CPU_9900) {
+                        sprintf(temp, CONST_PREFIX "%s\tequ >%04x", assigned, c->value);
+                        cpu9900_label(temp);    /* Hack */
+                    }
+                    node_delete(tree);
+                    tree = NULL;
+                }
+            } else if (strcmp(name, "DIM") == 0) {
+                char array[MAX_LINE_SIZE];
+                struct label *new_array;
+                struct node *tree;
+                int type;
+                int c;
+                
+                while (1) {
+                    get_lex();
+                    if (lex != C_NAME) {
+                        emit_error("missing name in DIM");
+                        break;
+                    }
+                    strcpy(array, name);
+                    get_lex();
+                    if (lex == C_LPAREN) {
+                        get_lex();
+                        tree = evaluate_level_0(&type);
+                        if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                            emit_error("not a constant expression in DIM");
+                            c = 10;
+                        } else {
+                            c = tree->value;
+                        }
+                        node_delete(tree);
+                        if (lex != C_RPAREN) {
+                            emit_error("missing right parenthesis in DIM");
+                        } else {
+                            get_lex();
+                        }
+                        new_array = array_search(array);
+                        if (new_array != NULL) {
+                            emit_error("array already defined");
+                        } else {
+                            new_array = array_add(array);
+                            new_array->length = c;
+                        }
+                    } else {
+                        label = label_add(array);
+                        if (array[0] == '#')
+                            label->used = TYPE_16;
+                        else
+                            label->used = TYPE_8;
+                        label->used |= LABEL_IS_VARIABLE;
+                    }
+                    if (lex != C_COMMA)
+                        break;
+                }
+            } else if (strcmp(name, "ON") == 0) {
+                struct label *label;
+                int table;
+                int c;
+                int max_value;
+                int gosub;
+                int fast;
+                struct label *options[256];
+                int new_label;
+                int type;
+                
+                get_lex();
+                if (lex == C_NAME && strcmp(name, "FRAME") == 0) {  /* Frame-driven games */
+                    get_lex();
+                    if (lex != C_NAME || strcmp(name, "GOSUB") != 0) {
+                        emit_error("Bad syntax for ON FRAME GOSUB");
+                    }
+                    get_lex();
+                    if (lex != C_NAME) {
+                        emit_error("Missing label for ON FRAME GOSUB");
+                    }
+                    if (frame_drive != NULL) {
+                        emit_error("More than one ON FRAME GOSUB");
+                    }
+                    label = label_search(name);
+                    if (label == NULL) {
+                        label = label_add(name);
+                    }
+                    label->used |= LABEL_USED;
+                    label->used |= LABEL_CALLED_BY_GOSUB;
+                    frame_drive = label;
+                    get_lex();
+                } else {
+                    type = evaluate_expression(0, 0, 0);
+                    fast = 0;
+                    if (lex == C_NAME && strcmp(name, "FAST") == 0) {
+                        get_lex();
+                        fast = 1;
+                    }
+                    gosub = 0;
+                    if (lex != C_NAME || (strcmp(name, "GOTO") != 0 && strcmp(name, "GOSUB") != 0)) {
+                        emit_error("required GOTO or GOSUB after ON");
+                    } else if (strcmp(name, "GOTO") == 0) {
+                        get_lex();
+                    } else if (strcmp(name, "GOSUB") == 0) {
+                        get_lex();
+                        gosub = 1;
+                    }
+                    max_value = 0;
+                    while (1) {
+                        if (max_value == sizeof(options) / sizeof(struct label *)) {
+                            emit_error("too many options for ON statement");
+                            max_value--;
+                        }
+                        if (lex == C_NAME) {
+                            label = label_search(name);
+                            if (label == NULL) {
+                                label = label_add(name);
+                            }
+                            label->used |= LABEL_USED;
+                            if (gosub != 0) {
+                                label->used |= LABEL_CALLED_BY_GOSUB;
+                            } else {
+                                label->used |= LABEL_CALLED_BY_GOTO;
+                            }
+                            options[max_value++] = label;
+                            get_lex();
+                        } else {
+                            options[max_value++] = NULL;
+                        }
+                        if (lex != C_COMMA)
+                            break;
+                        get_lex();
+                    }
+                    table = next_local++;
+                    new_label = next_local++;
+                    if (fast == 0) {
+                        if (target == CPU_6502) {
+                            if ((type & MAIN_TYPE) == TYPE_8) {
+                                cpu6502_1op("STA", "temp");
+                                cpu6502_1op("LDY", "#0");
+                                cpu6502_1op("STY", "temp+1");
+                                sprintf(temp, "#%d", max_value);
+                                cpu6502_1op("CMP", temp);
+                            } else {
+                                cpu6502_1op("STA", "temp");
+                                cpu6502_1op("STY", "temp+1");
+                                sprintf(temp, "#%d", max_value);
+                                cpu6502_1op("LDA", "temp");
+                                cpu6502_noop("SEC");
+                                cpu6502_1op("SBC", temp);
+                                cpu6502_1op("LDA", "temp+1");
+                                strcat(temp, ">>8");
+                                cpu6502_1op("SBC", temp);
+                            }
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                            cpu6502_1op("BCS.L", temp);
+                        } else if (target == CPU_9900) {
+                            if ((type & MAIN_TYPE) == TYPE_8) {
+                                sprintf(temp, "%d   ; %d*256", max_value*256, max_value);
+                                cpu9900_2op("ci", "r0", temp);
+                            } else {
+                                sprintf(temp, "%d", max_value);
+                                cpu9900_2op("ci", "r0", temp);
+                            }
+                            sprintf(temp, "@" INTERNAL_PREFIX "%d", new_label);
+                            sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
+                            cpu9900_1op("jl", temp + 100);
+                            cpu9900_1op("b", temp);
+                            cpu9900_label(temp + 100);
+                        } else {
+                            if ((type & MAIN_TYPE) == TYPE_8) {
+                                sprintf(temp, "%d", max_value);
+                                cpuz80_1op("CP", temp);
+                            } else {
+                                sprintf(temp, "%d", max_value);
+                                cpuz80_2op("LD", "DE", temp);
+                                cpuz80_1op("OR", "A");
+                                cpuz80_2op("SBC", "HL", "DE");
+                                cpuz80_2op("ADD", "HL", "DE");
+                            }
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                            cpuz80_2op("JP", "NC", temp);
+                        }
+                    }
+                    if (gosub) {
+                        if (target == CPU_6502) {
+                            sprintf(temp, "#(" INTERNAL_PREFIX "%d-1)>>8", new_label);
+                            cpu6502_1op("LDA", temp);
+                            cpu6502_noop("PHA");
+                            sprintf(temp, "#" INTERNAL_PREFIX "%d-1", new_label);
+                            cpu6502_1op("LDA", temp);
+                            cpu6502_noop("PHA");
+                        } else if (target == CPU_9900) {
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                            cpu9900_2op("li", "r1", temp);
+                            cpu9900_1op("dect", "r10");   /* stack manipulation */
+                            cpu9900_2op("mov", "r1", "*r10");
+                        } else {
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                            cpuz80_2op("LD", "DE", temp);
+                            cpuz80_1op("PUSH", "DE");
+                        }
+                    }
+                    if (target == CPU_6502) {
+                        cpu6502_1op("LDA", "temp");
+                        cpu6502_1op("ASL", "A");
+                        cpu6502_1op("ROL", "temp+1");
+                        cpu6502_noop("CLC");
+                        sprintf(temp, "#" INTERNAL_PREFIX "%d", table);
+                        cpu6502_1op("ADC", temp);
+                        cpu6502_1op("STA", "temp");
+                        cpu6502_1op("LDA", "temp+1");
+                        strcat(temp, ">>8");
+                        cpu6502_1op("ADC", temp);
+                        cpu6502_1op("STA", "temp+1");
+                        cpu6502_1op("LDY", "#0");
+                        cpu6502_1op("LDA", "(temp),Y");
+                        cpu6502_1op("STA", "temp2");
+                        cpu6502_noop("INY");
+                        cpu6502_1op("LDA", "(temp),Y");
+                        cpu6502_1op("STA", "temp2+1");
+                        cpu6502_1op("JMP", "(temp2)");
+                    } else if (target == CPU_9900) {
+                        if ((type & MAIN_TYPE) == TYPE_8) {
+                            cpu9900_2op("srl", "r0", "8");
+                        }
+                        cpu9900_2op("sla", "r0", "1");
+                        cpu9900_2op("mov", "r0", "r1");
+                        sprintf(temp, "@" INTERNAL_PREFIX "%d(r1)", table);
+                        cpu9900_2op("mov", temp, "r0");
+                        cpu9900_1op("b", "*r0");
+                    } else {
+                        if ((type & MAIN_TYPE) == TYPE_8) {
+                            cpuz80_2op("LD", "L", "A");
+                            if (type & TYPE_SIGNED) {
+                                cpuz80_noop("RLA");
+                                cpuz80_2op("SBC", "A", "A");
+                                cpuz80_2op("LD", "H", "A");
+                            } else {
+                                cpuz80_2op("LD", "H", "0");
+                            }
+                        }
+                        cpuz80_2op("ADD", "HL", "HL");
+                        sprintf(temp, INTERNAL_PREFIX "%d", table);
+                        cpuz80_2op("LD", "DE", temp);
+                        cpuz80_2op("ADD", "HL", "DE");
+                        cpuz80_2op("LD", "A", "(HL)");
+                        cpuz80_1op("INC", "HL");
+                        cpuz80_2op("LD", "H", "(HL)");
+                        cpuz80_2op("LD", "L", "A");
+                        cpuz80_1op("JP", "(HL)");
+                    }
+                    sprintf(temp, INTERNAL_PREFIX "%d", table);
+                    generic_label(temp);
+                    for (c = 0; c < max_value; c++) {
+                        if (options[c] != NULL) {
+                            sprintf(temp, LABEL_PREFIX "%s", options[c]->name);
+                        } else {
+                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                        }
+                        if (target == CPU_6502)
+                            cpu6502_1op("DW", temp);
+                        else if (target == CPU_9900)
+                            cpu9900_1op("data", temp);
+                        else
+                            cpuz80_1op("DW", temp);
+                    }
+                    sprintf(temp, INTERNAL_PREFIX "%d", new_label);
+                    generic_label(temp);
+                }
+            } else if (strcmp(name, "OPTION") == 0) {
+                get_lex();
+                if (lex != C_NAME) {
+                    emit_error("required name after OPTION");
+                } else if (strcmp(name, "EXPLICIT") == 0) {
+                    get_lex();
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        get_lex();
+                        option_explicit = 1;
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        get_lex();
+                        option_explicit = 0;
+                    } else {
+                        option_explicit = 1;
+                    }
+                } else if (strcmp(name, "WARNINGS") == 0) {
+                    get_lex();
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        get_lex();
+                        option_warnings = 1;
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        get_lex();
+                        option_warnings = 0;
+                    } else {
+                        emit_error("missing ON/OFF in OPTION WARNINGS");
+                    }
+                } else {
+                    emit_error("non-recognized OPTION");
+                }
+            } else if (strcmp(name, "DEF") == 0) {     /* Function definition (macro in CVBasic) */
+                char function[MAX_LINE_SIZE];
+                int total_arguments;
+                char *arguments[32];
+                struct macro *macro;
+                int c;
+                
+                get_lex();
+                if (lex != C_NAME || strcmp(name, "FN") != 0) {
+                    emit_error("syntax error for DEF FN");
+                } else {
+                    get_lex();
+                    if (lex != C_NAME) {
+                        emit_error("missing function name for DEF FN");
+                    } else if (macro_search(name) != NULL) {
+                        emit_error("DEF FN name already defined");
+                    } else {
+                        strcpy(function, name);
+                        get_lex();
+                        total_arguments = 0;
+                        if (lex == C_LPAREN) {
+                            get_lex();
+                            while (1) {
+                                if (lex != C_NAME) {
+                                    emit_error("syntax error in argument list for DEF FN");
+                                    break;
+                                }
+                                if (total_arguments == 32) {
+                                    emit_error("More than 32 arguments in DEF FN");
+                                    break;
+                                }
+                                arguments[total_arguments] = malloc(strlen(name) + 1);
+                                if (arguments[total_arguments] == NULL) {
+                                    emit_error("Out of memory in DEF FN");
+                                    break;
+                                }
+                                strcpy(arguments[total_arguments], name);
+                                total_arguments++;
+                                get_lex();
+                                if (lex == C_COMMA) {
+                                    get_lex();
+                                } else if (lex == C_RPAREN) {
+                                    get_lex();
+                                    break;
+                                } else {
+                                    emit_error("syntax error in argument list for DEF FN");
+                                    break;
+                                }
+                            }
+                        }
+                        macro = macro_add(function);
+                        macro->total_arguments = total_arguments;
+                        if (lex != C_EQUAL) {
+                            emit_error("missing = in DEF FN");
+                        } else {
+                            get_lex();
+                            while (lex != C_END) {
+                                if (lex == C_ERR) {
+                                    emit_error("bad syntax inside DEF FN replacement text");
+                                    break;
+                                }
+                                if (lex == C_NAME) {
+                                    for (c = 0; c < total_arguments; c++) {
+                                        if (strcmp(arguments[c], name) == 0)
+                                            break;
+                                    }
+                                    if (c < total_arguments) {
+                                        lex = C_ERR;
+                                        value = c;
+                                        name[0] = '\0';
+                                    }
+                                }
+                                if (macro->length >= macro->max_length) {
+                                    macro->definition = realloc(macro->definition, (macro->max_length + 1) * 2 * sizeof(struct macro_def));
+                                    if (macro->definition == NULL) {
+                                        emit_error("Out of memory in DEF FN");
+                                        break;
+                                    }
+                                    macro->max_length = (macro->max_length + 1) * 2;
+                                }
+                                macro->definition[macro->length].lex = lex;
+                                if (lex == C_STRING)
+                                    value = name_size;
+                                macro->definition[macro->length].value = value;
+                                if (lex == C_STRING)
+                                    macro->definition[macro->length].name = malloc(name_size + 1);
+                                else
+                                    macro->definition[macro->length].name = malloc(strlen(name) + 1);
+                                if (macro->definition[macro->length].name == NULL) {
+                                    emit_error("Out of memory in DEF FN");
+                                    break;
+                                }
+                                if (lex == C_STRING) {
+                                    if (value)
+                                        memcpy(macro->definition[macro->length].name, name, value);
+                                } else {
+                                    strcpy(macro->definition[macro->length].name, name);
+                                }
+                                macro->length++;
+                                get_lex();
+                            }
+                        }
+                    }
+                }
+
+            /*
+             ** Non-portable language
+             */
+            } else if (strcmp(name, "POKE") == 0) {
+                struct node *address;
+                struct node *value;
+                
+                get_lex();
+                address = evaluate_save_expression(1, TYPE_16);
+                if (lex == C_COMMA)
+                    get_lex();
+                else
+                    emit_error("missing comma in POKE");
+                value = evaluate_save_expression(1, TYPE_8);
+                if (target == CPU_6502) {
+                    node_generate(value, 0);
+                    cpu6502_noop("PHA");
+                    node_generate(address, 0);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
+                    cpu6502_noop("PLA");
+                    cpu6502_1op("LDY", "#0");
+                    cpu6502_1op("STA", "(temp),Y");
+                } else if (target == CPU_9900) {
+                    node_generate(value, 0);
+                    cpu9900_1op("dect", "r10");
+                    cpu9900_2op("mov", "r0", "*r10");
+                    node_generate(address, 0);
+                    cpu9900_2op("mov", "*r10+", "r1");
+                    cpu9900_2op("movb","r1","*r0");
+                } else {
+                    if ((value->regs & REG_HL) == 0) {
+                        node_generate(address, 0);
+                        node_generate(value, 0);
+                    } else if ((address->regs & REG_A) == 0) {
+                        node_generate(value, 0);
+                        node_generate(address, 0);
+                    } else {
+                        node_generate(address, 0);
+                        cpuz80_1op("PUSH", "HL");
+                        node_generate(value, 0);
+                        cpuz80_1op("POP", "HL");
+                    }
+                    cpuz80_2op("LD", "(HL)", "A");
+                }
+                node_delete(address);
+                node_delete(value);
+            } else if (strcmp(name, "VPOKE") == 0) {
+                struct node *address;
+                struct node *value;
+                
+                get_lex();
+                address = evaluate_save_expression(1, TYPE_16);
+                if (lex == C_COMMA)
+                    get_lex();
+                else
+                    emit_error("missing comma in VPOKE");
+                value = evaluate_save_expression(1, TYPE_8);
+                if (target == CPU_6502) {
+                    if (machine == NES) {
+                        node_generate(value, 0);
+                        cpu6502_noop("PHA");
+                        node_generate(address, 0);
+                        cpu6502_1op("STA", "temp");
+                        cpu6502_1op("STY", "temp+1");
+                        cpu6502_noop("PLA");
+                        cpu6502_noop("TAX");
+                        cpu6502_1op("LDA", "temp");
+                        cpu6502_1op("JSR", "WRTVRM");
+                    } else {
+                        node_generate(value, 0);
+                        cpu6502_noop("PHA");
+                        node_generate(address, 0);
+                        cpu6502_1op("STA", "temp");
+                        cpu6502_1op("STY", "temp+1");
+                        cpu6502_noop("PLA");
+                        cpu6502_noop("TAX");
+                        cpu6502_1op("LDA", "temp");
+                        generic_interrupt_disable();
+                        cpu6502_1op("JSR", "WRTVRM");
+                        generic_interrupt_enable();
+                    }
+                } else if (target == CPU_9900) {
+                    node_generate(value, 0);
+                    cpu9900_1op("dect", "r10");
+                    cpu9900_2op("mov", "r0", "*r10");
+                    node_generate(address, 0);
+                    cpu9900_2op("mov", "*r10+", "r2");
+                    generic_interrupt_disable();
+                    cpu9900_1op("bl","@JSR");
+                    cpu9900_1op("data", "WRTVRM");
+                    generic_interrupt_enable();
+                } else {
+                    if ((value->regs & REG_HL) == 0) {
+                        node_generate(address, 0);
+                        node_generate(value, 0);
+                    } else if ((address->regs & REG_A) == 0) {
+                        node_generate(value, 0);
+                        node_generate(address, 0);
+                    } else {
+                        node_generate(address, 0);
+                        cpuz80_1op("PUSH", "HL");
+                        node_generate(value, 0);
+                        cpuz80_1op("POP", "HL");
+                    }
+                    generic_interrupt_disable();
+                    cpuz80_1op("CALL", "WRTVRM");
+                    generic_interrupt_enable();
+                }
+                node_delete(address);
+                node_delete(value);
+            } else if (strcmp(name, "CLS") == 0) {
+                get_lex();
+                generic_call("cls");
+            } else if (strcmp(name, "WAIT") == 0) {
+                get_lex();
+                if (machine == SORD || machine == CREATIVISION || machine == NES || machine == EINSTEIN || machine == TI994A)
+                    generic_call("wait");
+                else
+                    cpuz80_noop("HALT");
             } else if (strcmp(name, "OUT") == 0) {
                 struct node *port;
                 struct node *value;
@@ -3989,7 +4600,7 @@ void compile_statement(int check_for_else)
                         }
                         get_lex();
                         if (current_chrrom == -1) {
-                            emit_error("BITMAP used without setting pattern table");
+                            emit_error("BITMAP used without choosing CHRROM table");
                         } else if (chrrom_pointer + 48 >= CHRROM_PAGE) {
                             emit_error("More than 512 patterns");
                         } else {
@@ -4126,9 +4737,9 @@ void compile_statement(int check_for_else)
                         }
                         get_lex();
                         if (current_chrrom == -1) {
-                            emit_error("BITMAP used without setting pattern table");
+                            emit_error("BITMAP used without choosing CHRROM table");
                         } else if (chrrom_pointer == 8192) {
-                            emit_error("More than 256 patterns");
+                            emit_error("More than 512 patterns");
                         } else {
                             chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer] = value;
                             chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer + 8] = value >> 8;
@@ -4200,9 +4811,13 @@ void compile_statement(int check_for_else)
                 if (lex != C_COMMA) {
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (target == CPU_6502) {
-                        cpu6502_1op("LDX", "#7");
-                        generic_interrupt_disable();
-                        cpu6502_1op("JSR", "WRTVDP");
+                        if (machine == NES) {
+                            emit_warning("BORDER first argument ignored for NES/Famicom (use PALETTE 0)");
+                        } else {
+                            cpu6502_1op("LDX", "#7");
+                            generic_interrupt_disable();
+                            cpu6502_1op("JSR", "WRTVDP");
+                        }
                     } else if (target == CPU_9900) {
                         /* this is just a lot faster inline than jumping through hoops... */
                         cpu9900_2op("srl","r0","8");
@@ -4242,6 +4857,7 @@ void compile_statement(int check_for_else)
                 int type;
                 
                 get_lex();
+                /* !!! Implement NES/Famicom support */
                 if (machine != SMS)
                     emit_error("SCROLL is only available on Sega Master System");
                 if (lex != C_COMMA) {
@@ -4265,7 +4881,7 @@ void compile_statement(int check_for_else)
                         generic_interrupt_enable();
                     }
                 }
-            } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System */
+            } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System / NES */
                 int type;
                 struct node *source;
                 
@@ -4345,6 +4961,8 @@ void compile_statement(int check_for_else)
                 struct node *tree;
                 int c;
                 
+                if (machine != NES)
+                    emit_error("CHRROM is only admited for NES/Famicom");
                 get_lex();
                 if (strcmp(name, "PATTERN") == 0) {
                     get_lex();
@@ -4380,140 +4998,12 @@ void compile_statement(int check_for_else)
                         }
                         chrrom_data = p;
                         /* Reset pixel data in new space */
-                        memset(chrrom_data + chrrom_size * CHRROM_PAGE, 0, (c + 1 - chrrom_size) * CHRROM_PAGE);
+                        for (type = chrrom_size; type < c + 1; type++)
+                            reset_chrrom(chrrom_data + chrrom_size * CHRROM_PAGE);
                         chrrom_size = c + 1;
                     }
                     current_chrrom = c;
                     chrrom_pointer = 0;
-                }
-            } else if (strcmp(name, "SIGNED") == 0) {
-                struct signedness *c;
-                
-                get_lex();
-                while (1) {
-                    if (lex != C_NAME) {
-                        emit_error("missing name in SIGNED");
-                        break;
-                    }
-                    c = signed_search(name);
-                    if (c != NULL) {
-                        emit_error("variable already SIGNED/UNSIGNED");
-                    } else {
-                        c = signed_add(name);
-                    }
-                    c->sign = 1;
-                    get_lex();
-                    if (lex != C_COMMA)
-                        break;
-                    get_lex();
-                }
-            } else if (strcmp(name, "UNSIGNED") == 0) {
-                struct signedness *c;
-
-                get_lex();
-                while (1) {
-                    if (lex != C_NAME) {
-                        emit_error("missing name in UNSIGNED");
-                        break;
-                    }
-                    c = signed_search(name);
-                    if (c != NULL) {
-                        emit_error("variable already SIGNED/UNSIGNED");
-                    } else {
-                        c = signed_add(name);
-                    }
-                    c->sign = 2;
-                    get_lex();
-                    if (lex != C_COMMA)
-                        break;
-                    get_lex();
-                }
-            } else if (strcmp(name, "CONST") == 0) {
-                struct constant *c;
-                
-                get_lex();
-                if (lex != C_NAME) {
-                    emit_error("name required for constant assignment");
-                    return;
-                }
-                c = constant_search(name);
-                if (c != NULL) {
-                    emit_error("constant redefined");
-                } else {
-                    c = constant_add(name);
-                }
-                strcpy(assigned, name);;
-                get_lex();
-                if (lex != C_EQUAL) {
-                    emit_error("required '=' for constant assignment");
-                } else {
-                    struct node *tree;
-                    int type;
-                    
-                    get_lex();
-                    tree = evaluate_level_0(&type);
-                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
-                        emit_error("not a constant expression in CONST");
-                    } else {
-                        c->value = tree->value;
-                    }
-                    if (target == CPU_Z80 || target == CPU_6502) {
-                        sprintf(temp, CONST_PREFIX "%s:\tequ $%04x", assigned, c->value);
-                        fprintf(output, "%s\n", temp);
-                    } else if (target == CPU_9900) {
-                        sprintf(temp, CONST_PREFIX "%s\tequ >%04x", assigned, c->value);
-                        cpu9900_label(temp);    /* Hack */
-                    }
-                    node_delete(tree);
-                    tree = NULL;
-                }
-            } else if (strcmp(name, "DIM") == 0) {
-                char array[MAX_LINE_SIZE];
-                struct label *new_array;
-                struct node *tree;
-                int type;
-                int c;
-                
-                while (1) {
-                    get_lex();
-                    if (lex != C_NAME) {
-                        emit_error("missing name in DIM");
-                        break;
-                    }
-                    strcpy(array, name);
-                    get_lex();
-                    if (lex == C_LPAREN) {
-                        get_lex();
-                        tree = evaluate_level_0(&type);
-                        if (tree->type != N_NUM8 && tree->type != N_NUM16) {
-                            emit_error("not a constant expression in DIM");
-                            c = 10;
-                        } else {
-                            c = tree->value;
-                        }
-                        node_delete(tree);
-                        if (lex != C_RPAREN) {
-                            emit_error("missing right parenthesis in DIM");
-                        } else {
-                            get_lex();
-                        }
-                        new_array = array_search(array);
-                        if (new_array != NULL) {
-                            emit_error("array already defined");
-                        } else {
-                            new_array = array_add(array);
-                            new_array->length = c;
-                        }
-                    } else {
-                        label = label_add(array);
-                        if (array[0] == '#')
-                            label->used = TYPE_16;
-                        else
-                            label->used = TYPE_8;
-                        label->used |= LABEL_IS_VARIABLE;
-                    }
-                    if (lex != C_COMMA)
-                        break;
                 }
             } else if (strcmp(name, "MODE") == 0) {
                 get_lex();
@@ -4545,6 +5035,7 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "SCREEN") == 0) {  /* Copy screen */
                 struct label *array;
                 
+                /* !!! Implement for NES */
                 get_lex();
                 if (lex != C_NAME) {
                     emit_error("bad syntax for SCREEN");
@@ -4948,218 +5439,8 @@ void compile_statement(int check_for_else)
                 } else {
                     fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x\n", notes & 0xff, (notes >> 8) & 0xff, (notes >> 16) & 0xff, (notes >> 24) & 0xff);
                 }
-            } else if (strcmp(name, "ON") == 0) {
-                struct label *label;
-                int table;
-                int c;
-                int max_value;
-                int gosub;
-                int fast;
-                struct label *options[256];
-                int new_label;
-                int type;
-                
-                get_lex();
-                if (lex == C_NAME && strcmp(name, "FRAME") == 0) {  /* Frame-driven games */
-                    get_lex();
-                    if (lex != C_NAME || strcmp(name, "GOSUB") != 0) {
-                        emit_error("Bad syntax for ON FRAME GOSUB");
-                    }
-                    get_lex();
-                    if (lex != C_NAME) {
-                        emit_error("Missing label for ON FRAME GOSUB");
-                    }
-                    if (frame_drive != NULL) {
-                        emit_error("More than one ON FRAME GOSUB");
-                    }
-                    label = label_search(name);
-                    if (label == NULL) {
-                        label = label_add(name);
-                    }
-                    label->used |= LABEL_USED;
-                    label->used |= LABEL_CALLED_BY_GOSUB;
-                    frame_drive = label;
-                    get_lex();
-                } else {
-                    type = evaluate_expression(0, 0, 0);
-                    fast = 0;
-                    if (lex == C_NAME && strcmp(name, "FAST") == 0) {
-                        get_lex();
-                        fast = 1;
-                    }
-                    gosub = 0;
-                    if (lex != C_NAME || (strcmp(name, "GOTO") != 0 && strcmp(name, "GOSUB") != 0)) {
-                        emit_error("required GOTO or GOSUB after ON");
-                    } else if (strcmp(name, "GOTO") == 0) {
-                        get_lex();
-                    } else if (strcmp(name, "GOSUB") == 0) {
-                        get_lex();
-                        gosub = 1;
-                    }
-                    max_value = 0;
-                    while (1) {
-                        if (max_value == sizeof(options) / sizeof(struct label *)) {
-                            emit_error("too many options for ON statement");
-                            max_value--;
-                        }
-                        if (lex == C_NAME) {
-                            label = label_search(name);
-                            if (label == NULL) {
-                                label = label_add(name);
-                            }
-                            label->used |= LABEL_USED;
-                            if (gosub != 0) {
-                                label->used |= LABEL_CALLED_BY_GOSUB;
-                            } else {
-                                label->used |= LABEL_CALLED_BY_GOTO;
-                            }
-                            options[max_value++] = label;
-                            get_lex();
-                        } else {
-                            options[max_value++] = NULL;
-                        }
-                        if (lex != C_COMMA)
-                            break;
-                        get_lex();
-                    }
-                    table = next_local++;
-                    new_label = next_local++;
-                    if (fast == 0) {
-                        if (target == CPU_6502) {
-                            if ((type & MAIN_TYPE) == TYPE_8) {
-                                cpu6502_1op("STA", "temp");
-                                cpu6502_1op("LDY", "#0");
-                                cpu6502_1op("STY", "temp+1");
-                                sprintf(temp, "#%d", max_value);
-                                cpu6502_1op("CMP", temp);
-                            } else {
-                                cpu6502_1op("STA", "temp");
-                                cpu6502_1op("STY", "temp+1");
-                                sprintf(temp, "#%d", max_value);
-                                cpu6502_1op("LDA", "temp");
-                                cpu6502_noop("SEC");
-                                cpu6502_1op("SBC", temp);
-                                cpu6502_1op("LDA", "temp+1");
-                                strcat(temp, ">>8");
-                                cpu6502_1op("SBC", temp);
-                            }
-                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                            cpu6502_1op("BCS.L", temp);
-                        } else if (target == CPU_9900) {
-                            if ((type & MAIN_TYPE) == TYPE_8) {
-                                sprintf(temp, "%d   ; %d*256", max_value*256, max_value);
-                                cpu9900_2op("ci", "r0", temp);
-                            } else {
-                                sprintf(temp, "%d", max_value);
-                                cpu9900_2op("ci", "r0", temp);
-                            }
-                            sprintf(temp, "@" INTERNAL_PREFIX "%d", new_label);
-                            sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
-                            cpu9900_1op("jl", temp + 100);
-                            cpu9900_1op("b", temp);
-                            cpu9900_label(temp + 100);
-                        } else {
-                            if ((type & MAIN_TYPE) == TYPE_8) {
-                                sprintf(temp, "%d", max_value);
-                                cpuz80_1op("CP", temp);
-                            } else {
-                                sprintf(temp, "%d", max_value);
-                                cpuz80_2op("LD", "DE", temp);
-                                cpuz80_1op("OR", "A");
-                                cpuz80_2op("SBC", "HL", "DE");
-                                cpuz80_2op("ADD", "HL", "DE");
-                            }
-                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                            cpuz80_2op("JP", "NC", temp);
-                        }
-                    }
-                    if (gosub) {
-                        if (target == CPU_6502) {
-                            sprintf(temp, "#(" INTERNAL_PREFIX "%d-1)>>8", new_label);
-                            cpu6502_1op("LDA", temp);
-                            cpu6502_noop("PHA");
-                            sprintf(temp, "#" INTERNAL_PREFIX "%d-1", new_label);
-                            cpu6502_1op("LDA", temp);
-                            cpu6502_noop("PHA");
-                        } else if (target == CPU_9900) {
-                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                            cpu9900_2op("li", "r1", temp);
-                            cpu9900_1op("dect", "r10");   /* stack manipulation */
-                            cpu9900_2op("mov", "r1", "*r10");
-                        } else {
-                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                            cpuz80_2op("LD", "DE", temp);
-                            cpuz80_1op("PUSH", "DE");
-                        }
-                    }
-                    if (target == CPU_6502) {
-                        cpu6502_1op("LDA", "temp");
-                        cpu6502_1op("ASL", "A");
-                        cpu6502_1op("ROL", "temp+1");
-                        cpu6502_noop("CLC");
-                        sprintf(temp, "#" INTERNAL_PREFIX "%d", table);
-                        cpu6502_1op("ADC", temp);
-                        cpu6502_1op("STA", "temp");
-                        cpu6502_1op("LDA", "temp+1");
-                        strcat(temp, ">>8");
-                        cpu6502_1op("ADC", temp);
-                        cpu6502_1op("STA", "temp+1");
-                        cpu6502_1op("LDY", "#0");
-                        cpu6502_1op("LDA", "(temp),Y");
-                        cpu6502_1op("STA", "temp2");
-                        cpu6502_noop("INY");
-                        cpu6502_1op("LDA", "(temp),Y");
-                        cpu6502_1op("STA", "temp2+1");
-                        cpu6502_1op("JMP", "(temp2)");
-                    } else if (target == CPU_9900) {
-                        if ((type & MAIN_TYPE) == TYPE_8) {
-                            cpu9900_2op("srl", "r0", "8");
-                        }
-                        cpu9900_2op("sla", "r0", "1");
-                        cpu9900_2op("mov", "r0", "r1");
-                        sprintf(temp, "@" INTERNAL_PREFIX "%d(r1)", table);
-                        cpu9900_2op("mov", temp, "r0");
-                        cpu9900_1op("b", "*r0");
-                    } else {
-                        if ((type & MAIN_TYPE) == TYPE_8) {
-                            cpuz80_2op("LD", "L", "A");
-                            if (type & TYPE_SIGNED) {
-                                cpuz80_noop("RLA");
-                                cpuz80_2op("SBC", "A", "A");
-                                cpuz80_2op("LD", "H", "A");
-                            } else {
-                                cpuz80_2op("LD", "H", "0");
-                            }
-                        }
-                        cpuz80_2op("ADD", "HL", "HL");
-                        sprintf(temp, INTERNAL_PREFIX "%d", table);
-                        cpuz80_2op("LD", "DE", temp);
-                        cpuz80_2op("ADD", "HL", "DE");
-                        cpuz80_2op("LD", "A", "(HL)");
-                        cpuz80_1op("INC", "HL");
-                        cpuz80_2op("LD", "H", "(HL)");
-                        cpuz80_2op("LD", "L", "A");
-                        cpuz80_1op("JP", "(HL)");
-                    }
-                    sprintf(temp, INTERNAL_PREFIX "%d", table);
-                    generic_label(temp);
-                    for (c = 0; c < max_value; c++) {
-                        if (options[c] != NULL) {
-                            sprintf(temp, LABEL_PREFIX "%s", options[c]->name);
-                        } else {
-                            sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                        }
-                        if (target == CPU_6502)
-                            cpu6502_1op("DW", temp);
-                        else if (target == CPU_9900)
-                            cpu9900_1op("data", temp);
-                        else
-                            cpuz80_1op("DW", temp);
-                    }
-                    sprintf(temp, INTERNAL_PREFIX "%d", new_label);
-                    generic_label(temp);
-                }
             } else if (strcmp(name, "SOUND") == 0) {
+                /* !!! Implement for NES */
                 get_lex();
                 if (lex != C_NUM) {
                     emit_error("syntax error in SOUND");
@@ -5478,139 +5759,6 @@ void compile_statement(int check_for_else)
                 fprintf(output, "%s\n", &line[line_pos]);
                 line_pos = line_size;
                 get_lex();
-            } else if (strcmp(name, "DEF") == 0) {     /* Function definition (macro in CVBasic) */
-                char function[MAX_LINE_SIZE];
-                int total_arguments;
-                char *arguments[32];
-                struct macro *macro;
-                int c;
-                
-                get_lex();
-                if (lex != C_NAME || strcmp(name, "FN") != 0) {
-                    emit_error("syntax error for DEF FN");
-                } else {
-                    get_lex();
-                    if (lex != C_NAME) {
-                        emit_error("missing function name for DEF FN");
-                    } else if (macro_search(name) != NULL) {
-                        emit_error("DEF FN name already defined");
-                    } else {
-                        strcpy(function, name);
-                        get_lex();
-                        total_arguments = 0;
-                        if (lex == C_LPAREN) {
-                            get_lex();
-                            while (1) {
-                                if (lex != C_NAME) {
-                                    emit_error("syntax error in argument list for DEF FN");
-                                    break;
-                                }
-                                if (total_arguments == 32) {
-                                    emit_error("More than 32 arguments in DEF FN");
-                                    break;
-                                }
-                                arguments[total_arguments] = malloc(strlen(name) + 1);
-                                if (arguments[total_arguments] == NULL) {
-                                    emit_error("Out of memory in DEF FN");
-                                    break;
-                                }
-                                strcpy(arguments[total_arguments], name);
-                                total_arguments++;
-                                get_lex();
-                                if (lex == C_COMMA) {
-                                    get_lex();
-                                } else if (lex == C_RPAREN) {
-                                    get_lex();
-                                    break;
-                                } else {
-                                    emit_error("syntax error in argument list for DEF FN");
-                                    break;
-                                }
-                            }
-                        }
-                        macro = macro_add(function);
-                        macro->total_arguments = total_arguments;
-                        if (lex != C_EQUAL) {
-                            emit_error("missing = in DEF FN");
-                        } else {
-                            get_lex();
-                            while (lex != C_END) {
-                                if (lex == C_ERR) {
-                                    emit_error("bad syntax inside DEF FN replacement text");
-                                    break;
-                                }
-                                if (lex == C_NAME) {
-                                    for (c = 0; c < total_arguments; c++) {
-                                        if (strcmp(arguments[c], name) == 0)
-                                            break;
-                                    }
-                                    if (c < total_arguments) {
-                                        lex = C_ERR;
-                                        value = c;
-                                        name[0] = '\0';
-                                    }
-                                }
-                                if (macro->length >= macro->max_length) {
-                                    macro->definition = realloc(macro->definition, (macro->max_length + 1) * 2 * sizeof(struct macro_def));
-                                    if (macro->definition == NULL) {
-                                        emit_error("Out of memory in DEF FN");
-                                        break;
-                                    }
-                                    macro->max_length = (macro->max_length + 1) * 2;
-                                }
-                                macro->definition[macro->length].lex = lex;
-                                if (lex == C_STRING)
-                                    value = name_size;
-                                macro->definition[macro->length].value = value;
-                                if (lex == C_STRING)
-                                    macro->definition[macro->length].name = malloc(name_size + 1);
-                                else
-                                    macro->definition[macro->length].name = malloc(strlen(name) + 1);
-                                if (macro->definition[macro->length].name == NULL) {
-                                    emit_error("Out of memory in DEF FN");
-                                    break;
-                                }
-                                if (lex == C_STRING) {
-                                    if (value)
-                                        memcpy(macro->definition[macro->length].name, name, value);
-                                } else {
-                                    strcpy(macro->definition[macro->length].name, name);
-                                }
-                                macro->length++;
-                                get_lex();
-                            }
-                        }
-                    }
-                }
-            } else if (strcmp(name, "OPTION") == 0) {
-                get_lex();
-                if (lex != C_NAME) {
-                    emit_error("required name after OPTION");
-                } else if (strcmp(name, "EXPLICIT") == 0) {
-                    get_lex();
-                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
-                        get_lex();
-                        option_explicit = 1;
-                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
-                        get_lex();
-                        option_explicit = 0;
-                    } else {
-                        option_explicit = 1;
-                    }
-                } else if (strcmp(name, "WARNINGS") == 0) {
-                    get_lex();
-                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
-                        get_lex();
-                        option_warnings = 1;
-                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
-                        get_lex();
-                        option_warnings = 0;
-                    } else {
-                        emit_error("missing ON/OFF in OPTION WARNINGS");
-                    }
-                } else {
-                    emit_error("non-recognized OPTION");
-                }
             } else if (strcmp(name, "BANK") == 0) {
                 get_lex();
                 if (lex == C_NAME && strcmp(name, "ROM") == 0) {
@@ -5798,11 +5946,15 @@ void compile_statement(int check_for_else)
                     get_lex();
                 type = evaluate_expression(1, TYPE_8, 0);
                 if (target == CPU_6502) {
-                    sprintf(temp, "#%d", vdp_reg);
-                    cpu6502_1op("LDX", temp);
-                    generic_interrupt_disable();
-                    cpu6502_1op("JSR", "WRTVDP");
-                    generic_interrupt_enable();
+                    if (machine == NES) {
+                        emit_error("VDP not supported for NES/Famicom");
+                    } else {
+                        sprintf(temp, "#%d", vdp_reg);
+                        cpu6502_1op("LDX", temp);
+                        generic_interrupt_disable();
+                        cpu6502_1op("JSR", "WRTVDP");
+                        generic_interrupt_enable();
+                    }
                 } else if (target == CPU_9900) {
                     /* Simpler to do inline */
                     sprintf(temp, "%d   ; %d*256+0x8000", vdp_reg*256+0x8000, vdp_reg);

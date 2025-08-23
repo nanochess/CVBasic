@@ -6,6 +6,7 @@
 	;
 	; Creation date: May/13/2025.
 	; Revision date: Jul/20/2025. Added code to load sprites and read controllers.
+	; Revision date: Aug/23/2025. Support for writing VRAM and PRINT.
 	;
 
 	CPU 6502
@@ -100,6 +101,74 @@ PPUDATA:	EQU $2007
 SPRRAM:		EQU $4014
 CONT1:		EQU $4016
 CONT2:		EQU $4017
+
+	;
+	; NES architecture prevents direct access to VRAM except
+	; during the VBLANK.
+	;
+WRTVRM:
+	PHA
+	TXA
+	PHA
+	LDX ppu_pointer
+	PLA
+	STA PPUBUF+2,X
+	PLA
+	STA PPUBUF,X
+	TYA
+	ORA #$40
+	STA PPUBUF+1,X
+	INX
+	INX
+	INX
+	STX ppu_pointer
+	RTS
+
+CLS:
+	LDX ppu_pointer
+	LDA #$20
+	STA PPUBUF+3,X
+	LDA #$00
+	STA PPUBUF+2,X
+	LDA #$00
+	STA PPUBUF,X
+	LDA #$a0
+	STA PPUBUF+1,X
+	LDA #$20
+	STA PPUBUF+7,X
+	LDA #$00
+	STA PPUBUF+6,X
+	LDA #$00
+	STA PPUBUF+4,X
+	LDA #$a1
+	STA PPUBUF+5,X
+	TXA
+	CLC
+	ADC #8
+	STA ppu_pointer
+	JSR wait
+	LDX ppu_pointer
+	LDA #$20
+	STA PPUBUF+3,X
+	LDA #$00
+	STA PPUBUF+2,X
+	LDA #$00
+	STA PPUBUF+0,X
+	LDA #$a2
+	STA PPUBUF+1,X
+	LDA #$20
+	STA PPUBUF+7,X
+	LDA #$00
+	STA PPUBUF+6,X
+	LDA #$00
+	STA PPUBUF+4,X
+	LDA #$a3
+	STA PPUBUF+5,X
+	TXA
+	CLC
+	ADC #8
+	STA ppu_pointer
+	RTS
 
 update_sprite:
 	ASL A
@@ -464,6 +533,9 @@ nmi_handler:
 .0:	LDA PPUBUF+1,X
 	STA PPUADDR
 	BMI .2
+	ROL A
+	BMI .7
+	
 	LDA PPUBUF,X
 	STA PPUADDR
 	LDA PPUBUF+3,X
@@ -483,6 +555,20 @@ nmi_handler:
 	LDA ppu_temp
 	CLC
 	ADC #5
+	TAX
+	CPX ppu_pointer
+	BNE .0
+	JMP .1
+
+	; Single byte
+.7:
+	LDA PPUBUF,X
+	STA PPUADDR
+	LDA PPUBUF+2,X
+	STA PPUDATA
+	TXA
+	CLC
+	ADC #3
 	TAX
 	CPX ppu_pointer
 	BNE .0
@@ -645,6 +731,173 @@ wait:
 	BEQ .1
 	RTS
 
+print_string_cursor_constant:
+	PLA
+	STA temp
+	PLA
+	STA temp+1
+	LDY #1
+	LDA (temp),Y
+	STA cursor
+	INY
+	LDA (temp),Y
+	STA cursor+1
+	INY
+	LDA (temp),Y
+	STA temp2
+	TYA
+	CLC
+	ADC temp
+	STA temp
+	BCC $+4
+	INC temp+1
+	LDA temp2
+	BNE print_string.2
+
+print_string_cursor:
+	STA cursor
+	STY cursor+1
+print_string:
+	PLA
+	STA temp
+	PLA
+	STA temp+1
+	LDY #1
+	LDA (temp),Y
+	STA temp2
+	INC temp
+	BNE $+4
+	INC temp+1
+.2:	CLC
+	ADC temp
+	TAY
+	LDA #0
+	ADC temp+1
+	PHA
+	TYA
+	PHA
+	INC temp
+	BNE $+4
+	INC temp+1
+	LDX ppu_pointer
+	LDA cursor
+	STA PPUBUF,X
+	LDA cursor+1
+	AND #$07
+	ORA #$20
+	STA PPUBUF+1,X
+	LDA temp2
+	STA PPUBUF+2,X
+	LDA temp
+	STA PPUBUF+3,X
+	LDA temp+1
+	STA PPUBUF+4,X
+	TXA
+	CLC
+	ADC #5
+	STA ppu_pointer
+	LDA temp2
+	CLC
+	ADC cursor
+	STA cursor
+	BCC .1
+	INC cursor+1
+.1:	
+	RTS
+
+print_number:
+	LDX #0
+	STX temp
+	SEI
+print_number5:
+	LDX #10000
+	STX temp2
+	LDX #10000/256
+	STX temp2+1
+	JSR print_digit
+print_number4:
+	LDX #1000
+	STX temp2
+	LDX #1000/256
+	STX temp2+1
+	JSR print_digit
+print_number3:
+	LDX #100
+	STX temp2
+	LDX #0
+	STX temp2+1
+	JSR print_digit
+print_number2:
+	LDX #10
+	STX temp2
+	LDX #0
+	STX temp2+1
+	JSR print_digit
+print_number1:
+	LDX #1
+	STX temp2
+	STX temp
+	LDX #0
+	STX temp2+1
+	JSR print_digit
+	CLI
+	RTS
+
+print_digit:
+	LDX #$2F
+.2:
+	INX
+	SEC
+	SBC temp2
+	PHA
+	TYA
+	SBC temp2+1
+	TAY
+	PLA
+	BCS .2
+	CLC
+	ADC temp2
+	PHA
+	TYA
+	ADC temp2+1
+	TAY
+	PLA
+	CPX #$30
+	BNE .3
+	LDX temp
+	BNE .4
+	RTS
+
+.4:	DEX
+	BEQ .6
+	LDX temp+1
+	BNE print_char
+.6:
+	LDX #$30
+.3:	PHA
+	LDA #1
+	STA temp
+	PLA
+
+print_char:
+	PHA
+	TYA
+	PHA
+	LDA cursor+1
+	AND #$07
+	ORA #$20
+	TAY
+	LDA cursor
+	JSR WRTVRM
+	INC cursor
+	BNE .1
+	INC cursor+1
+.1:
+	PLA
+	TAY
+	PLA
+	RTS
+
 music_init:
 	RTS
 
@@ -655,6 +908,20 @@ music_generate:
 	RTS
 
 music_hardware:
+	RTS
+
+mode_0:
+	JSR cls
+clear_sprites:
+	LDA #$F0
+	LDX #0
+.1:
+	STA $0200,X
+	INX
+	INX
+	INX
+	INX
+	BNE .1
 	RTS
 
 START:
@@ -675,7 +942,6 @@ START:
 	TAX
 .1:	STA $00,X
 	STA $0100,X
-	STA $0200,X
 	STA $0300,X
 	STA $0400,X
 	STA $0500,X
@@ -686,6 +952,8 @@ START:
 
 	LDX #STACK
 	TXS
+
+	JSR clear_sprites
 
 	;
 	; The NES starts with the PPU registers write-protected.
@@ -751,7 +1019,7 @@ START:
 
 	JSR music_init
 
-;	JSR mode_0
+	JSR mode_0
 
 	LDA #$00
 	STA joy1_data

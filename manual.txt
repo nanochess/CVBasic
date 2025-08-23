@@ -22,9 +22,21 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.8.1 Jun/05/2025  o MSX: Added support for Konami mapper using -konami
+v0.9.0 Aug/23/2025  o Added support for NES/Famicom using --nes
+                    o MSX: Added support for Konami mapper using -konami
                     o Solved bug in DEF FN precedence inside expressions.
-                    o Corrected bug in CHR$ and DEFINE VRAM READ for TI-99/4A.
+                    o Solved bug in > operator with 16-bit variable.
+                    o NABU: Solved bug where compilation would warn of both
+                      sound chips.
+                    o TI-99/4A: Corrected bug in CHR$ and DEFINE VRAM READ.
+                    o TI-99/4A: Solved bugs doing operations with 8-bit
+                      variables and 16-bit values.
+                    o TI-99/4A: Solved bug in multiplication by 1.
+                    o TI-99/4A: Solved bug in SELECT CASE.
+                    o TI-99/4A: Solved bug in DEFINE COLOR PLETTER.
+                    o TI-99/4A: Optimizes more operations with constants.
+                    o TI-99/4A: Added more optimization using register labeling,
+                      saves many bytes, and speeds up.
 
 v0.8.0 Apr/26/2025  o Added support for Sega Master System using --sms
                     o Added support for VDP.STATUS (for reading VDP status)
@@ -86,7 +98,7 @@ v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
 
 >>>>>>>>>>>>>>. Description
 
-CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, Creativision, Soundic Pencil II, Tatung Einstein, Casio PV-2000, TI-99/4A, NABU PC, and Sega Master System.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, Creativision, Soundic Pencil II, Tatung Einstein, Casio PV-2000, TI-99/4A, NABU PC, Sega Master System, and NES/Famicom.
 
 It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
@@ -117,6 +129,7 @@ Usage:
   cvbasic --ti994a in.bas output.a99
   cvbasic --nabu in.bas output.asm
   cvbasic --sms in.bas output.asm
+  cvbasic --nes in.bas output.asm
 
 The following modules are automatically included as the prologue and epilogue of your generated code and they set important variables and helper code:
 
@@ -132,6 +145,8 @@ For Memotech you should use the .run extension or .com extension (if used -cpm o
 The Creativision port uses cvbasic_6502_prologue.asm and cvbasic_6502_epilogue.asm
 
 The TI-99/4A port uses cvbasic_9900_prologue.asm and cvbasic_9900_epilogue.asm and it should be assembled using xdt tools. (xas99 with the -R option)
+
+The NES/Famicom port uses cvbasic_nes_prologue.asm and cvbasic_nes_epilogue.asm
 
 The NABU port requires the gasm output file to be named 000001.nabu and you should ZIP it to test it with MAME. If you use the -cpm option you can use any .com file name.
 
@@ -513,6 +528,8 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
+     This sentence isn't supported for NES/Famicom.
+
   DEFINE COLOR char_num,total,label
   DEFINE COLOR char_num,total,VARPTR array(expr)
   DEFINE COLOR PLETTER char_num,total,label
@@ -541,6 +558,8 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
+     This sentence isn't supported for NES/Famicom.
+
   DEFINE SPRITE sprite_num,total,label
   DEFINE SPRITE sprite_num,total,VARPTR array(expr)
   DEFINE SPRITE PLETTER sprite_num,total,label
@@ -564,6 +583,8 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
+     This sentence isn't supported for NES/Famicom.
+
   DEFINE VRAM address,length,label
   DEFINE VRAM address,length,VARPTR array(expr)
   DEFINE VRAM PLETTER address,length,label
@@ -578,6 +599,8 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
+     This sentence isn't supported for NES/Famicom.
+
   DEFINE VRAM READ address,length,label
   DEFINE VRAM READ address,length,VARPTR array(expr)
 
@@ -586,6 +609,8 @@ The following statements are available:
 
      The VARPTR expression allows choosing the origin from an offset inside an
      array.
+
+     This sentence isn't supported for NES/Famicom.
 
   SOUND 0,[value 10 bits],[vol 0-15]
   SOUND 1,[value 10 bits],[vol 0-15]
@@ -633,8 +658,9 @@ The following statements are available:
      NOTE: USE ONLY VALUES $80-$BF FOR MIX BECAUSE ANY VALUE OUTSIDE THIS
            CAN BURN YOUR MSX HARDWARE.
 
-  SPRITE index,y,x,f,c
-  SPRITE index,y,x,f
+  SPRITE index,y,x,f,c    (All others)
+  SPRITE index,y,x,f.     (SMS)
+  SPRITE index,y,x,f,a    (NES/Famicom)
 
      The first parameter indicates the number of the sprite (0-31).
 
@@ -668,6 +694,17 @@ The following statements are available:
      processing starting on that very sprite. For example,
      SPRITE 0,$d0,0,0,0 forces sprites 1-31 to disappear even if active.
 
+     NES/Famicom notes:
+
+     y = Vertical position - 1 ($ff, $00 - $ee = scanline 0..239)
+         To hide sprites use $f0 ($ef - $fe aren't displayed)
+     x = Horizontal position.
+     f = bit 7-1 = tile, bit 0 = pattern address ($0000 or $1000)
+     a = bit 7 = 1 = Vertical flip.
+         bit 6 = 1 = Horizontal flip.
+         bit 5 = 1 = Sprite behind background.
+         bit 4-2 = Reserved.
+         bit 1-0 = Sprite palette (0-3)
 
   SPRITE FLICKER ON
   SPRITE FLICKER OFF
@@ -714,6 +751,10 @@ The following statements are available:
          PRINT AT 736,"A"  ' Bottom-left corner
          PRINT AT 767,"A"  ' Bottom-right corner
 
+     NES/Famicom allows for a 32x30 screen area (960 characters),
+     however, only the center area (28 rows) can be guaranteed
+     to be visible.
+
   PRINT expr
   PRINT <const>expr     ' Right-aligned with zeroes to 'const' size.
   PRINT <.const>expr    ' Right-aligned with spaces to 'const' size.
@@ -736,6 +777,7 @@ The following statements are available:
   BORDER color,flags
 
      Select the border color. It can be a number from 0 to 15.
+     The first argument isn't available for NES/Famicom.
 
      The flags argument is available on Sega Master System.
         bit 0 = Set column 0 to border color.
