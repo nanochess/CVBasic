@@ -103,7 +103,7 @@ struct console consoles[TOTAL_TARGETS] = {
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
     {"nes",     "",         "NES/Famicom (2K RAM)",
         "NES/Famicom",
-        0x0000, 0x00ff, 0x0800,  0,      0,    0,    1, CPU_6502},
+        0x0050, 0x01ff, 0x0800,  0,      0,    0,    1, CPU_6502},
 };
 
 static int err_code;
@@ -4130,8 +4130,8 @@ void compile_statement(int check_for_else)
                         } else if (chrrom_pointer == 8192) {
                             emit_error("More than 256 patterns");
                         } else {
-                            chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer] = c;
-                            chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer + 8] = c;
+                            chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer] = value;
+                            chrrom_data[current_chrrom * CHRROM_PAGE + chrrom_pointer + 8] = value >> 8;
                             chrrom_pointer++;
                             if ((chrrom_pointer & 7) == 0)
                                 chrrom_pointer += 8;
@@ -4270,8 +4270,8 @@ void compile_statement(int check_for_else)
                 struct node *source;
                 
                 get_lex();
-                if (machine != SMS)
-                    emit_error("PALETTE is only available on Sega Master System");
+                if (machine != SMS && machine != NES)
+                    emit_error("PALETTE is only available on Sega Master System and NES/Famicom");
                 if (lex == C_NAME && strcmp(name, "LOAD") == 0) {
                     get_lex();
                     if (lex != C_NAME) {
@@ -4285,17 +4285,41 @@ void compile_statement(int check_for_else)
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
                             cpuz80_2op("LD", "HL", temp);
+                            generic_call("palette_load");
+                        } else if (machine == NES) {
+                            cpu6502_1op("LDX", "ppu_pointer");
+                            cpu6502_1op("LDA", "#$00");
+                            cpu6502_1op("STA", "PPUBUF,X");
+                            cpu6502_1op("LDA", "#$3f");
+                            cpu6502_1op("STA", "PPUBUF+1,X");
+                            cpu6502_1op("LDA", "#32");
+                            cpu6502_1op("STA", "PPUBUF+2,X");
+                            strcpy(temp, "#" LABEL_PREFIX);
+                            strcat(temp, name);
+                            cpu6502_1op("LDA", temp);
+                            cpu6502_1op("STA", "PPUBUF+3,X");
+                            strcat(temp, ">>8");
+                            cpu6502_1op("LDA", temp);
+                            cpu6502_1op("STA", "PPUBUF+4,X");
+                            cpu6502_noop("TXA");
+                            cpu6502_noop("CLC");
+                            cpu6502_1op("ADC", "#5");
+                            cpu6502_1op("STA", "ppu_pointer");
                         }
                         get_lex();
                     }
-                    generic_call("palette_load");
                 } else {
-                    generic_interrupt_disable();
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
+                        generic_interrupt_disable();
                         cpuz80_2op("LD", "L", "A");
                         cpuz80_2op("LD", "H", "$C0");
                         cpuz80_1op("CALL", "SETWRT");
+                    } else if (machine == NES) {
+                        cpu6502_1op("LDX", "ppu_pointer");
+                        cpu6502_1op("STA", "PPUBUF,X");
+                        cpu6502_1op("LDA", "#$bf");
+                        cpu6502_1op("STA", "PPUBUF+1,X");
                     }
                     if (lex != C_COMMA)
                         emit_error("missing comma in PALETTE");
@@ -4304,8 +4328,17 @@ void compile_statement(int check_for_else)
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
                         cpuz80_2op("OUT", "(VDP)", "A");
+                        generic_interrupt_enable();
+                    } else if (machine == NES) {
+                        cpu6502_1op("LDX", "ppu_pointer");
+                        cpu6502_1op("STA", "PPUBUF+3,X");
+                        cpu6502_1op("LDA", "#1");
+                        cpu6502_1op("STA", "PPUBUF+2,X");
+                        cpu6502_noop("TXA");
+                        cpu6502_noop("CLC");
+                        cpu6502_1op("ADC", "#4");
+                        cpu6502_1op("STA", "ppu_pointer");
                     }
-                    generic_interrupt_enable();
                 }
             } else if (strcmp(name, "CHRROM") == 0) { /* Select CHRROM */
                 int type;

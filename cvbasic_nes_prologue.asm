@@ -74,6 +74,7 @@ music_mode:		EQU $4e
 	ENDIF
 
 SPRITE_PAGE:	EQU $02
+PPUBUF:	EQU $0100
 
 	FORG $0000
 	; The ORG address doesn't matter here
@@ -460,23 +461,24 @@ nmi_handler:
 	LDX #$00
 	CPX ppu_pointer	; Any change?
 	BEQ .1		; No, jump.
-.0:	LDA $0101,X
+.0:	LDA PPUBUF+1,X
 	STA PPUADDR
 	BMI .2
-	LDA $0100,X
+	LDA PPUBUF,X
 	STA PPUADDR
-	LDA $0103,X
+	LDA PPUBUF+3,X
 	STA ppu_source
-	LDA $0104,X
+	LDA PPUBUF+4,X
 	STA ppu_source+1
-	LDY $0102,X
+	LDA PPUBUF+2,X
 	STX ppu_temp
-	LDX #0
+	TAX
+	LDY #0
 .4:
-	LDA ppu_source,X
+	LDA (ppu_source),Y
 	STA PPUDATA
-	INX
-	DEY
+	INY
+	DEX
 	BNE .4
 	LDA ppu_temp
 	CLC
@@ -488,10 +490,10 @@ nmi_handler:
 
 	; Filling data	
 .2:
-	LDA $0100,X
+	LDA PPUBUF,X
 	STA PPUADDR
-	LDY $0102,X
-	LDA $0103,X
+	LDY PPUBUF+2,X
+	LDA PPUBUF+3,X
 .3:
 	STA PPUDATA
 	DEY
@@ -509,26 +511,30 @@ nmi_handler:
 	; Read controllers
 	LDA #$01
 	STA CONT1
-	LDA #$00
+	STA cont_bits
+	LSR A
 	STA CONT1
-	LDX #$08
+
 	LDA CONT1
-	ROR A
+	LSR A
 	ROL cont_bits
-	DEX
-	BNE $-7
-	LDA cont_bits
+	BCC $-6
+
 	JSR convert_joystick
 	STA joy1_data
 	STX key1_data
 
-	LDX #$08
+	LDA #$01
+	STA CONT1
+	STA cont_bits
+	LSR A
+	STA CONT1
+
 	LDA CONT2
-	ROR A
+	LSR A
 	ROL cont_bits
-	DEX
-	BNE $-7
-	LDA cont_bits
+	BCC $-6
+
 	JSR convert_joystick
 	STA joy2_data
 	STX key2_data
@@ -608,28 +614,28 @@ convert_joystick:
 	LDA #0
 	LDX #15
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	ORA #2
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	ORA #8
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	ORA #4
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	ORA #1
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	LDX #11
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	LDX #10
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	ORA #$40
 	ROR cont_bits
-	BCS $+4
+	BCC $+4
 	ORA #$80
 	RTS
 
