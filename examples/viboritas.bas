@@ -21,6 +21,7 @@ restart_game:
 	lives = 2
 	level = 1
 restart_level:
+	WAIT
 	
 	PRINT AT 684,"Lives: ",lives
 	PRINT AT 745,"nanochess 1990"

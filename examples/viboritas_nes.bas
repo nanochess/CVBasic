@@ -83,7 +83,7 @@ game_loop:
 
 				FOR c = 1 to 10
 					WAIT
-'					SOUND 10, 200 - c * 10, 13 + 16
+					SOUND 10, 200 - c * 10, 13 + 16
 				NEXT c
 
 				level = level + 1

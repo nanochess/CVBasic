@@ -109,9 +109,7 @@ CONT2:		EQU $4017
 WRTVRM:
 	PHA
 	TXA
-	PHA
 	LDX ppu_pointer
-	PLA
 	STA PPUBUF+2,X
 	PLA
 	STA PPUBUF,X
@@ -122,55 +120,43 @@ WRTVRM:
 	INX
 	INX
 	STX ppu_pointer
-	BMI .1
+	CPX #$40
+	BCS .1
 	RTS
 .1:
 	JMP wait
 
 CLS:
+	LDA #$80
+.1:
+	PHA
 	LDX ppu_pointer
 	LDA #$20
 	STA PPUBUF+3,X
-	LDA #$00
+	LDA #$40
 	STA PPUBUF+2,X
 	LDA #$00
 	STA PPUBUF,X
-	LDA #$a0
+	PLA
 	STA PPUBUF+1,X
-	LDA #$20
-	STA PPUBUF+7,X
-	LDA #$00
-	STA PPUBUF+6,X
-	LDA #$00
-	STA PPUBUF+4,X
-	LDA #$a1
-	STA PPUBUF+5,X
-	TXA
+	PHA
 	CLC
-	ADC #8
-	STA ppu_pointer
+	ROR PPUBUF+1,X
+	ROR PPUBUF,X
+	SEC
+	ROR PPUBUF+1,X
+	ROR PPUBUF,X
+	INX
+	INX
+	INX
+	INX
+	STX ppu_pointer
 	JSR wait
-	LDX ppu_pointer
-	LDA #$20
-	STA PPUBUF+3,X
-	LDA #$00
-	STA PPUBUF+2,X
-	LDA #$00
-	STA PPUBUF+0,X
-	LDA #$a2
-	STA PPUBUF+1,X
-	LDA #$20
-	STA PPUBUF+7,X
-	LDA #$00
-	STA PPUBUF+6,X
-	LDA #$00
-	STA PPUBUF+4,X
-	LDA #$a3
-	STA PPUBUF+5,X
-	TXA
+	PLA
 	CLC
-	ADC #8
-	STA ppu_pointer
+	ADC #1
+	CMP #$90
+	BNE .1
 	RTS
 
 update_sprite:
@@ -519,7 +505,7 @@ nmi_handler:
 	BNE .5		; No, jump.
 	LDA flicker
 	CLC
-	ADC #28
+	ADC #32
 	STA flicker
 	JMP .6
 .5:
@@ -530,22 +516,27 @@ nmi_handler:
 	STA SPRRAM	; Use DMA for sprite loading
 
 	; Screen changes
-	LDX #$00
-	CPX ppu_pointer	; Any change?
+	LDA ppu_pointer	; Any change?
 	BEQ .1		; No, jump.
-.0:	LDA PPUBUF+1,X
+	LDX #$00
+.0:	LDY PPUBUF,X
+	INX
+	LDA PPUBUF,X
+	INX
 	STA PPUADDR
-	BMI .2
 	ROL A
+	STY PPUADDR
+	BCS .2
 	BMI .7
 	
-	LDA PPUBUF,X
-	STA PPUADDR
-	LDA PPUBUF+3,X
+	LDA PPUBUF+1,X
 	STA ppu_source
-	LDA PPUBUF+4,X
-	STA ppu_source+1
 	LDA PPUBUF+2,X
+	STA ppu_source+1
+	LDA PPUBUF,X
+	INX
+	INX
+	INX
 	STX ppu_temp
 	TAX
 	LDY #0
@@ -555,46 +546,37 @@ nmi_handler:
 	INY
 	DEX
 	BNE .4
-	LDA ppu_temp
-	CLC
-	ADC #5
-	TAX
+	LDX ppu_temp
 	CPX ppu_pointer
 	BNE .0
-	JMP .1
+	JMP .11
 
 	; Single byte
 .7:
 	LDA PPUBUF,X
-	STA PPUADDR
-	LDA PPUBUF+2,X
+	INX
 	STA PPUDATA
-	INX
-	INX
-	INX
 	CPX ppu_pointer
 	BNE .0
-	JMP .1
+	JMP .11
 
 	; Filling data	
 .2:
+	LDY PPUBUF,X
+	INX
 	LDA PPUBUF,X
-	STA PPUADDR
-	LDY PPUBUF+2,X
-	LDA PPUBUF+3,X
+	INX
 .3:
 	STA PPUDATA
 	DEY
 	BNE .3	
-	TXA
-	CLC
-	ADC #4
-	TAX
 	CPX ppu_pointer
 	BNE .0
 
-.1:	LDA #0
+.11:
+	LDA #0
 	STA ppu_pointer
+.1:
 
 	; Final settings for PPU
 	LDA #0
@@ -943,6 +925,7 @@ START:
 	LDA #$00
 	STA $4010
 
+	LDA #0
 	STA PPUCTRL
 	STA PPUMASK
 	
@@ -969,9 +952,15 @@ START:
 	
 	BIT PPUSTATUS
 	BPL $-3	
+	LDA #0
+	STA PPUCTRL
+	STA PPUMASK
 			; About 27384 cycles passed at this time.
 	BIT PPUSTATUS
 	BPL $-3
+	LDA #0
+	STA PPUCTRL
+	STA PPUMASK
 			; About 57165 cycles passed at this time.
 
 	; Clear 2K of pattern memory
