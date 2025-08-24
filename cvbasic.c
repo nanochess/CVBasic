@@ -4838,9 +4838,9 @@ void compile_statement(int check_for_else)
                 if (lex == C_COMMA) {
                     get_lex();
                     type = evaluate_expression(1, TYPE_8, 0);
-                    if (machine != SMS) {
-                        emit_error("The 2nd BORDER argument only available on Sega Master System");
-                    } else {
+                    if (machine != SMS && machine != NES) {
+                        emit_error("The 2nd BORDER argument only available on Sega Master System or NES/Famicom");
+                    } else if (machine == SMS) {
                         cpuz80_1op("AND", "$07");
                         cpuz80_1op("OR", "$20");
                         cpuz80_noop("RRCA");
@@ -4851,34 +4851,51 @@ void compile_statement(int check_for_else)
                         generic_interrupt_disable();
                         cpuz80_1op("CALL", "WRTVDP");
                         generic_interrupt_enable();
+                    } else if (machine == NES) {
+                        cpu6502_1op("ASL", "A");
+                        cpu6502_1op("AND", "#$06");
+                        cpu6502_noop("PHA");
+                        cpu6502_1op("LDA", "ppu_mask");
+                        cpu6502_1op("AND", "#$f9");
+                        cpu6502_1op("STA", "ppu_mask");
+                        cpu6502_noop("PLA");
+                        cpu6502_1op("ORA", "ppu_mask");
+                        cpu6502_1op("STA", "ppu_mask");
                     }
                 }
             } else if (strcmp(name, "SCROLL") == 0) {   /* Sega Master System */
                 int type;
                 
                 get_lex();
-                /* !!! Implement NES/Famicom support */
-                if (machine != SMS)
-                    emit_error("SCROLL is only available on Sega Master System");
+                if (machine != SMS && machine != NES)
+                    emit_error("SCROLL is only available on Sega Master System or NES/Famicom");
                 if (lex != C_COMMA) {
-                    type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
+                        type = evaluate_expression(1, TYPE_8, 0);
                         cpuz80_2op("LD", "B", "A");
                         cpuz80_2op("LD", "C", "8");
                         generic_interrupt_disable();
                         cpuz80_1op("CALL", "WRTVDP");
                         generic_interrupt_enable();
+                    } else {
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        cpu6502_1op("STA", "scroll_x");
+                        cpu6502_1op("STY", "scroll_x+1");
                     }
                 }
                 if (lex == C_COMMA) {
                     get_lex();
-                    type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
+                        type = evaluate_expression(1, TYPE_8, 0);
                         cpuz80_2op("LD", "B", "A");
                         cpuz80_2op("LD", "C", "9");
                         generic_interrupt_disable();
                         cpuz80_1op("CALL", "WRTVDP");
                         generic_interrupt_enable();
+                    } else {
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        cpu6502_1op("STA", "scroll_y");
+                        cpu6502_1op("STY", "scroll_y+1");
                     }
                 }
             } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System / NES */
@@ -5035,7 +5052,6 @@ void compile_statement(int check_for_else)
             } else if (strcmp(name, "SCREEN") == 0) {  /* Copy screen */
                 struct label *array;
                 
-                /* !!! Implement for NES */
                 get_lex();
                 if (lex != C_NAME) {
                     emit_error("bad syntax for SCREEN");
@@ -5066,6 +5082,7 @@ void compile_statement(int check_for_else)
                         struct node *final;
                         struct node *addr;
                         int type;
+                        int c;
                         
                         get_lex();
                         addr = node_create(N_ADDR, 0, NULL, NULL);
@@ -5098,7 +5115,13 @@ void compile_statement(int check_for_else)
                             final = node_create((type & TYPE_SIGNED) ? N_EXTEND8S : N_EXTEND8, 0, final, NULL);
                         if (machine == SMS)
                             final = node_create(N_MUL16, 0, final, node_create(N_NUM16, 2, NULL, NULL));
-                        final = node_create(N_PLUS16, 0, node_create(N_NUM16, (machine == SMS ? 0x3800 : 0x1800), NULL, NULL), final);
+                        if (machine == SMS)
+                            c = 0x3800;
+                        else if (machine == NES)
+                            c = 0x2000;
+                        else
+                            c = 0x1800;
+                        final = node_create(N_PLUS16, 0, node_create(N_NUM16, c, NULL, NULL), final);
                         node_label(final);
                         node_generate(final, 0);
                         node_delete(final);
@@ -5198,18 +5221,21 @@ void compile_statement(int check_for_else)
                         generic_call("CPYBLK");
                     } else {
                         if (target == CPU_6502) {
+                            if (machine == NES) {
+                                emit_error("full screen SCREEN not allowed with NES/Famicom");
+                            }
                             sprintf(temp, "#%s", assigned);
                             cpu6502_1op("LDA", temp);
                             strcat(temp, ">>8");
                             cpu6502_1op("LDY", temp);
                             cpu6502_1op("STA", "temp");
                             cpu6502_1op("STY", "temp+1");
-                            cpu6502_1op("LDA", "#0");
+                            cpu6502_1op("LDA", (machine == NES) ? "#$c0" : "#0");
                             cpu6502_1op("LDY", "#3");
                             cpu6502_1op("STA", "temp2");
                             cpu6502_1op("STY", "temp2+1");
                             cpu6502_1op("LDA", "#0");
-                            cpu6502_1op("LDY", "#24");
+                            cpu6502_1op("LDY", (machine == NES) ? "#32" : "#24");
                             cpu6502_1op("STA", "pointer");
                             cpu6502_1op("STY", "pointer+1");
                             generic_interrupt_disable();

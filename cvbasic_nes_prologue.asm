@@ -7,6 +7,7 @@
 	; Creation date: May/13/2025.
 	; Revision date: Jul/20/2025. Added code to load sprites and read controllers.
 	; Revision date: Aug/23/2025. Support for writing VRAM and PRINT.
+	; Revision date: Aug/24/2025. Support for scrolling, SCREEN, and DISABLE/ENABLE.
 	;
 
 	CPU 6502
@@ -31,6 +32,11 @@ read_pointer:	equ $0a
 cursor:		equ $0c
 ppu_pointer:	equ $0e
 ppu_temp:	equ $0f	; Used in NMI to save X
+
+scroll_x:	equ $10
+scroll_y:	equ $12
+ppu_ctrl:	equ $14
+ppu_mask:	equ $15
 
 joy1_data:	equ $20
 joy2_data:	equ $21
@@ -126,7 +132,86 @@ WRTVRM:
 .1:
 	JMP wait
 
-CLS:
+LDIRVM:
+	LDX ppu_pointer
+	LDA pointer
+	STA PPUBUF,X
+	LDA pointer+1
+	STA PPUBUF+1,X
+	LDA temp2
+	STA PPUBUF+2,X
+	LDA temp,X
+	STA PPUBUF+3,X
+	LDA temp+1,X
+	STA PPUBUF+4,X
+	TXA
+	CLC
+	ADC #5
+	STA ppu_pointer
+	RTS
+
+ENASCR:
+	LDA ppu_mask
+	ORA #$18
+	STA ppu_mask
+	RTS
+
+DISSCR:
+	LDA ppu_mask
+	AND #$E7
+	STA ppu_mask
+	RTS
+
+CPYBLK:
+.1:	
+	LDA temp2
+	PHA
+	LDA temp2+1
+	PHA
+	TXA
+	PHA
+	TYA
+	PHA
+	LDA temp
+	PHA
+	LDA temp+1
+	PHA
+	LDA #0
+	STA temp2+1
+	JSR LDIRVM
+	PLA
+	STA temp+1
+	PLA
+	STA temp
+	PLA
+	STA temp2+1
+	PLA
+	STA temp2
+	LDA temp
+	CLC
+	ADC temp2
+	STA temp
+	LDA temp+1
+	ADC temp2+1
+	STA temp+1
+	LDX temp2
+	LDY temp2+1
+	PLA
+	STA temp2+1
+	PLA
+	STA temp2
+	LDA pointer
+	CLC
+	ADC #$20	; !!! Variation for scrolling
+	STA pointer
+	LDA pointer+1
+	ADC #$00
+	STA pointer+1
+	DEC temp2+1
+	BNE .1
+	RTS
+
+cls:
 	LDA #$80
 .1:
 	PHA
@@ -582,8 +667,24 @@ nmi_handler:
 	LDA #0
 	STA PPUADDR
 	STA PPUADDR
-	STA PPUSCROLL	; !!! For scrolling
+	LDA scroll_x
+	STA PPUSCROLL	
+	LDA scroll_y
 	STA PPUSCROLL
+	LDA ppu_ctrl
+	LSR A
+	LSR A
+	STA ppu_temp
+	LDA scroll_y+1
+	ROR A
+	ROL ppu_temp	
+	LDA scroll_x+1
+	ROR A
+	ROL ppu_temp
+	LDA ppu_temp
+	STA PPUCTRL
+	LDA ppu_mask
+	STA PPUMASK
 
 	; Read controllers
 	LDA #$01
@@ -1010,7 +1111,9 @@ START:
 	BPL $-3	
 	LDA #$1e	; Color normal, Sprites visible, Background visible, No clipping, Color.
 	STA PPUMASK
+	STA ppu_mask
 	LDA #$A8	; Enable NMI, 8x16 sprites, BG=$0000, SPR=$1000, NAME=$2000
+	STA ppu_ctrl
 	STA PPUCTRL
 
 	JSR music_init
