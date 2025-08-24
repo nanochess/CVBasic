@@ -1,4 +1,4 @@
-# CVBasic compiler v0.8.0
+# CVBasic compiler v0.9.0
 *(c) Copyright 2024-2025 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -20,7 +20,7 @@ Later it was extended to support the following platforms:
 * Hanimex/Soundic Pencil II.
 * NABU PC.
 * Sega Master System (supporting bank switching with Sega mapper)
-* NES/Famicom (preliminary, currently only CHRROM/SPRITE support)
+* NES/Famicom (preliminary, currently doesn't have music player, SCREEN and SCROLL)
 
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
 
@@ -204,7 +204,7 @@ The current official version is v0.8.0.
 
 All platforms have been tested in emulation.
 
-* Colecovision and MSX have been tested in real hardware by myself.
+* Colecovision, MSX, and NES have been tested in real hardware by myself.
 * Sega SG1000/SC3000 tested in real hardware by aotta.
 * Spectravideo SVI-318/328 tested in real hardware by Tony Cruise.
 * Creativision / Dick Smith's Wizzard tested in real hardware by Scouter3d.
@@ -234,7 +234,7 @@ The TI-99/4A can only generate non-banked binaries up to 24 kb. When banking, th
 
 The NABU PC can only use binaries up to 32 kb, joysticks can be used for both controllers, keyboard arrows are handled as controller 1 (&lt;||| is the primary button and |||&gt; is the secondary button), and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del and Enter.
 
-The NES support is highly experimental, currently only 32K ROM, CHRROM definition, SPRITE, and controller support are implemented (this is great if you want to make a silent game :P )
+The NES support is highly experimental, currently only 32K ROM. Three demos have been ported and are functional (happy_face, face_joystick, and Viboritas) Missing music player, SCREEN, SCROLL, and image converter.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 
