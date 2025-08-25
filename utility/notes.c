@@ -50,38 +50,69 @@ int main(int argc, char *argv[])
     int d;
     int e;
     int base_freq;
+    double divisor;
+    int offset;
     int max;
     int value;
     
     if (argc == 1) {
         fprintf(stderr, "\n");
         fprintf(stderr, "Usage:\n");
-        fprintf(stderr, "    notes [-sn] 3579545 >source.asm\n");
+        fprintf(stderr, "    notes 3579545 32 0 >source.asm\n");
+        fprintf(stderr, "    notes -sn 3579545 32 0 >source.asm\n");
+        fprintf(stderr, "    notes -n 1789773 16 -1 >source.asm\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "It will generate an assembler note table for the given\n");
         fprintf(stderr, "frequency. This is useful in my CVBasic compiler\n");
         fprintf(stderr, "because I need 3 tables: 3.58 mhz, 4.00 mhz, and 2.00 mhz.\n");
         fprintf(stderr, "Of course, doing these tables manually is a chore.\n");
         fprintf(stderr, "\n");
+        fprintf(stderr, "The second number is the frequency divisor (32 for\n");
+        fprintf(stderr, "AY-3-8910, SN76489, and the triangle in NES/Famicom, or\n");
+        fprintf(stderr, "16 for the rectangle channels in NES/Famicom)");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "The third number is the offset to the final value\n");
+        fprintf(stderr, "(0 for AY-3-8910 and SN76489, or -1 for NES/Famicom)\n");
+        fprintf(stderr, "\n");
         fprintf(stderr, "The values are valid for AY-3-8910 or SN76489 chips.\n");
         fprintf(stderr, "\n");
-        fprintf(stderr, "It will warn you if the final value exceeds 4095 or\n");
-        fprintf(stderr, "1023 (if the -sn option is used).\n");
+        fprintf(stderr, "It will warn you if the final value exceeds 4095, or\n");
+        fprintf(stderr, "1023 (-sn option), or 2047 (-n option)\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "Base musical frequencies are output in stderr, and\n");
         fprintf(stderr, "assembler code in stdout.\n");
         fprintf(stderr, "\n");
         exit(1);
     }
-    fprintf(stderr, "Notes v0.1.0 Aug/07/2024 by Oscar Toledo G. https://nanochess.org\n");
+    fprintf(stderr, "Notes v0.2.0 Aug/24/2025 by Oscar Toledo G. https://nanochess.org\n");
     
-    if (argv[1][0] == '-' && tolower(argv[1][1] == 's') && tolower(argv[1][2]) == 'n') {
-        base_freq = atoi(argv[2]);
+    c = 1;
+    if (argv[c][0] == '-' && tolower(argv[c][1]) == 's' && tolower(argv[c][2]) == 'n') {
+        c++;
         max = 1023;
+    } else if (argv[c][0] == '-' && tolower(argv[c][1]) == 'n') {
+        c++;
+        max = 2047;
     } else {
-        base_freq = atoi(argv[1]);
         max = 4095;
     }
+    if (c >= argc) {
+        fprintf(stderr, "Missing base frequency.\n");
+        exit(1);
+    }
+    base_freq = atoi(argv[c]);
+    c++;
+    if (c >= argc) {
+        fprintf(stderr, "Missing divisor.\n");
+        exit(1);
+    }
+    divisor = atoi(argv[c]);
+    c++;
+    if (c >= argc) {
+        fprintf(stderr, "Missing offset.\n");
+        exit(1);
+    }
+    offset = atoi(argv[c]);
     fprintf(stdout, "\t;\n");
     fprintf(stdout, "\t; Musical notes table.\n");
     fprintf(stdout, "\t;\n");
@@ -91,7 +122,8 @@ int main(int argc, char *argv[])
     for (c = 2; c < 8; c++) {
         switch (c) {
             case 2:
-                fprintf(stdout, "\t; Values for %4.2f mhz.\n", base_freq / 1e6);
+                fprintf(stdout, "\t; Values for %4.2f mhz. / %d, offset %d\n",
+                        base_freq / 1e6, (int) divisor, (int) offset);
                 fprintf(stdout, "\t; 2nd octave - Index 1\n");
                 break;
             case 3:
@@ -118,7 +150,7 @@ int main(int argc, char *argv[])
         fprintf(stdout, "\tdw ");
         for (d = 0; d < e; d++) {
             fprintf(stderr, "%4.1f%s", frequencies[d], (d == e - 1) ? "\n" : ",");
-            value = (int) (base_freq / 32.0 / frequencies[d] + 0.5);
+            value = (int) (base_freq / divisor / frequencies[d] + 0.5) + offset;
             if (value > max)
                 fprintf(stderr, "Warning: Exceeded range for octave %d, note %d\n", c, d);
             fprintf(stdout, "%d%c", value, (d == e - 1) ? '\n' : ',');

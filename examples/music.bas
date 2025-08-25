@@ -32,7 +32,7 @@ play_1:
 repeat:
 	WAIT
 	IF CONT1.BUTTON2 THEN V=15
-        SOUND 2,300,V
+REM     SOUND 2,300,V
         IF V>0 THEN V=V-1
         IF MUSIC.PLAYING THEN GOTO repeat
         GOTO wait_key
