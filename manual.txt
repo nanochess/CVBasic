@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Apr/26/2025
+Last revision: Aug/25/2025
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,7 +22,7 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.0 Aug/23/2025  o Added support for NES/Famicom using --nes
+v0.9.0 Aug/25/2025  o Added support for NES/Famicom using --nes
                     o MSX: Added support for Konami mapper using -konami
                     o Solved bug in DEF FN precedence inside expressions.
                     o Solved bug in > operator with 16-bit variable.
@@ -421,6 +421,20 @@ The following statements are available:
 
      Poke VRAM with data.
 
+     For NES/Famicom:
+
+     Any write to VRAM (VPOKE, PRINT, SCREEN) is buffered, this means it doesn't
+     happen immediately, but instead when the next vertical refresh happens on
+     the screen. This also means there is a limit to how much data you can
+     update in a single frame (typically around 96-128 bytes).
+ 
+     The internal buffer can get filled (22 VPOKE or number digits from PRINT,
+     12 strings PRINT, or 12 SCREEN lines), and it will trigger automatically a
+     WAIT so it doesn't overflow.
+
+     If you are writing more than 96-128 bytes per frame, you can use
+     SCREEN DISABLE and SCREEN ENABLE.
+
   WAIT
   
      Waits for the next frame interruption (1/60 of a second for NTSC or 1/50
@@ -503,7 +517,7 @@ The following statements are available:
   DEFINE CHAR char_num,total,VARPTR array(expr)
   DEFINE CHAR PLETTER char_num,total,label
 
-     Loads graphics into VRAM.
+     Loads graphics into VRAM. This sentence isn't used on NES/Famicom.
 
      "char_num" valid values are between 0 and 255.
 
@@ -534,7 +548,8 @@ The following statements are available:
   DEFINE COLOR char_num,total,VARPTR array(expr)
   DEFINE COLOR PLETTER char_num,total,label
 
-     Loads color into VRAM. This sentence isn't used on Sega Master System.
+     Loads color into VRAM. This sentence isn't used on Sega Master System nor
+     NES/Famicom.
 
      "char_num" valid values are between 0 and 255.
 
@@ -558,13 +573,11 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
-     This sentence isn't supported for NES/Famicom.
-
   DEFINE SPRITE sprite_num,total,label
   DEFINE SPRITE sprite_num,total,VARPTR array(expr)
   DEFINE SPRITE PLETTER sprite_num,total,label
 
-     Loads sprites into VRAM
+     Loads sprites into VRAM. This sentence isn't used on NES/Famicom.
 
      "sprite_num" valid values are between 0 and 63 (127 for Sega Master System)
 
@@ -583,14 +596,12 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
-     This sentence isn't supported for NES/Famicom.
-
   DEFINE VRAM address,length,label
   DEFINE VRAM address,length,VARPTR array(expr)
   DEFINE VRAM PLETTER address,length,label
 
-     Copies data from "label" into VRAM address "address".
-     The total of bytes is defined by "length".
+     Copies data from "label" into VRAM address "address". The total of bytes
+     is defined by "length". This sentence isn't supported for NES/Famicom.
 
      The VARPTR expression allows choosing the origin from an offset inside an
      array so you can do animation easily.
@@ -599,18 +610,14 @@ The following statements are available:
      with the Pletter compressor (TMSColor does the compression if you give the
      option -z)
 
-     This sentence isn't supported for NES/Famicom.
-
   DEFINE VRAM READ address,length,label
   DEFINE VRAM READ address,length,VARPTR array(expr)
 
-     Copies data from VRAM address "address" into "label".
-     The total of bytes is defined by "length".
+     Copies data from VRAM address "address" into "label". The total of bytes
+     is defined by "length". This sentence isn't supported for NES/Famicom.
 
      The VARPTR expression allows choosing the origin from an offset inside an
      array.
-
-     This sentence isn't supported for NES/Famicom.
 
   SOUND 0,[value 10 bits],[vol 0-15]
   SOUND 1,[value 10 bits],[vol 0-15]
@@ -657,6 +664,41 @@ The following statements are available:
 
      NOTE: USE ONLY VALUES $80-$BF FOR MIX BECAUSE ANY VALUE OUTSIDE THIS
            CAN BURN YOUR MSX HARDWARE.
+
+  SOUND 10,[freq 16 bits],[vol 8 bits],[sweep 8 bits]
+  SOUND 11,[freq 16 bits],[vol 8 bits],[sweep 8 bits]
+  SOUND 12,[freq 16 bits],[linear counter]
+  SOUND 14,[freq 16 bits],[vol 8 bits]
+  SOUND 15,[setting 8 bits]
+
+     Allows to generate tones on the NES/Famicom Audio Processing Unit (APU).
+
+     For SOUND 10, 11, and 12, the frequency is a 11-bit number, and it has a
+     duration. For starters you can add $0800 so you can make sure the tone
+     will have the maximum duration (127 frames).
+
+     For SOUND 14 the frequency is a 4-bit number, also you need to add $0800.
+
+     The volume is a number from zero (silent) to fifteen (highest volume).
+
+     Bit 4 means the volume is fixed (you probably willl always use this by
+     adding $10), else it uses an envelope decay (in combination with bit 5)
+
+     Bits 7-6 indicate the duty cycle (0= 12.5%, 1= 25%, 2= 50%, 3= 75%)
+
+     Sweep
+       bit 7: 0=disable, 1=enable
+       bit 6-4: Sweep update rate NTSC = 120hz / (n + 1), PAL = 96 hz / (n + 1)
+       bit 3: 0=+increase, 1=-decrease
+       bit 2-0: Sweep right shift amount (1 means one bit to right)
+                until frequency value becomes zero.
+
+     As SOUND 12 doesn't have a volume register, you should turn it on using
+     SOUND 15, 15, and turn it off using SOUND 15, 11.
+
+     Don't update the frequency if it is the same, or otherwise the output
+     phase will reset and generate glitches in the audio output.
+
 
   SPRITE index,y,x,f,c    (All others)
   SPRITE index,y,x,f.     (SMS)
@@ -777,16 +819,24 @@ The following statements are available:
   BORDER color,flags
 
      Select the border color. It can be a number from 0 to 15.
-     The first argument isn't available for NES/Famicom.
 
-     The flags argument is available on Sega Master System.
+     The first argument isn't available for NES/Famicom, the small border around
+     is always black.
+
+     The flags argument for Sega Master System.
         bit 0 = Set column 0 to border color.
         bit 1 = Horizontal scrolling disabled on rows 0-1.
         bit 2 = Vertical scrolling disabled on columns 24-31.
 
+     The flags argument for NES/Famicom.
+        bit 0 = Background clipping (0 = hide left 8-pixel column, 1 = no clipping)
+        bit 1 = Sprite clipping (0 = hide left 8-pixel column, 1 = no clipping)
+
   SCROLL x, y
 
      Sets the pixel scrolling for Sega Master System background.
+
+     Sets the pixel scrolling for NES/Famicom background.
 
   PALETTE register, color
   PALETTE LOAD array_data_byte
@@ -818,6 +868,11 @@ The following statements are available:
     
      For the palette colors see https://www.nesdev.org/wiki/PPU_palettes#2C02
 
+     When you update the full palette the 32 bytes are written into the palette
+     memory, and because how the NES/Famicom palette memory is implemented,
+     the value at the offset 16 will be written over the offset 0 (the background
+     color)
+
   MODE 0
 
      Select the video mode 0. In this mode, the 32x24 screen grid can have one
@@ -835,6 +890,8 @@ The following statements are available:
            5 - Blue.            d - Purple.
            6 - Dark red.        e - Gray.  
            7 - Cyan.            f - White.
+
+     For NES/Famicom, it simply clears the screen and erases the sprites.
 
   MODE 1
 
@@ -1075,6 +1132,8 @@ The following statements are available:
   VDP(reg) = expr
 
     Sets the VDP register to the expression value.
+
+    Not supported for NES/Famicom.
 
   CALL NAME       
    

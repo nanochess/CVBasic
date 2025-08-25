@@ -4863,7 +4863,7 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("STA", "ppu_mask");
                     }
                 }
-            } else if (strcmp(name, "SCROLL") == 0) {   /* Sega Master System */
+            } else if (strcmp(name, "SCROLL") == 0) {   /* Sega Master System / NES/Famicom */
                 int type;
                 
                 get_lex();
