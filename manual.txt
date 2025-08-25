@@ -792,6 +792,8 @@ The following statements are available:
   PALETTE LOAD array_data_byte
   PALETTE LOAD VARPTR array_data_byte(0)
 
+     For the Sega Master System:
+
      Sets a single palette register (0-31) to the color (0-63). Color bits are
      specified in a single byte as 00BBGGRR (two bits each for red, green, and
      blue).
@@ -801,6 +803,20 @@ The following statements are available:
 
      Alternatively, you can load a full 32 entries palette using PALETTE LOAD.
      The array should be specified with DATA BYTE.
+
+     For the NES/Famicom:
+
+     Registers
+        0-3 palette 0 for background tiles.
+        4-7 palette 1 for background tiles.
+        8-11 palette 2 for background tiles.
+        12-15 palette 3 for background tiles.
+        16-19 palette 0 for sprites (16 unused because it is transparent)
+        20-23 palette 1 for sprites (20 unused because it is transparent)
+        24-27 palette 2 for sprites (24 unused because it is transparent)
+        28-31 palette 3 for sprites (28 unused because it is transparent)
+    
+     For the palette colors see https://www.nesdev.org/wiki/PPU_palettes#2C02
 
   MODE 0
 

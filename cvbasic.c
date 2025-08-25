@@ -5864,6 +5864,11 @@ void compile_statement(int check_for_else)
                             break;
                         case 15:
                             get_lex();
+                            if (lex != C_COMMA) {
+                                emit_error("missing comma in sound");
+                            } else {
+                                get_lex();
+                            }
                             type = evaluate_expression(1, TYPE_8, 0);
                             if (machine == NES) {
                                 cpu6502_1op("STA", "$4015");
