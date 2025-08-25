@@ -421,7 +421,21 @@ The following statements are available:
 
      Poke VRAM with data.
 
+     For Sega Master System:
+
+     All the VRAM $0000-$3fff can be used for tiles. Each 8x8 tile uses 32 bytes.
+     Each 8 bytes cover a color bit from least significant bit to most significant
+     bit.
+
+     However the area $3800-$3dff contains the screen pattern data. The even bytes
+     contain the pattern number, and the odd bytes contain the bit 8 of pattern
+     number. See the SCREEN statement for further details on the flags.
+
      For NES/Famicom:
+
+     Only the VRAM area $2000-$27ff can be accessed. By default the full screen is
+     displayed from the area $2000-$23ff. The remaining is used when the SCROLL
+     statement is used.
 
      Any write to VRAM (VPOKE, PRINT, SCREEN) is buffered, this means it doesn't
      happen immediately, but instead when the next vertical refresh happens on
@@ -434,6 +448,27 @@ The following statements are available:
 
      If you are writing more than 96-128 bytes per frame, you can use
      SCREEN DISABLE and SCREEN ENABLE.
+
+     These are the palette assignment bytes for the main screen.          
+
+	$23c0 = XX XX XX XX XX XX XX XX
+	$23c8 = XX XX XX XX XX XX XX XX
+	$23d0 = XX XX XX XX XX XX XX XX
+	$23d8 = XX XX XX XX XX XX XX XX
+	$23e0 = XX XX XX XX XX XX XX XX
+	$23e8 = XX XX XX XX XX XX XX XX
+	$23f0 = XX XX XX XX XX XX XX XX
+	$23f8 = XX XX XX XX XX XX XX XX
+
+     Where each byte covers a 4x4 area:
+
+          2 cols  2 cols
+         |-------|-------|
+         |bit 1-0|bit 3-2| 2 rows
+         |-------|-------|
+         |bit 5-4|bit 7-6| 2 rows
+         |-------|-------|
+
 
   WAIT
   
@@ -741,7 +776,10 @@ The following statements are available:
      y = Vertical position - 1 ($ff, $00 - $ee = scanline 0..239)
          To hide sprites use $f0 ($ef - $fe aren't displayed)
      x = Horizontal position.
-     f = bit 7-1 = tile, bit 0 = pattern address ($0000 or $1000)
+     f = bit 7-1 = pattern number, bit 0 = pattern address ($0000 or $1000)
+         An address of $0000 means the sprite will access the
+         patterns 0-254, and an address of $1000 means the sprite
+         will access the patterns 256-510.
      a = bit 7 = 1 = Vertical flip.
          bit 6 = 1 = Horizontal flip.
          bit 5 = 1 = Sprite behind background.
@@ -969,6 +1007,20 @@ The following statements are available:
         bit 3 - Uses sprite palette if set.
         bit 4 - The tile will be drawn on top of sprites.
 
+
+  CHRROM number
+  CHRROM PATTERN number
+
+    For NES/Famicom the graphic data are saved into CHRROM banks of 8K.
+
+    You should specify the CHRROM bank before putting any BITMAP statement.
+    Currently only CHRROM 0 is supported.
+
+    CVBasic will predefine an ASCII charset with color 3 in the patterns 32-127.
+
+    You can choose the pattern number (0-511) for the following BITMAP statements.
+
+  
   BITMAP "00000000"
   BITMAP "00001111"
   
@@ -994,6 +1046,8 @@ The following statements are available:
     The colors for each pixel are specified by using hexadecimal digits 1 to 9,
     and A to F.
 
+    For the NES/Famicom, the sprites are composed by 8x16 pixels. The colors for
+    each pixel are specified by the digits 1 to 3.
 
   PLAY SIMPLE
   PLAY SIMPLE NO DRUMS
