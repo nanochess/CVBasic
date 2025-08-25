@@ -1170,7 +1170,7 @@ music_generate:
 	CMP #3
 	BCS .11
 .15:
-	LDA #$08
+	LDA #$06
 	STA audio_noise
 	LDA #$9c
 	STA audio_vol4hw
@@ -1181,7 +1181,7 @@ music_generate:
 	LDA music_counter_4
 	CMP #0
 	BNE .11
-	LDA #$04
+	LDA #$02
 	STA audio_noise
 	LDA #$9c
 	STA audio_vol4hw
@@ -1487,17 +1487,40 @@ START:
 	; Around 29000 cycles must happen before these can be written.
 	;
 	
+	; lidnariq code for detecting NTSC/PAL/Dendy system
+	; From: https://forums.nesdev.org/viewtopic.php?p=163258#p163258
+	LDX #0
+	LDY #0
 	BIT PPUSTATUS
 	BPL $-3	
-	LDA #0
-	STA PPUCTRL
-	STA PPUMASK
+.5:
+	INX
+	BNE .6
+	INY
+.6:
 			; About 27384 cycles passed at this time.
 	BIT PPUSTATUS
-	BPL $-3
+	BPL .5
 	LDA #0
 	STA PPUCTRL
 	STA PPUMASK
+
+	TYA
+	CMP #16
+	BCC .7
+	LSR A
+.7:	CLC
+	ADC #$F7
+	CMP #3
+	BCC .8
+	LDA #3		; Bad
+	; 0=NTSC, 1=Pal, 2=Dendy, 3=Bad
+.8:
+	CMP #0		; Pass NTSC unchanged
+	BEQ .9
+	LDA #1		; All other PAL
+.9:	EOR #1
+	STA ntsc
 			; About 57165 cycles passed at this time.
 
 	; Clear 2K of pattern memory
@@ -1551,9 +1574,6 @@ START:
 	LDA #$A8	; Enable NMI, 8x16 sprites, BG=$0000, SPR=$1000, NAME=$2000
 	STA ppu_ctrl
 	STA PPUCTRL
-
-	LDA #1		; !!! Detect NTSC
-	STA ntsc
 
 	JSR music_init
 
