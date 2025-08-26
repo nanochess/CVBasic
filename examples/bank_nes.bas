@@ -187,7 +187,7 @@ display_some_text:	PROCEDURE
 
 	PRINT AT $01d1,"Hi!"
 
-	PRINT AT $0211,"This is bank-"
+	PRINT AT $0211,"This is a bank-"
 
 	PRINT AT $0231,"switching demo."
 
