@@ -716,7 +716,7 @@ The following statements are available:
 
      The volume is a number from zero (silent) to fifteen (highest volume).
 
-     Bit 4 means the volume is fixed (you probably willl always use this by
+     Bit 4 means the volume is fixed (you probably will always use this by
      adding $10), else it uses an envelope decay (in combination with bit 5)
 
      Bits 7-6 indicate the duty cycle (0= 12.5%, 1= 25%, 2= 50%, 3= 75%)
