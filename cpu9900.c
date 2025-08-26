@@ -579,7 +579,6 @@ void cpu9900_2op(char *mnemonic, char *operand1, char *operand2)
 void cpu9900_node_label(struct node *node)
 {
     struct node *explore;
-    int c;
     
     switch (node->type) {
         case N_USR:     /* Assembly language function with result */
@@ -745,8 +744,6 @@ void cpu9900_node_label(struct node *node)
             }
             if (node->type == N_EQUAL16 || node->type == N_NOTEQUAL16) {
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
-                    int c;
-                    
                     if (node->left->type == N_NUM16)
                         explore = node->left;
                     else
@@ -763,8 +760,6 @@ void cpu9900_node_label(struct node *node)
             }
             if (node->type == N_LESS16 || node->type == N_GREATER16) {
                 if (node->right->type == N_NUM16) {
-                    int c;
-                    
                     cpu9900_node_label(node->left);
                     node->regs = node->left->regs;
                     break;
@@ -776,8 +771,6 @@ void cpu9900_node_label(struct node *node)
                 else
                     explore = NULL;
                 if (explore != NULL) {
-                    int c = explore->value;
-                    
                     cpu9900_node_label(node->left);
                     node->regs = node->left->regs;
                     break;

@@ -240,11 +240,13 @@ static int bitmap_byte;
  */
 #define CHRROM_PAGE   8192
 
-int current_chrrom;
-int chrrom_pointer;
-int chrrom_size;
-unsigned char *chrrom_data;
-int nes_nametable;
+static int current_chrrom;
+static int chrrom_pointer;
+static int chrrom_size;
+static unsigned char *chrrom_data;
+static int nes_nametable;
+
+void reset_chrrom(unsigned char *);
 
 void reset_chrrom(unsigned char *page)
 {
