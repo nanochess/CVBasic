@@ -20,11 +20,11 @@ Later it was extended to support the following platforms:
 * Hanimex/Soundic Pencil II.
 * NABU PC.
 * Sega Master System (supporting bank switching with Sega mapper)
-* NES/Famicom (preliminary, supporting bank switching using UNROM 512)
+* NES/Famicom (supporting bank switching using mapper 30 - UNROM 512)
 
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
 
-The only difference currently is the Sega Master System, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS versions for every game so you can see what's required to change.
+Currently, Sega Master System and NES/Famicom are different in video terms, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS and NES/Famicom versions for every game so you can see the required changes.
 
 The following files compose the compiler:
 
@@ -48,31 +48,41 @@ The following files compose the compiler:
     cvbasic_6502_epilogue.asm   Epilogue file needed for 6502 compiled programs.
     cvbasic_9900_prologue.asm   Prologue file needed for TMS9900 compiled programs.
     cvbasic_9900_epilogue.asm   Epilogue file needed for TMS9900 compiled programs.
+    cvbasic_nes_prologue.asm    Prologue file needed for NES/Famicom compiled programs.
+    cvbasic_nes_epilogue.asm    Epilogue file needed for NES/Famicom compiled programs.
 
     manual.txt                  English manual for CVBasic
 
     README.md                   This file
     
     examples/bank.bas           Bank-switching example.
+    examples/bank_nes.bas       Bank-switching example (NES/Famicom)
+    examples/bank_sms.bas       Bank-switching example (Sega Master System)
     examples/brinquitos.bas     Jumping game.
+    examples/brinquitos_nes.bas Jumping game (NES/Famicom)
     examples/brinquitos_sms.bas Jumping game (Sega Master System)
     examples/controller.bas     Controller test.
+    examples/controller_nes.bas Controller test (NES)
     examples/cats_sms.bas       Cats example (Sega Master System)
     examples/demo.bas           Demo of graphics.
+    examples/demo_nes.bas       Demo of graphics (NES/Famicom)
     examples/demo_sms.bas       Demo of graphics (Sega Master System)
     examples/face_joystick.bas  Moving face with joystick.
+    examples/face_joystick_nes.bas  Moving face with joystick (NES/Famicom)
     examples/face_joystick_sms.bas  Moving face with joystick (Sega Master System)
     examples/happy_face.bas     Bouncing face.
-    examples/happy_face_sms.bas Bouncing face (Sega Master System).
     examples/happy_face_nes.bas Bouncing face (NES/Famicom).
+    examples/happy_face_sms.bas Bouncing face (Sega Master System).
     examples/music.bas          Music example.
     examples/oscar_compressed.bas  High-resolution graphics example compressed with Pletter.
     examples/oscar_compressed_sms.bas  High-resolution graphics example compressed with Pletter (Sega Master System)
     examples/oscar.bas          High-resolution graphics example.
+    examples/oscar_nes.bas      High-resolution graphics example (NES/Famicom)
     examples/oscar_sms.bas      High-resolution graphics example (Sega Master System)
     examples/portrait.bas       Data used by demo.bas
     examples/portrait_sms.bas   Data used by demo_sms.bas
     examples/space_attack.bas   Game example.
+    examples/space_attack_nes.bas   Game example (NES/Famicom)
     examples/space_attack_sms.bas   Game example (Sega Master System)
     examples/test1.bas          Moving stars.
     examples/test2.bas          Arithmetic test.
@@ -83,6 +93,7 @@ The following files compose the compiler:
     examples/vgm.bas            VGM audio player for SN76489.
     examples/vgm_ay.bas         VGM audio player for AY-3-8910.
     examples/viboritas.bas      Game example.
+    examples/viboritas_nes.bas  Game example (NES/Famicom)
     examples/viboritas_sms.bas  Game example (Sega Master System)
     examples/vramcopy.bas       VRAM copy example.
     examples/vramcopy_sms.bas   VRAM copy example (Sega Master System)
@@ -234,7 +245,7 @@ The TI-99/4A can only generate non-banked binaries up to 24 kb. When banking, th
 
 The NABU PC can only use binaries up to 32 kb, joysticks can be used for both controllers, keyboard arrows are handled as controller 1 (&lt;||| is the primary button and |||&gt; is the secondary button), and it can also emulate the Colecovision keypad (CONT1.KEY only) using the keys 0-9, Del and Enter.
 
-The NES support is highly experimental. Five demos have been ported and are functional: face_joystick, happy_face, music, Space Attack, and Viboritas. Missing image converter.
+The NES/Famicom translates Select to CONT.KEY = 10, and Start to CONT.KEY = 11.
 
 Many people is developing games using CVBasic, feel free to check some of these examples at the [AtariAge Colecovision Programming forum](https://forums.atariage.com/forum/55-colecovision-programming/)
 

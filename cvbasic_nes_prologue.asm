@@ -747,10 +747,12 @@ nmi_handler:
 	LSR A
 	STA CONT1
 
-	LDA CONT1
-	LSR A
+.15:	LDA CONT1
+;	LSR A
+	AND #3		; So it works with Famicom
+	CMP #1
 	ROL cont_bits
-	BCC $-6
+	BCC .15
 
 	JSR convert_joystick
 	STA joy1_data
@@ -762,10 +764,12 @@ nmi_handler:
 	LSR A
 	STA CONT1
 
-	LDA CONT2
-	LSR A
+.16:	LDA CONT2
+;	LSR A
+	AND #3		; So it works with Famicom
+	CMP #1
 	ROL cont_bits
-	BCC $-6
+	BCC .16
 
 	JSR convert_joystick
 	STA joy2_data
