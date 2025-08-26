@@ -22,7 +22,7 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.0 Aug/25/2025  o Added support for NES/Famicom using --nes
+v0.9.0 Aug/26/2025  o Added support for NES/Famicom using --nes
                     o MSX: Added support for Konami mapper using -konami
                     o Solved bug in DEF FN precedence inside expressions.
                     o Solved bug in > operator with 16-bit variable.
@@ -903,8 +903,26 @@ The following statements are available:
         20-23 palette 1 for sprites 
         24-27 palette 2 for sprites 
         28-31 palette 3 for sprites 
-    
-     For the palette colors see https://www.nesdev.org/wiki/PPU_palettes#2C02
+
+     The value for each entry is in the range of 0-63 (the lower 4 bits choose
+     the color, and bits 5-4 choose the luminance). The black color is any of
+     the values $0e, $0f, $1e, $1f, $2e, $2f, $3e, or $3f. Don't use the value
+     $0d as it generates a blacker than black signal that may cause unstable
+     picture.
+
+     Color table:
+  
+        0= White.      8= Lemon
+        1= Dark blue.  9= Grass
+        2= Blue.       A= Green
+        3= Magenta.    B= Pear
+        4= Purple.     C= Turquoise
+        5= Wine.       D= Gray
+        6= Red.        E= Black
+        7= Golden.     F= Black
+
+     For a reference of the palette colors see
+     https://www.nesdev.org/wiki/PPU_palettes#2C02
 
      When you update the full palette the 32 bytes are written into the palette
      memory, and because how the NES/Famicom palette memory is implemented,
@@ -1007,14 +1025,32 @@ The following statements are available:
         bit 3 - Uses sprite palette if set.
         bit 4 - The tile will be drawn on top of sprites.
 
+  NAMETABLE number
+
+    For NES/Famicom it selects the type of nametable arrangement. This is an
+    informative field for emulators.
+
+    0 - Vertical scrolling (CIRAM A10 = PPU A11)
+    1 - Horizontal scrolling (CIRAM A10 = PPU A10)
+    2 - Single-screen board (only with bank-switching)
+    3 - 4-screen board (only with bank-switching)
+
+  CHRRAM number
+
+    For NES/Famicom bank-switching mode it allows to select the CHRRAM bank (0-3)
+
+    The bit 2 (value 4) allows to select the PPU screen mirroring (0 for vertical
+    scrolling, 1 for horizontal scrolling) See the UNROM 512 documentation.
 
   CHRROM number
+  CHRROM number PATTERN number
   CHRROM PATTERN number
 
     For NES/Famicom the graphic data are saved into CHRROM banks of 8K.
 
     You should specify the CHRROM bank before putting any BITMAP statement.
-    Currently only CHRROM 0 is supported.
+    Currently only CHRROM 0 is supported for 32K ROM, and 0-3 for bank-switching
+    ROM (UNROM 512)
 
     CVBasic will predefine an ASCII charset with color 3 in the patterns 32-127.
 
@@ -1214,8 +1250,8 @@ The following statements are available:
   BANK ROM 1024
 
     This statement allows you to use 128K-1024K cartridges for your program
-    (Opcode's Megacart for the Colecovision, ASCII 16K mapper for MSX, and
-    SMS Sega Mapper for SG1000).
+    (Opcode's Megacart for the Colecovision, ASCII 16K mapper for MSX, SMS
+    Sega Mapper for SG1000, and UNROM 512 for NES/Famicom).
     
     It should be the very first statement in your program. 128 allows for
     8 banks, 256 allows for 16 banks, 512 allows for 32 banks, and 1024 allows
@@ -1226,6 +1262,10 @@ The following statements are available:
 
     In bank 0 you should have global procedures and data that are shared by
     all your banks.
+
+    Note for NES/Famicom, you cannot refer to the top three banks (banks 13-15
+    for 256K, and banks 29-31 for 512K) as these are used to save the CHRROM
+    data.
 
   BANK 1-63
 
@@ -1286,7 +1326,7 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
                     an expression.
   A=VPEEK(expr)     Reads a VRAM memory location
                     VPEEK always reads 8-bit data that can be processed in
-                    an expression.
+                    an expression. Not supported for NES/Famicom.
   A=ABS(expr)       Gets the absolute value of the expression (non-negative)
   A=SGN(expr)       Gets sign of expression (-1, 0 or 1)
   A=array(expr)     Accesses an array. The array can be defined with DIM or

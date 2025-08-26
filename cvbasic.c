@@ -12,6 +12,7 @@
  **                             RESTORE/READ/DATA. Added small local optimization.
  ** Revision date: Aug/23/2024. Added TI-99/4A.
  ** Revision date: Apr/26/2025. Added Sega Master System.
+ ** Revision date: Aug/23/2025. Added NES/Famicom.
   */
 
 #include <stdio.h>
@@ -32,7 +33,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.0 Aug/23/2025"
+#define VERSION "v0.9.0 Aug/25/2025"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -243,6 +244,7 @@ int current_chrrom;
 int chrrom_pointer;
 int chrrom_size;
 unsigned char *chrrom_data;
+int nes_nametable;
 
 void reset_chrrom(unsigned char *page)
 {
@@ -441,6 +443,15 @@ void bank_finish(void)
             fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
         }
         fprintf(output, "\tDB $%02x\n", bank_konami ? bank_current * 2 : bank_current);
+    } else if (machine == NES) {
+        if (bank_current == 0) {
+            fprintf(output, "BANK_0_FREE:\tEQU $fffa-$\n");
+            fprintf(output, "\tTIMES $fffa-$ DB $ff\n");
+        } else {
+            fprintf(output, "BANK_%d_FREE:\tEQU $bfff-$\n", bank_current);
+            fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
+        }
+        fprintf(output, "\tDB $%02x\n", (bank_current - 1) & 0x1f);
     } else if (machine == TI994A) {
         if (bank_current == 0) {
             // bank 0 is copied to RAM so is 24k
@@ -1457,6 +1468,8 @@ struct node *evaluate_level_7(int *type)
             return tree;
         }
         if (strcmp(name, "VPEEK") == 0) {
+            if (machine == NES)
+                emit_error("VPEEK cannot be used in NES/Famicom");
             get_lex();
             if (lex != C_LPAREN) {
                 emit_error("missing left parenthesis in VPEEK");
@@ -4951,7 +4964,7 @@ void compile_statement(int check_for_else)
                     } else if (machine == NES) {
                         cpu6502_1op("LDX", "ppu_pointer");
                         cpu6502_1op("STA", "PPUBUF,X");
-                        cpu6502_1op("LDA", "#$bf");
+                        cpu6502_1op("LDA", "#$7f");
                         cpu6502_1op("STA", "PPUBUF+1,X");
                     }
                     if (lex != C_COMMA)
@@ -4964,39 +4977,67 @@ void compile_statement(int check_for_else)
                         generic_interrupt_enable();
                     } else if (machine == NES) {
                         cpu6502_1op("LDX", "ppu_pointer");
-                        cpu6502_1op("STA", "PPUBUF+3,X");
-                        cpu6502_1op("LDA", "#1");
                         cpu6502_1op("STA", "PPUBUF+2,X");
-                        cpu6502_noop("TXA");
-                        cpu6502_noop("CLC");
-                        cpu6502_1op("ADC", "#4");
-                        cpu6502_1op("STA", "ppu_pointer");
+                        cpu6502_noop("INX");
+                        cpu6502_noop("INX");
+                        cpu6502_noop("INX");
+                        cpu6502_1op("STX", "ppu_pointer");
                     }
                 }
+            } else if (strcmp(name, "NAMETABLE") == 0) {    /* Select nametable arrangement */
+                int type;
+                struct node *tree;
+                int c;
+                
+                if (machine != NES)
+                    emit_error("CHRRAM is only allowed for NES/Famicom");
+                else if (bank_switching == 0)
+                    emit_error("It is required a BANK ROM sentence to enable CHRRAM");
+                get_lex();
+                tree = evaluate_level_0(&type);
+                if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                    emit_error("Not a constant expression in CHRRAM");
+                    c = 0;
+                } else {
+                    c = tree->value;
+                }
+                node_delete(tree);
+                if (c < 0 || c > 3)
+                    emit_error("NAMETABLE value outside of range 0-3");
+                nes_nametable = c;
+            } else if (strcmp(name, "CHRRAM") == 0) { /* Select CHRRAM */
+                int type;
+                struct node *tree;
+                int c;
+                
+                if (machine != NES)
+                    emit_error("CHRRAM is only allowed for NES/Famicom");
+                else if (bank_switching == 0)
+                    emit_error("It is required a BANK ROM sentence to enable CHRRAM");
+                get_lex();
+                tree = evaluate_level_0(&type);
+                if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                    emit_error("Not a constant expression in CHRRAM");
+                    c = 0;
+                } else {
+                    c = tree->value;
+                }
+                node_delete(tree);
+                if (c < 0 || c > 7)
+                    emit_error("CHRRAM value outside of range 0-7");
+                c = c << 5;
+                sprintf(temp, "#%d", c);
+                cpu6502_1op("LDA", temp);
+                cpu6502_1op("STA", "CHRRAM_BANK");
             } else if (strcmp(name, "CHRROM") == 0) { /* Select CHRROM */
                 int type;
                 struct node *tree;
                 int c;
                 
                 if (machine != NES)
-                    emit_error("CHRROM is only admited for NES/Famicom");
+                    emit_error("CHRROM is only allowed for NES/Famicom");
                 get_lex();
-                if (strcmp(name, "PATTERN") == 0) {
-                    get_lex();
-                    tree = evaluate_level_0(&type);
-                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
-                        emit_error("Not a constant expression in CHRROM");
-                        c = 0;
-                    } else {
-                        c = tree->value;
-                    }
-                    node_delete(tree);
-                    if (c < 0 || c > 511) {
-                        emit_error("CHRROM PATTERN out of range 0-511");
-                        c = 0;
-                    }
-                    chrrom_pointer = c * 16;
-                } else {
+                if (lex != C_NAME || strcmp(name, "PATTERN") != 0) {
                     tree = evaluate_level_0(&type);
                     if (tree->type != N_NUM8 && tree->type != N_NUM16) {
                         emit_error("Not a constant expression in CHRROM");
@@ -5021,6 +5062,22 @@ void compile_statement(int check_for_else)
                     }
                     current_chrrom = c;
                     chrrom_pointer = 0;
+                }
+                if (lex == C_NAME && strcmp(name, "PATTERN") == 0) {
+                    get_lex();
+                    tree = evaluate_level_0(&type);
+                    if (tree->type != N_NUM8 && tree->type != N_NUM16) {
+                        emit_error("Not a constant expression in CHRROM");
+                        c = 0;
+                    } else {
+                        c = tree->value;
+                    }
+                    node_delete(tree);
+                    if (c < 0 || c > 511) {
+                        emit_error("CHRROM PATTERN out of range 0-511");
+                        c = 0;
+                    }
+                    chrrom_pointer = c * 16;
                 }
             } else if (strcmp(name, "MODE") == 0) {
                 get_lex();
@@ -5222,24 +5279,40 @@ void compile_statement(int check_for_else)
                     } else {
                         if (target == CPU_6502) {
                             if (machine == NES) {
-                                emit_error("full screen SCREEN not allowed with NES/Famicom");
+                                sprintf(temp, "#%s", assigned);
+                                cpu6502_1op("LDA", temp);
+                                strcat(temp, ">>8");
+                                cpu6502_1op("LDY", temp);
+                                cpu6502_1op("STA", "temp");
+                                cpu6502_1op("STY", "temp+1");
+                                cpu6502_1op("LDA", "#$f0");
+                                cpu6502_1op("LDY", "#0");
+                                cpu6502_1op("STA", "temp2");
+                                cpu6502_1op("STY", "temp2+1");
+                                cpu6502_1op("LDA", "#$00");
+                                cpu6502_1op("LDY", "#$20");
+                                cpu6502_1op("STA", "pointer");
+                                cpu6502_1op("STY", "pointer+1");
+                                cpu6502_1op("JSR", "LDIRVM4");
+                            } else {
+                                sprintf(temp, "#%s", assigned);
+                                cpu6502_1op("LDA", temp);
+                                strcat(temp, ">>8");
+                                cpu6502_1op("LDY", temp);
+                                cpu6502_1op("STA", "temp");
+                                cpu6502_1op("STY", "temp+1");
+                                cpu6502_1op("LDA", "#0");
+                                cpu6502_1op("LDY", "#3");
+                                cpu6502_1op("STA", "temp2");
+                                cpu6502_1op("STY", "temp2+1");
+                                cpu6502_1op("LDA", "#$00");
+                                cpu6502_1op("LDY", "#$18");
+                                cpu6502_1op("STA", "pointer");
+                                cpu6502_1op("STY", "pointer+1");
+                                generic_interrupt_disable();
+                                cpu6502_1op("JSR", "LDIRVM");
+                                generic_interrupt_enable();
                             }
-                            sprintf(temp, "#%s", assigned);
-                            cpu6502_1op("LDA", temp);
-                            strcat(temp, ">>8");
-                            cpu6502_1op("LDY", temp);
-                            cpu6502_1op("STA", "temp");
-                            cpu6502_1op("STY", "temp+1");
-                            cpu6502_1op("LDA", (machine == NES) ? "#$c0" : "#0");
-                            cpu6502_1op("LDY", "#3");
-                            cpu6502_1op("STA", "temp2");
-                            cpu6502_1op("STY", "temp2+1");
-                            cpu6502_1op("LDA", "#0");
-                            cpu6502_1op("LDY", (machine == NES) ? "#32" : "#24");
-                            cpu6502_1op("STA", "pointer");
-                            cpu6502_1op("STY", "pointer+1");
-                            generic_interrupt_disable();
-                            cpu6502_1op("JSR", "LDIRVM");
                         } else if (target == CPU_9900) {
                             cpu9900_2op("li","r0",">1800");
                             cpu9900_2op("li","r2",assigned);
@@ -5247,14 +5320,15 @@ void compile_statement(int check_for_else)
                             generic_interrupt_disable();
                             cpu9900_1op("bl","@jsr");
                             cpu9900_1op("data","LDIRVM");
+                            generic_interrupt_enable();
                         } else {
                             cpuz80_2op("LD", "HL", assigned);
                             cpuz80_2op("LD", "DE", (machine == SMS ? "$3800" : "$1800"));
                             cpuz80_2op("LD", "BC", (machine == SMS ? "$0600" : "$0300"));
                             generic_interrupt_disable();
                             cpuz80_1op("CALL", "LDIRVM");
+                            generic_interrupt_enable();
                         }
-                        generic_interrupt_enable();
                     }
                 }
             } else if (strcmp(name, "PLAY") == 0) {
@@ -5921,8 +5995,10 @@ void compile_statement(int check_for_else)
                         emit_error("BANK ROM used twice");
                         get_lex();
                     } else {
-                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == NES || machine == EINSTEIN || machine == PV2000) {
+                        if (machine == SVI || machine == SORD || machine == MEMOTECH || machine == CREATIVISION || machine == EINSTEIN || machine == PV2000) {
                             emit_error("Bank-switching not supported with current platform");
+                        } else if (machine == NES && (value == 128 || value == 1024)) {
+                            emit_error("NES/Famicom only supports 256 or 512 k ROM size");
                         } else {
                             bank_switching = 1;
                             bank_rom_size = value;
@@ -5966,21 +6042,28 @@ void compile_statement(int check_for_else)
                         } else {
                             if (machine == COLECOVISION || machine == COLECOVISION_SGM)
                                 c--;
-                            if (bank_rom_size == 128)
-                                c &= 0x07;
-                            else if (bank_rom_size == 256)
-                                c &= 0x0f;
-                            else if (bank_rom_size == 512)
-                                c &= 0x1f;
-                            else
-                                c &= 0x3f;
+                            if (machine == NES) {
+                                c = (c & 0xe0) | ((c - 1) & 0x1f);
+                                if ((bank_rom_size == 256 && (c & 0x0f) >= 0x0d) || (bank_rom_size == 512 && (c & 0x1f) >= 0x1d)) {
+                                    emit_warning("Selecting bank reserved for CHRROM data");
+                                }
+                            } else {
+                                if (bank_rom_size == 128)
+                                    c &= 0x07;
+                                else if (bank_rom_size == 256)
+                                    c &= 0x0f;
+                                else if (bank_rom_size == 512)
+                                    c &= 0x1f;
+                                else
+                                    c &= 0x3f;
+                            }
                             if (machine == SG1000 || machine == SMS) {
-                                sprintf(temp, "%d", c & 0x3f);
+                                sprintf(temp, "%d", c);
                                 cpuz80_2op("LD", "A", temp);
                                 cpuz80_2op("LD", "($fffe)", "A");
                             } else if (machine == MSX) {
                                 if (bank_konami) {
-                                    sprintf(temp, "%d", (c & 0x3f) * 2);
+                                    sprintf(temp, "%d", c * 2);
                                     cpuz80_noop("DI");
                                     cpuz80_2op("LD", "A", temp);
                                     cpuz80_2op("LD", "($8000)", "A");
@@ -5988,10 +6071,15 @@ void compile_statement(int check_for_else)
                                     cpuz80_2op("LD", "($a000)", "A");
                                     cpuz80_noop("EI");
                                 } else {
-                                    sprintf(temp, "%d", c & 0x3f);
+                                    sprintf(temp, "%d", c);
                                     cpuz80_2op("LD", "A", temp);
                                     cpuz80_2op("LD", "($7000)", "A");
                                 }
+                            } else if (machine == NES) {
+                                sprintf(temp, "#%d", c);
+                                cpu6502_1op("LDA", temp);
+                                cpu6502_1op("ORA", "CHRRAM_BANK");
+                                cpu6502_1op("STA", "BANKSEL");
                             } else {
                                 if (bank_rom_size == 128)
                                     c |= 0xfff8;
@@ -6042,10 +6130,10 @@ void compile_statement(int check_for_else)
                             cpu9900_1op("bank", temp);
                             cpu9900_empty();
                         } else {
-                            if (machine == COLECOVISION || machine == COLECOVISION_SGM)
+                            if (machine == COLECOVISION || machine == COLECOVISION_SGM || machine == NES)
                                 c--;
                             if (machine == TI994A)
-                                c+=2;   /* reserving 3 banks (0,1,2) for 'fixed' space */
+                                c += 2;   /* reserving 3 banks (0,1,2) for 'fixed' space */
                             if (bank_rom_size == 128)
                                 c &= 0x07;
                             else if (bank_rom_size == 256)
@@ -6055,13 +6143,25 @@ void compile_statement(int check_for_else)
                             else
                                 c &= 0x3f;
                             bank_finish();
-                            sprintf(temp, "$%05x", c << 14);
-                            cpuz80_1op("FORG", temp);
+                            if (machine == NES) {
+                                if ((bank_rom_size == 256 && c >= 0x0d) || (bank_rom_size == 512 && c >= 0x1d)) {
+                                    emit_error("Using bank reserved for CHRROM data");
+                                }
+                                sprintf(temp, "$%05x", (c << 14) + 0x0010);
+                            } else {
+                                sprintf(temp, "$%05x", c << 14);
+                            }
                             if (machine == SG1000 || machine == SMS) {
+                                cpuz80_1op("FORG", temp);
                                 cpuz80_1op("ORG", "$4000");
                             } else if (machine == MSX) {
+                                cpuz80_1op("FORG", temp);
                                 cpuz80_1op("ORG", "$8000");
+                            } else if (machine == NES) {
+                                cpu6502_1op("FORG", temp);
+                                cpu6502_1op("ORG", "$8000");
                             } else {
+                                cpuz80_1op("FORG", temp);
                                 cpuz80_1op("ORG", "$c000");
                             }
                             cpuz80_empty();
@@ -6639,6 +6739,7 @@ int main(int argc, char *argv[])
     chrrom_pointer = 0;   /* Only NES */
     chrrom_size = 0;  /* Only NES */
     chrrom_data = NULL;   /* Only NES */
+    nes_nametable = 0;  /* Only NES */
 
     compile_basic();
     if (loops != NULL)
@@ -6715,8 +6816,12 @@ int main(int argc, char *argv[])
     fprintf(output, "NABU:\tequ %d\n", (machine == NABU) ? 1 : 0);
     fprintf(output, "SMS:\tequ %d\n", (machine == SMS) ? 1 : 0);
     if (machine == NES) {
-        fprintf(output, "NES_PRG_BANKS:\tequ 2\t; Each one 16K.\n");
+        if (bank_switching)
+            fprintf(output, "NES_PRG_BANKS:\tequ %d\t; Each one 16K.\n", bank_rom_size / 16);
+        else
+            fprintf(output, "NES_PRG_BANKS:\tequ 2\t; Each one 16K.\n");
         fprintf(output, "NES_CHR_BANKS:\tequ %d\t; Each one 4K.\n", chrrom_size);
+        fprintf(output, "NES_NAMETABLE:\tequ %d\n", (nes_nametable & 1) | ((nes_nametable & 2) << 2));
     }
     fprintf(output, "\n");
     fprintf(output, "CVBASIC_MUSIC_PLAYER:\tequ %d\n", music_used);
@@ -6838,6 +6943,17 @@ int main(int argc, char *argv[])
      ** NES CHRROM output
      */
     if (machine == NES) {
+        if (bank_switching) {
+            if (chrrom_size > 4) {
+                fprintf(stderr, "ERROR: More than 4 CHRROM pages for bank-switched cartridge.\n");
+            }
+            if (bank_rom_size == 256) {
+                fprintf(output, "\nFORG $34000\n");
+            } else {
+                fprintf(output, "\nFORG $74000\n");
+            }
+            fprintf(output, "\nORG $8000\n");
+        }
         fprintf(output, "\n; CHR data\n");
         for (c = 0; c < chrrom_size * CHRROM_PAGE; c += 8) {
             fprintf(output, "\tdb $%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x,$%02x\n",

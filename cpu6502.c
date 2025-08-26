@@ -197,7 +197,7 @@ void cpu6502_1op(char *mnemonic, char *operand)
         if (cpu6502_y[0] != '#')
             cpu6502_y[0] = '\0';
         cpu6502_flag_z_valid = 0;
-    } else if (strcmp(mnemonic, "JSR") == 0 || strcmp(mnemonic, "JMP") == 0) {
+    } else if (strcmp(mnemonic, "JSR") == 0 || strcmp(mnemonic, "JMP") == 0 || strcmp(mnemonic, "ORG") == 0 || strcmp(mnemonic, "FORG") == 0) {
         cpu6502_a[0] = '\0';
         cpu6502_x[0] = '\0';
         cpu6502_y[0] = '\0';

@@ -9,6 +9,8 @@
 	; Revision date: Aug/23/2025. Support for writing VRAM and PRINT.
 	; Revision date: Aug/24/2025. Support for scrolling, SCREEN, and DISABLE/ENABLE.
 	;                             Added music player.
+	; Revision date: Aug/25/2025. Added support for 256K and 512K ROM.
+	; Revision date: Aug/26/2025. Added support for CHRRAM selection.
 	;
 
 	CPU 6502
@@ -31,29 +33,31 @@ pointer:	equ $08
 
 read_pointer:	equ $0a
 cursor:		equ $0c
-ppu_pointer:	equ $0e
-ppu_temp:	equ $0f	; Used in NMI to save X
+mode:           equ $0e
+ntsc:		equ $0f
 
-scroll_x:	equ $10
-scroll_y:	equ $12
-ppu_ctrl:	equ $14
-ppu_mask:	equ $15
+vdp_status:	equ $10
+flicker:	equ $11
+frame:		equ $12
+ppu_pointer:	equ $14
+ppu_temp:	equ $15	; Used in NMI to save X
+ppu_ctrl:	equ $16
+ppu_mask:	equ $17
+scroll_x:	equ $18
+scroll_y:	equ $1a
+CHRRAM_BANK:	equ $1c
+cont_bits:	equ $1d
+lfsr:		equ $1e
 
 joy1_data:	equ $20
 joy2_data:	equ $21
 key1_data:	equ $22
 key2_data:	equ $23
-frame:		equ $24
-lfsr:		equ $26
-mode:           equ $28
-cont_bits:	equ $29
-sprite_data:	equ $2a
-ntsc:		equ $2e
-flicker:	equ $2f
-vdp_status:	equ $30
+sprite_data:	equ $24
 
 	IF CVBASIC_MUSIC_PLAYER
 music_playing:		EQU $4f
+music_bank:             EQU $30
 music_timing:		EQU $31
 music_start:		EQU $32
 music_pointer:		EQU $34
@@ -82,21 +86,39 @@ music_mode:		EQU $4e
 	ENDIF
 
 SPRITE_PAGE:	EQU $02
-PPUBUF:	EQU $0100
+PPUBUF:		EQU $0100
+BANKSEL:	EQU $C000
 
 	FORG $0000
 	; The ORG address doesn't matter here
 	; iNES cartridge header
 	DB "NES",$1A
 	DB NES_PRG_BANKS
-	DB NES_CHR_BANKS
-	DB $00	; Cartridge type LSB !!!
-	DB $00	; Cartridge type MSB !!!
+    if CVBASIC_BANK_SWITCHING
+	DB 0	; It has CHRRAM
+	DB $e2|NES_NAMETABLE	; Cartridge type LSB
+	DB $10	; Cartridge type MSB
 	DB $00	; Number of 8K RAM pages.
+    else
+	DB NES_CHR_BANKS
+	DB $00|NES_NAMETABLE	; Cartridge type LSB
+	DB $00	; Cartridge type MSB
+	DB $00	; Number of 8K RAM pages.
+    endif
 	DB $00,$00,$00,$00,$00,$00,$00	; Reserved
 
+    if CVBASIC_BANK_SWITCHING
+        if CVBASIC_BANK_ROM_SIZE-512
+		FORG $3c010
+		ORG $c000
+        else
+		FORG $7c010
+		ORG $c000
+        endif
+    else
 	FORG $0010
 	ORG $8000
+    endif
 	
 PPUCTRL:	EQU $2000
 PPUMASK:	EQU $2001
@@ -133,6 +155,24 @@ WRTVRM:
 .1:
 	JMP wait
 
+LDIRVM4:
+	JSR LDIRVM2
+	JSR LDIRVM2
+	JSR LDIRVM2
+	JSR LDIRVM2
+	RTS
+
+LDIRVM2:
+	JSR LDIRVM
+	LDA pointer
+	CLC
+	ADC temp2
+	STA pointer
+	BCC .1
+	INC pointer+1
+.1:
+	RTS
+
 LDIRVM:
 	LDX ppu_pointer
 	LDA pointer
@@ -141,15 +181,19 @@ LDIRVM:
 	STA PPUBUF+1,X
 	LDA temp2
 	STA PPUBUF+2,X
-	LDA temp,X
+	LDA temp
 	STA PPUBUF+3,X
-	LDA temp+1,X
+	LDA temp+1
 	STA PPUBUF+4,X
 	TXA
 	CLC
 	ADC #5
 	STA ppu_pointer
+	CMP #$40
+	BCS .1
 	RTS
+.1:
+	JMP wait
 
 ENASCR:
 	LDA ppu_mask
@@ -217,8 +261,13 @@ cls:
 .1:
 	PHA
 	LDX ppu_pointer
-	LDA #$20
-	STA PPUBUF+3,X
+	CMP #$8F
+	BNE .2
+	LDA #$00
+	BEQ .3
+
+.2:	LDA #$20
+.3:	STA PPUBUF+3,X
 	LDA #$40
 	STA PPUBUF+2,X
 	LDA #$00
@@ -582,6 +631,10 @@ nmi_handler:
 	TYA
 	PHA
 	
+  if CVBASIC_BANK_SWITCHING
+	LDA $BFFF
+	PHA
+  endif
 	LDA PPUSTATUS	; VDP interruption clear.
 	STA vdp_status
 
@@ -785,6 +838,11 @@ nmi_handler:
 	PLA
 	STA temp+0
 
+  if CVBASIC_BANK_SWITCHING
+	PLA
+	ORA CHRRAM_BANK
+	STA BANKSEL
+  endif
 	PLA
 	TAY
 	PLA
@@ -1048,6 +1106,10 @@ music_play:
 	LDY music_pointer+1
 	STA music_start
 	STY music_start+1
+    if CVBASIC_BANK_SWITCHING
+	LDA $BFFF
+	STA music_bank
+    endif
 	CLI
 	RTS
 
@@ -1064,6 +1126,11 @@ music_generate:
 	BEQ .1
 	JMP .2
 .1:
+    if CVBASIC_BANK_SWITCHING
+	LDA music_bank
+	ORA CHRRAM_BANK
+	STA BANKSEL
+    endif
 	LDY #0
 	LDA (music_pointer),Y
 	CMP #$fe	; End of music?
@@ -1445,6 +1512,32 @@ music_silence:
 	db -2
     endif
 
+
+    IF CVBASIC_BANK_SWITCHING
+copy_chrram:
+	LDA #$00
+	STA PPUADDR
+	STA PPUADDR
+	STA temp
+	STX temp+1
+	LDX #32
+.1:
+	JSR copy_page
+	DEX
+	BNE .1
+	RTS
+
+copy_page:
+	LDY #0
+.1:
+	LDA (temp),Y
+	STA PPUDATA
+	INY
+	BNE .1
+	INC temp+1
+	RTS
+    ENDIF
+
 START:
 	SEI
 	CLD
@@ -1522,6 +1615,32 @@ START:
 .9:	EOR #1
 	STA ntsc
 			; About 57165 cycles passed at this time.
+
+    IF CVBASIC_BANK_SWITCHING
+	; Copy CHRROM to CHRRAM
+	LDA #$1D
+	STA $C000
+	LDX #$80
+	JSR copy_chrram
+
+	LDA #$3D
+	STA $C000
+	LDX #$A0
+	JSR copy_chrram
+
+	LDA #$1E
+	STA $C000
+	LDX #$80
+	JSR copy_chrram
+
+	LDA #$3E
+	STA $C000
+	LDX #$A0
+	JSR copy_chrram
+
+	LDA #$00	; BANK SELECT 1
+	STA $C000
+    ENDIF
 
 	; Clear 2K of pattern memory
 	LDA #$20
