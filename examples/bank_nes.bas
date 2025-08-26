@@ -16,13 +16,14 @@
 	PALETTE 1,$16
 	PALETTE 2,$27
 	PALETTE 3,$38
-	WAIT
 	SCREEN DISABLE
-	SCREEN image_pattern,0,0,12,16,12
-	WAIT
-	SCREEN ENABLE
+	WAIT	
 
 	BANK SELECT 2	' Select bank 2 to access.
+
+	SCREEN image_pattern,0,132,12,16,12
+	WAIT
+	SCREEN ENABLE
 
 	GOSUB display_some_text
 	
@@ -184,13 +185,13 @@ tune_1:	DATA BYTE 7
 
 display_some_text:	PROCEDURE
 
-	PRINT AT $0210,"Hi!"
+	PRINT AT $01d1,"Hi!"
 
-	PRINT AT $0250,"This is bank-"
+	PRINT AT $0211,"This is bank-"
 
-	PRINT AT $0270,"switching demo."
+	PRINT AT $0231,"switching demo."
 
-	PRINT AT $02B0,":)"
+	PRINT AT $0271,":)"
 
 	END
 

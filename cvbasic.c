@@ -6944,9 +6944,9 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "ERROR: More than 4 CHRROM pages for bank-switched cartridge.\n");
             }
             if (bank_rom_size == 256) {
-                fprintf(output, "\nFORG $34000\n");
+                fprintf(output, "\nFORG $34010\n");
             } else {
-                fprintf(output, "\nFORG $74000\n");
+                fprintf(output, "\nFORG $74010\n");
             }
             fprintf(output, "\nORG $8000\n");
         }
