@@ -124,6 +124,7 @@ PPUCTRL:	EQU $2000
 PPUMASK:	EQU $2001
 PPUSTATUS:	EQU $2002
 OAMADDR:	EQU $2003
+OAMDATA:	EQU $2004
 PPUSCROLL:	EQU $2005
 PPUADDR:	EQU $2006
 PPUDATA:	EQU $2007
@@ -653,8 +654,8 @@ nmi_handler:
 	LDA #$00
 .6:
 	STA OAMADDR
-	LDA #SPRITE_PAGE	
-	STA SPRRAM	; Use DMA for sprite loading
+	LDX #SPRITE_PAGE	
+	STX SPRRAM	; Use DMA for sprite loading
 
 	; Screen changes
 	LDA ppu_pointer	; Any change?
