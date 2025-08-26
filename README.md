@@ -6,7 +6,7 @@ CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic origina
 
 The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching on most platforms, 8k on TI-99/4A). 
 
-Later it was extended to support the following platforms:
+It has been extended to support the following platforms:
 
 * Sega SG-1000 / SC-3000  (supporting bank switching with Sega mapper)
 * MSX 1 (supporting bank switching with ASCII16 mapper)
@@ -270,11 +270,21 @@ There are some very good examples of games developed with CVBasic.
 
 * Gun Fight by Eric Damain. Video at [https://forums.atariage.com/topic/379102-gun-fight-dev-log-cvbasic/](https://forums.atariage.com/topic/379102-gun-fight-dev-log-cvbasic/)
 
+* Jurl by Tonsomo Entertainment. Available from [https://tonsomo.itch.io/jurl-colecovision-edition](https://tonsomo.itch.io/jurl-colecovision-edition)
+
 * Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
 
 * Monkey Moon by nanochess, example from the book **Programming Games for Colecovision**. Available from [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249)
 
+* Operation Hibernation by Jess Ragan. Available from [https://forums.atariage.com/topic/383365-operation-hibernation-nearing-completion/](https://forums.atariage.com/topic/383365-operation-hibernation-nearing-completion/)
+
+* Pipe Dreams by visrealm. Available from [https://forums.atariage.com/topic/382747-pipe-dreams-clone-for-the-colecovision-and-others-cvbasic/](https://forums.atariage.com/topic/382747-pipe-dreams-clone-for-the-colecovision-and-others-cvbasic/)
+
 * Rogue-like Wip by Skywaffle. Available from [https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/](https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/)
+
+* Shamus by nanochess. Available from [https://forums.atariage.com/topic/383531-shamus-for-colecovision/](https://forums.atariage.com/topic/383531-shamus-for-colecovision/)
+
+* Solar Fox 2 by Jess Ragan. Available from [https://forums.atariage.com/topic/382881-solar-fox-2-is-finished-link-inside/](https://forums.atariage.com/topic/382881-solar-fox-2-is-finished-link-inside/)
 
 * Sub Hunt by Eric Damain. Demo videos [https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/](https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/)
 
@@ -290,7 +300,7 @@ You can also get my book **Programming Games for Colecovision** including an int
 
 The foreword is written by the legendary David R. Megarry, programmer of Zaxxon™ for Colecovision, and creator of the Dungeon!™ Board game.
 
-All the games in the book will compile for **all** the platforms (exception of Dungeon Warrior for Sord M5 and Casio PV2000 because the small 16KB ROM size)
+All the games in the book will compile for **all** the platforms, except Sega Master System and NES/Famicom (because the different video processor, but can be adapted), and Dungeon Warrior cannot compile for Sord M5 and Casio PV2000 because the small 16KB ROM size.
 
 * [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)
