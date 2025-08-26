@@ -4933,24 +4933,20 @@ void compile_statement(int check_for_else)
                             cpuz80_2op("LD", "HL", temp);
                             generic_call("palette_load");
                         } else if (machine == NES) {
-                            cpu6502_1op("LDX", "ppu_pointer");
-                            cpu6502_1op("LDA", "#$00");
-                            cpu6502_1op("STA", "PPUBUF,X");
-                            cpu6502_1op("LDA", "#$3f");
-                            cpu6502_1op("STA", "PPUBUF+1,X");
+                            cpu6502_1op("LDA", "#0");
+                            cpu6502_1op("STA", "pointer");
+                            cpu6502_1op("LDA", "#63");
+                            cpu6502_1op("STA", "pointer+1");
                             cpu6502_1op("LDA", "#32");
-                            cpu6502_1op("STA", "PPUBUF+2,X");
+                            cpu6502_1op("STA", "temp2");
                             strcpy(temp, "#" LABEL_PREFIX);
                             strcat(temp, name);
                             cpu6502_1op("LDA", temp);
-                            cpu6502_1op("STA", "PPUBUF+3,X");
+                            cpu6502_1op("STA", "temp");
                             strcat(temp, ">>8");
                             cpu6502_1op("LDA", temp);
-                            cpu6502_1op("STA", "PPUBUF+4,X");
-                            cpu6502_noop("TXA");
-                            cpu6502_noop("CLC");
-                            cpu6502_1op("ADC", "#5");
-                            cpu6502_1op("STA", "ppu_pointer");
+                            cpu6502_1op("STA", "temp+1");
+                            cpu6502_1op("JSR", "LDIRVM");
                         }
                         get_lex();
                     }

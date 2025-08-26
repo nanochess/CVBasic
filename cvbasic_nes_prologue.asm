@@ -179,11 +179,16 @@ LDIRVM:
 	STA PPUBUF,X
 	LDA pointer+1
 	STA PPUBUF+1,X
-	LDA temp2
+	LDA #0
+	SEC
+	SBC temp2
 	STA PPUBUF+2,X
 	LDA temp
+	SEC
+	SBC PPUBUF+2,X
 	STA PPUBUF+3,X
 	LDA temp+1
+	SBC #0
 	STA PPUBUF+4,X
 	TXA
 	CLC
@@ -635,9 +640,6 @@ nmi_handler:
 	LDA $BFFF
 	PHA
   endif
-	LDA PPUSTATUS	; VDP interruption clear.
-	STA vdp_status
-
 	; Load sprites
 	LDA mode
 	AND #4		; Flicker enabled?
@@ -662,30 +664,25 @@ nmi_handler:
 	INX
 	LDA PPUBUF,X
 	INX
-	STA PPUADDR
+	STA PPUADDR	; High-byte of VRAM address.
 	ROL A
-	STY PPUADDR
-	BCS .2
-	BMI .7
-	
+	STY PPUADDR	; Low-byte of VRAM address.
+	BCS .2		; Fill routine.
+	BMI .7		; Single byte routine.
+			; Copy routine.
 	LDA PPUBUF+1,X
 	STA ppu_source
 	LDA PPUBUF+2,X
 	STA ppu_source+1
-	LDA PPUBUF,X
+	LDY PPUBUF,X	; Negative counter.
 	INX
 	INX
 	INX
-	STX ppu_temp
-	TAX
-	LDY #0
 .4:
 	LDA (ppu_source),Y
 	STA PPUDATA
 	INY
-	DEX
 	BNE .4
-	LDX ppu_temp
 	CPX ppu_pointer
 	BNE .0
 	JMP .11
@@ -739,6 +736,9 @@ nmi_handler:
 	STA PPUCTRL
 	LDA ppu_mask
 	STA PPUMASK
+
+	LDA PPUSTATUS	; VDP interruption clear.
+	STA vdp_status
 
 	; Read controllers
 	LDA #$01
@@ -940,11 +940,16 @@ print_string:
 	AND #$07
 	ORA #$20
 	STA PPUBUF+1,X
-	LDA temp2
+	LDA #0
+	SEC
+	SBC temp2
 	STA PPUBUF+2,X
 	LDA temp
+	SEC
+	SBC PPUBUF+2,X
 	STA PPUBUF+3,X
 	LDA temp+1
+	SBC #0
 	STA PPUBUF+4,X
 	TXA
 	CLC

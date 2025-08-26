@@ -7,10 +7,11 @@
 	PALETTE 1,$16
 	PALETTE 2,$27
 	PALETTE 3,$38
-	WAIT
 	SCREEN DISABLE
+	WAIT		' Make sure the screen is disabled
+			' so a big update can happen.
 	SCREEN image_pattern,0,$00ea,12,16,12
-	WAIT
+	WAIT		' Make sure all the data is processed.
 	SCREEN ENABLE
 	WHILE 1: WEND
 

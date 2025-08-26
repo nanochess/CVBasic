@@ -729,7 +729,8 @@ The following statements are available:
                 until frequency value becomes zero.
 
      As SOUND 12 doesn't have a volume register, you should turn it on using
-     SOUND 15, 15, and turn it off using SOUND 15, 11.
+     SOUND 15, 15, and turn it off using SOUND 15, 11. Also the linear counter
+     should have a non-zero value.
 
      Don't update the frequency if it is the same, or otherwise the output
      phase will reset and generate glitches in the audio output.
@@ -979,6 +980,9 @@ The following statements are available:
     Disables the video output. The current color of the border will fill the
     screen (can be set up using the BORDER statement). The video can be enabled
     again with SCREEN ENABLE or using a MODE statement.
+
+    For NES/Famicom add a WAIT statement after this one because the operation
+    is executed on the next video frame.
 
   SCREEN ENABLE
 

@@ -73,11 +73,11 @@ main_loop:
 	'
 	IF jump_state >= 33 THEN	' Jumping
 		f = 4
-		SOUND 12, $0800 + y
+		SOUND 12, $0800 + y, 64
 		SOUND 15, 15
 	ELSEIF jump_state THEN		' Falling
 		f = 8
-		SOUND 12, $0800 + y
+		SOUND 12, $0800 + y, 64
 		SOUND 15, 15
 	ELSE				' Standing
 		f = 0
