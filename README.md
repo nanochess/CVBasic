@@ -211,7 +211,7 @@ Using CVBasic to compile a NES/Famicom program:
 
 ### Notes
 
-The current official version is v0.8.0.
+The current official version is v0.9.0.
 
 All platforms have been tested in emulation.
 
