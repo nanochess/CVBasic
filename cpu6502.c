@@ -14,6 +14,9 @@
 #include "node.h"
 #include "cpu6502.h"
 
+#define REG_NONE    0
+#define REG_ALL     (REG_ACC | REG_X | REG_Y | REG_TEMP)
+
 static char temp2[MAX_LINE_SIZE];
 
 static char cpu6502_line[MAX_LINE_SIZE];
@@ -24,7 +27,6 @@ static char cpu6502_y[MAX_LINE_SIZE];
 static int cpu6502_flag_z_valid;
 
 static void cpu6502_emit_line(void);
-static int cpu6502_8bit_simple(struct node *);
 
 void cpu6502_emit_line(void)
 {
@@ -236,50 +238,402 @@ void cpu6502_1op(char *mnemonic, char *operand)
  */
 void cpu6502_node_label(struct node *node)
 {
-    /* Nothing to do, yet */
-}
-
-/*
- ** Detect operations that only use A.
- */
-static int cpu6502_8bit_simple(struct node *node)
-{
+    struct node *explore;
+    int stack;
+    int c;
+    char *p;
+    
     switch (node->type) {
-        case N_LOAD8:
-        case N_NUM8:
-        case N_INP:
-        case N_JOY1:
-        case N_JOY2:
-        case N_KEY1:
-        case N_KEY2:
-        case N_MUSIC:
-        case N_NTSC:
-        case N_VDPSTATUS:
-            return 1;
-        case N_NEG8:
-        case N_NOT8:
-            return cpu6502_8bit_simple(node->left);
-        case N_LESSEQUAL8:  /* 8-bit <= */
-        case N_GREATER8:    /* 8-bit > */
-            if (node->left->type != N_NUM8 && node->left->type != N_LOAD8)
-                return 0;
-            return cpu6502_8bit_simple(node->right);
+        case N_USR:     /* Assembly language function with result */
+            if (node->left != NULL)
+                cpu6502_node_label(node->left->left);
+            node->regs = REG_ALL;
+            break;
+        case N_LOAD8:   /* Load 8-bit value from address */
+        case N_NUM8:    /* Load 8-bit constant */
+        case N_INP:     /* Read port */
+        case N_JOY1:    /* Read joystick 1 */
+        case N_JOY2:    /* Read joystick 2 */
+        case N_KEY1:    /* Read keypad 1 */
+        case N_KEY2:    /* Read keypad 2 */
+        case N_MUSIC:   /* Read music playing status */
+        case N_NTSC:    /* Read NTSC flag */
+        case N_VDPSTATUS:    /* Read VDP status */
+            node->regs = REG_ACC;
+            break;
+        case N_ADDR:    /* Get address of variable */
+        case N_POS:     /* Get screen cursor position */
+        case N_READ8:   /* Read 8-bit value */
+        case N_READ16:  /* Read 16-bit value */
+        case N_LOAD16:  /* Load 16-bit value from address */
+        case N_NUM16:   /* Load 16-bit constant */
+        case N_FRAME:   /* Read current frame number */
+            node->regs = REG_ACC | REG_Y;
+            break;
+        case N_RANDOM:  /* Read pseudorandom generator */
+            node->regs = REG_ACC | REG_Y | REG_TEMP;
+            break;
+        case N_NEG8:    /* Negate 8-bit value */
+        case N_NOT8:    /* Complement 8-bit value */
+        case N_REDUCE16:    /* Reduce 16-bit value to 8-bit */
+        case N_VPEEK:   /* Read VRAM */
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs;
+            break;
+        case N_NEG16:   /* Negate 16-bit value */
+        case N_NOT16:   /* Complement 16-bit value */
+        case N_ABS16:   /* Get absolute 16-bit value */
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs | REG_X;
+            break;
+        case N_SGN16:   /* Get sign of 16-bit value */
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs | REG_X | REG_TEMP;
+            break;
+        case N_EXTEND8S:    /* Extend 8-bit signed value to 16-bit */
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs | REG_X | REG_Y;
+            break;
+        case N_EXTEND8: /* Extend 8-bit value to 16-bit */
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs | REG_Y;
+            break;
+        case N_PEEK8:   /* Load 8-bit content */
+            if (node->left->type == N_ADDR) {   /* Optimize address */
+                node->regs = REG_ACC;
+                break;
+            }
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
+                && node->left->left->type == N_ADDR
+                && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
+                node->regs = REG_ACC;
+                break;
+            }
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs;
+            break;
+        case N_PEEK16:  /* Load 16-bit content */
+            if (node->left->type == N_ADDR) {   /* Optimize address */
+                node->regs = REG_ACC | REG_Y;
+                break;
+            }
+            if ((node->left->type == N_PLUS16 || node->left->type == N_MINUS16)
+                && node->left->left->type == N_ADDR
+                && node->left->right->type == N_NUM16) {    /* Optimize address plus constant */
+                node->regs = REG_ACC | REG_Y;
+                break;
+            }
+            cpu6502_node_label(node->left);
+            node->regs = node->left->regs;
+            break;
         case N_OR8:     /* 8-bit OR */
         case N_XOR8:    /* 8-bit XOR */
         case N_AND8:    /* 8-bit AND */
         case N_EQUAL8:  /* 8-bit = */
         case N_NOTEQUAL8:   /* 8-bit <> */
         case N_LESS8:   /* 8-bit < */
+        case N_LESSEQUAL8:  /* 8-bit <= */
+        case N_GREATER8:    /* 8-bit > */
         case N_GREATEREQUAL8:   /* 8-bit >= */
         case N_PLUS8:   /* 8-bit + */
         case N_MINUS8:  /* 8-bit - */
         case N_MUL8:    /* 8-bit * */
         case N_DIV8:    /* 8-bit / */
-            if (node->right->type != N_NUM8 && node->right->type != N_LOAD8)
-                return 0;
-            return cpu6502_8bit_simple(node->left);
-        default:
-            return 0;
+            if (node->type == N_MUL8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
+                cpu6502_node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            if (node->type == N_DIV8 && node->right->type == N_NUM8 && is_power_of_two(node->right->value)) {
+                cpu6502_node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            if (node->type == N_LESSEQUAL8 || node->type == N_GREATER8) {
+                if (node->left->type == N_NUM8) {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs;
+                } else if (node->left->type == N_LOAD8) {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs;
+                } else {
+                    cpu6502_node_label(node->right);
+                    cpu6502_node_label(node->left);
+                    node->regs = node->left->regs | node->right->regs | REG_TEMP;
+                }
+            } else if (node->right->type == N_LOAD8) {
+                cpu6502_node_label(node->left);
+                node->regs = node->left->regs;
+            } else if (node->right->type == N_NUM8) {
+                cpu6502_node_label(node->left);
+                node->regs = node->left->regs;
+            } else {
+                cpu6502_node_label(node->left);
+                cpu6502_node_label(node->right);
+                node->regs = node->left->regs | node->right->regs | REG_TEMP;
+            }
+            break;
+        case N_ASSIGN8: /* 8-bit assignment */
+            if ((node->left->type == N_PLUS8 || node->left->type == N_MINUS8 || node->left->type == N_OR8 || node->left->type == N_AND8 || node->left->type == N_XOR8)
+                && (node->left->right->type == N_NUM8 || node->left->right->type == N_LOAD8)
+                && node_same_address(node->left->left, node->right)) {
+                if (node->right->type == N_ADDR) {
+                    node->regs = REG_NONE;
+                    c = 0;
+                } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                    node->regs = REG_NONE;
+                    c = 0;
+                } else {
+                    if (node->right->type == N_PLUS16 && node->right->left->type == N_ADDR && node->right->right->type == N_EXTEND8 && node->right->right->left->type == N_LOAD8) {
+                        node->regs = REG_ACC | REG_TEMP | REG_Y;
+                    } else {
+                        cpu6502_node_label(node->right);
+                        node->regs = node->right->regs;
+                    }
+                    c = 1;
+                    node->regs |= REG_Y;
+                }
+                if (c == 0 && (node->left->type == N_PLUS8 || node->left->type == N_MINUS8) && node->left->right->type == N_NUM8 && node->left->right->value < 4) {
+                } else {
+                    node->regs |= REG_ACC;
+                }
+                break;
+            }
+            
+            if (node->right->type == N_ADDR
+                || ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                cpu6502_node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            cpu6502_node_label(node->right);
+            cpu6502_node_label(node->left);
+            node->regs = node->right->regs | node->left->regs | REG_TEMP;
+            break;
+        case N_ASSIGN16:    /* 16-bit assignment */
+            if (node->right->type == N_ADDR) {
+                c = 1;
+            } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                c = 1;
+            } else {
+                c = 0;
+            }
+            if (node->left->type == N_PLUS16
+                && node->left->right->type == N_NUM16
+                && ((c && node->left->right->value == 1) || !c)
+                && node_same_address(node->left->left, node->right)) {
+                if (node->right->type == N_ADDR) {
+                    node->regs = REG_NONE;
+                    c = 0;
+                } else if (((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                    node->regs = REG_NONE;
+                    c = 0;
+                } else {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs;
+                    c = 1;
+                }
+                break;
+            }
+            
+            if (node->right->type == N_ADDR
+                || ((node->right->type == N_PLUS16 || node->right->type == N_MINUS16) && node->right->left->type == N_ADDR && node->right->right->type == N_NUM16)) {
+                cpu6502_node_label(node->left);
+                node->regs = node->left->regs;
+                break;
+            }
+            if (node->left->type == N_NUM16 || node->left->type == N_LOAD16) {
+                cpu6502_node_label(node->right);
+                cpu6502_node_label(node->left);
+                node->regs = node->right->regs | node->left->regs | REG_X | REG_TEMP;
+            } else {
+                cpu6502_node_label(node->left);
+                cpu6502_node_label(node->right);
+                node->regs = node->right->regs | node->left->regs | REG_TEMP;
+            }
+            break;
+        default:    /* Every other node, all remaining are 16-bit operations */
+            /* Optimization of address plus/minus constant */
+            if (node->type == N_PLUS16 || node->type == N_MINUS16) {
+                if (node->left->type == N_ADDR) {
+                    if (node->right->type == N_NUM16) {
+                        node->regs = REG_ACC | REG_Y;
+                        break;
+                    } else if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {
+                        node->regs = REG_ACC | REG_X | REG_Y;
+                        break;
+                    }
+                }
+            }
+            if (node->type == N_PLUS16) {
+                if (node->left->type == N_ADDR) {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs | REG_ACC | REG_X | REG_Y;
+                    break;
+                }
+                if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
+                    if (node->left->type == N_NUM16)
+                        explore = node->left;
+                    else
+                        explore = node->right;
+                    if (node->left != explore) {
+                        cpu6502_node_label(node->left);
+                        node->regs = node->left->regs;
+                    } else {
+                        cpu6502_node_label(node->right);
+                        node->regs = node->right->regs;
+                    }
+                    c = explore->value;
+                    if ((c & 0xff) == 0 && (c & 0xff00) < 0x0800) {
+                        break;
+                    }
+                    node->regs |= REG_X;
+                    break;
+                }
+            }
+            if (node->type == N_MINUS16) {
+                if (node->right->type == N_NUM16)
+                    explore = node->right;
+                else
+                    explore = NULL;
+                if (explore != NULL) {
+                    int c = explore->value;
+                    
+                    cpu6502_node_label(node->left);
+                    node->regs = node->left->regs;
+                    if ((c & 0xff) == 0 && (c & 0xff00) < 0x0800) {
+                        break;
+                    }
+                    node->regs |= REG_X;
+                    break;
+                }
+            }
+            if (node->type == N_OR16 || node->type == N_AND16 || node->type == N_XOR16) {
+                if (node->right->type == N_NUM16)
+                    explore = node->right;
+                else
+                    explore = NULL;
+                if (explore != NULL) {
+                    int value = explore->value;
+                    int byte;
+                    char *mnemonic;
+                    
+                    if (node->left != explore) {
+                        cpu6502_node_label(node->left);
+                        node->regs = node->left->regs;
+                    } else {
+                        cpu6502_node_label(node->right);
+                        node->regs = node->right->regs;
+                    }
+                    byte = (value >> 8) & 0xff;
+                    if ((node->type == N_OR16 || node->type == N_XOR16) && byte == 0x00) {
+                        /* Nothing to do :) */
+                    } else if (node->type == N_AND16 && byte == 0xff) {
+                        /* Nothing to do :) */
+                    } else if (node->type == N_AND16 && byte == 0x00) {
+                    } else if (node->type == N_OR16 && byte == 0xff) {
+                    } else {
+                        node->regs |= REG_X;
+                    }
+                    break;
+                }
+            }
+            if (node->type == N_MUL16) {
+                if (node->left->type == N_NUM16)
+                    explore = node->left;
+                else if (node->right->type == N_NUM16)
+                    explore = node->right;
+                else
+                    explore = NULL;
+                if (explore != NULL && (explore->value == 0 || explore->value == 1 || is_power_of_two(explore->value))) {
+                    c = explore->value;
+                    if (c == 0) {
+                        node->regs = REG_ACC | REG_Y;
+                    } else {
+                        if (node->left != explore)
+                            explore = node->left;
+                        else
+                            explore = node->right;
+                        if (c == 2 && explore->type == N_EXTEND8) {
+                            cpu6502_node_label(explore->left);
+                            explore->regs = explore->left->regs;
+                            node->regs = explore->regs;
+                            break;
+                        }
+                        if (c >= 256) {
+                            if (explore->type == N_EXTEND8 || explore->type == N_EXTEND8S) {
+                                cpu6502_node_label(explore->left);
+                                explore->regs = explore->left->regs | REG_Y;
+                            } else {
+                                cpu6502_node_label(explore);
+                                explore->regs |= REG_Y;
+                            }
+                            c /= 256;
+                        } else {
+                            cpu6502_node_label(explore);
+                        }
+                        node->regs = explore->regs;
+                    }
+                    break;
+                }
+            }
+            if (node->type == N_DIV16) {
+                if (node->right->type == N_NUM16 && (node->right->value == 2 || node->right->value == 4 || node->right->value == 8)) {
+                    cpu6502_node_label(node->left);
+                    node->regs = node->left->regs | REG_TEMP;
+                    break;
+                }
+            }
+            if (node->type == N_LESSEQUAL16 || node->type == N_GREATER16) {
+                if (node->left->type == N_NUM16) {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs;
+                    stack = 0;
+                } else if (node->left->type == N_LOAD16) {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs;
+                    stack = 0;
+                } else if (node->left->type == N_EXTEND8 && node->left->left->type == N_LOAD8) {
+                    cpu6502_node_label(node->right);
+                    node->regs = node->right->regs;
+                    stack = 0;
+                } else {
+                    cpu6502_node_label(node->right);
+                    cpu6502_node_label(node->left);
+                    node->regs = node->right->regs | node->left->regs | REG_TEMP;
+                    stack = 1;
+                }
+            } else {
+                if (node->right->type == N_NUM16) {
+                    cpu6502_node_label(node->left);
+                    node->regs = node->left->regs;
+                    stack = 0;
+                } else if (node->right->type == N_LOAD16) {
+                    cpu6502_node_label(node->left);
+                    node->regs = node->left->regs;
+                    stack = 0;
+                } else if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {
+                    cpu6502_node_label(node->left);
+                    node->regs = node->left->regs;
+                    stack = 0;
+                } else {
+                    cpu6502_node_label(node->left);
+                    cpu6502_node_label(node->right);
+                    node->regs = node->left->regs | node->right->regs | REG_TEMP;
+                    stack = 1;
+                }
+            }
+            if (node->type == N_OR16 || node->type == N_XOR16 || node->type == N_AND16) {
+                if (!stack) {
+                    node->regs |= REG_X;
+                }
+            } else if (node->type == N_EQUAL16 || node->type == N_NOTEQUAL16) {
+                if (!stack)
+                    node->regs |= REG_TEMP;
+            } else {
+                node->regs |= REG_X;
+            }
+            break;
     }
 }
 
@@ -522,11 +876,17 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_node_generate(node->right, 0);
                     node_get_label(node->left, 0);
                 } else {
-                    cpu6502_node_generate(node->right, 0);
-                    cpu6502_noop("PHA");
-                    cpu6502_node_generate(node->left, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_noop("PLA");
+                    if ((node->right->regs & REG_TEMP) == 0) {
+                        cpu6502_node_generate(node->left, 0);
+                        cpu6502_1op("STA", "temp");
+                        cpu6502_node_generate(node->right, 0);
+                    } else {
+                        cpu6502_node_generate(node->right, 0);
+                        cpu6502_noop("PHA");
+                        cpu6502_node_generate(node->left, 0);
+                        cpu6502_1op("STA", "temp");
+                        cpu6502_noop("PLA");
+                    }
                     strcpy(temp, "temp");
                 }
             } else if (node->right->type == N_LOAD8) {
@@ -537,11 +897,17 @@ void cpu6502_node_generate(struct node *node, int decision)
                 cpu6502_node_generate(node->left, 0);
                 sprintf(temp, "#%d", c);
             } else {
-                cpu6502_node_generate(node->left, 0);
-                cpu6502_noop("PHA");
-                cpu6502_node_generate(node->right, 0);
-                cpu6502_1op("STA", "temp");
-                cpu6502_noop("PLA");
+                if ((node->left->regs & REG_TEMP) == 0) {
+                    cpu6502_node_generate(node->right, 0);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_node_generate(node->left, 0);
+                } else {
+                    cpu6502_node_generate(node->left, 0);
+                    cpu6502_noop("PHA");
+                    cpu6502_node_generate(node->right, 0);
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_noop("PLA");
+                }
                 strcpy(temp, "temp");
             }
             if (node->type == N_OR8) {
@@ -720,7 +1086,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 break;
                 
             }
-            if (cpu6502_8bit_simple(node->left)) {
+            if ((node->left->regs & REG_TEMP) == 0) {
                 cpu6502_node_generate(node->right, 0);
                 cpu6502_1op("STA", "temp");
                 cpu6502_1op("STY", "temp+1");
@@ -817,7 +1183,7 @@ void cpu6502_node_generate(struct node *node, int decision)
                 cpu6502_1op("STY", temp);
                 break;
             }
-            if (node->left->type == N_NUM16 || node->left->type == N_LOAD16) {
+            if ((node->left->regs & REG_TEMP) == 0) {
                 cpu6502_node_generate(node->right, 0);
                 cpu6502_1op("STA", "temp");
                 cpu6502_1op("STY", "temp+1");
