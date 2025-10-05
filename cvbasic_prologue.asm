@@ -1468,7 +1468,7 @@ nmi_handler:
 	jp nz,$-2
 	ld hl,$3f80
 	call SETWRT
-	ld hl,sprites
+	ld hl,sprites+128
 	ld bc,$8000+VDP
 	outi
 	jp nz,$-2

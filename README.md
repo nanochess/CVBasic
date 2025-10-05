@@ -44,8 +44,8 @@ The following files compose the compiler:
 
     cvbasic_prologue.asm        Prologue file needed for compiled programs.
     cvbasic_epilogue.asm        Epilogue file needed for compiled programs.
-    cvbasic_6502_prologue.asm   Prologue file needed for 6502 compiled programs.
-    cvbasic_6502_epilogue.asm   Epilogue file needed for 6502 compiled programs.
+    cvbasic_6502_prologue.asm   Prologue file needed for Creativision compiled programs.
+    cvbasic_6502_epilogue.asm   Epilogue file needed for Creativision compiled programs.
     cvbasic_9900_prologue.asm   Prologue file needed for TMS9900 compiled programs.
     cvbasic_9900_epilogue.asm   Epilogue file needed for TMS9900 compiled programs.
     cvbasic_nes_prologue.asm    Prologue file needed for NES/Famicom compiled programs.
