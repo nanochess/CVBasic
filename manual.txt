@@ -1359,8 +1359,9 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT.RIGHT        Non-zero if any controller pointing right
   CONT.BUTTON       Non-zero if any controller left button is pressed.
   CONT.BUTTON2      Non-zero if any controller right button is pressed.
-  CONT.KEY          Current pressed key in any controller (0-9 for numbers,
-                    10-*, 11-#, 15-Not pressed)
+  CONT.KEY          Current pressed key in any controller: 0-9 for numbers,
+                    10-*, 11-#, 15-Not pressed. For Super Action Controllers,
+                    12 is the Blue button, and 13 is the Purple button.
 
   CONT1             Contains the state of the first controller.
   CONT1.UP          Non-zero if controller pointing up
@@ -1369,7 +1370,9 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT1.RIGHT       Non-zero if controller pointing right
   CONT1.BUTTON      Non-zero if the controller left button is pressed.
   CONT1.BUTTON2     Non-zero if the controller right button is pressed.
-  CONT1.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
+  CONT1.KEY         Current pressed key: 0-9 for numbers, 10-*, 11-#, 15-Not pressed.
+                    For Super Action Controllers, 12 is the Blue button,
+                    and 13 is the Purple button.
 
   CONT2             Contains the state of the second controller.
   CONT2.UP          Non-zero if controller pointing up
@@ -1378,7 +1381,9 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT2.RIGHT       Non-zero if controller pointing right
   CONT2.BUTTON      Non-zero if the controller left button is pressed.
   CONT2.BUTTON2     Non-zero if the controller right button is pressed.
-  CONT2.KEY         Current pressed key (0-9 for numbers, 10-*, 11-#, 15-Not pressed)
+  CONT2.KEY         Current pressed key: 0-9 for numbers, 10-*, 11-#, 15-Not pressed.
+                    For Super Action Controllers, 12 is the Blue button,
+                    and 13 is the Purple button.
 
   RANDOM
     Produces a pseudo-random value between 0 and 65535.

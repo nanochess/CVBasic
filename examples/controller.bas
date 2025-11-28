@@ -2,9 +2,12 @@
 	' Controller test
 	'
 	' by Oscar Toledo G.
+	' https://nanochess.org/
 	'
 	' Creation date: Aug/21/2024.
 	' Revision date: Oct/15/2024. Solved wrong display for number key in 2nd controller.
+	' Revision date: Nov/28/2025. Added support for Blue and Purple buttons (Super
+	'                             Action Controller)
 	'
 
 	CONST left_x = 56
@@ -37,7 +40,7 @@
 		d = VPEEK(#c)
 		VPOKE #c, (d / 2) OR (d / 4)
 	NEXT #c
-	DEFINE CHAR 42,2,number_bitmap
+	DEFINE CHAR 42,4,number_bitmap
 
 	VDP(1) = $E0	' 8x8 sprites
 	VDP(6) = $00	' Sprites use character bitmaps.
@@ -162,6 +165,14 @@ prepare_key:	PROCEDURE
 		x = ((c - 1) % 3) * 16
 		y = 63 + ((c - 1) / 3) * 16
 		c = c + 48
+	ELSEIF c = 12 THEN
+		x = 8
+		y = 0
+		c = 44
+	ELSEIF c = 13 THEN
+		x = 8
+		y = 8
+		c = 45
 	ELSE
 		' Some systems have extra characters
 		x = 16
@@ -251,3 +262,22 @@ number_bitmap:
 	BITMAP "..XX.XX."
 	BITMAP "..XX.XX."
 	BITMAP "........"
+
+	BITMAP "XXXXXXX."
+	BITMAP "XX....XX"
+	BITMAP "XX....XX"
+	BITMAP "XXXXXXX."
+	BITMAP "XX....XX"
+	BITMAP "XX....XX"
+	BITMAP "XXXXXXX."
+	BITMAP "........"
+
+	BITMAP "XXXXXXX."
+	BITMAP "XX....XX"
+	BITMAP "XX....XX"
+	BITMAP "XXXXXXX."
+	BITMAP "XX......"
+	BITMAP "XX......"
+	BITMAP "XX......"
+	BITMAP "........"
+
