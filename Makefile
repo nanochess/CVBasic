@@ -5,7 +5,7 @@
 CFLAGS = -O
 
 cvbasic: cvbasic.o node.o driver.o cpuz80.o cpu6502.o cpu9900.o
-	@$(CC) cvbasic.o node.o driver.o cpuz80.o cpu6502.o cpu9900.o -o $@
+	@$(CC) cvbasic.o node.o driver.o cpuz80.o cpu6502.o cpu9900.o -o $@ $(LDFLAGS)
 
 check: cvbasic
 	@./$< examples/viboritas.bas /tmp/viboritas.asm
