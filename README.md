@@ -258,6 +258,8 @@ There are some very good examples of games developed with CVBasic.
 
 * Beachhead by Eric Damain. Demo screenshots [https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/](https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/)
 
+* Boom by Atarius Maximus for NES/Famicom. Also in the _contrib_ directory. [https://forums.atariage.com/topic/384096-colecovision-fantalicious-basic-compiler-cvbasic-v090-now-with-nesfamicom-support/page/2/#findComment-5769427](https://forums.atariage.com/topic/384096-colecovision-fantalicious-basic-compiler-cvbasic-v090-now-with-nesfamicom-support/page/2/#findComment-5769427)
+
 * Camelot Knights by nanochess. Available from [https://forums.atariage.com/topic/363252-camelot-knights-game/](https://forums.atariage.com/topic/363252-camelot-knights-game/)
 
 * Colecovania demo by Skywaffle. Video at [https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl](https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl)
@@ -309,4 +311,4 @@ All the games in the book will compile for **all** the platforms, except Sega Ma
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions: abeker, acadiel, aotta, ARTRAG, atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, acadiel, aotta, ARTRAG, atari2600land, Atarius Maximus, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.
