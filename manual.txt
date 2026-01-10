@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Aug/25/2025
+Last revision: Nov/28/2025
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -21,6 +21,9 @@ All trademarks are property of their respective owners.
 
 
 >>>>>>>>>>>>>>  Changes in this version
+
+v1.0.0 Nov/28/2025  o Added note about support of Blue and Purple buttons
+                      (Super Action Controllers for Colecovision)
 
 v0.9.0 Aug/26/2025  o Added support for NES/Famicom using --nes
                     o MSX: Added support for Konami mapper using -konami
@@ -151,6 +154,15 @@ The NES/Famicom port uses cvbasic_nes_prologue.asm and cvbasic_nes_epilogue.asm
 The NABU port requires the gasm output file to be named 000001.nabu and you should ZIP it to test it with MAME. If you use the -cpm option you can use any .com file name.
 
 And finally, you can test the generated output.rom file using CoolCV, blueMSX, openMSX, or a Flash cartridge for real hardware.
+
+
+>>>>>>>>>>>>>>  Debugging support
+
+If you are using the blueMSX or openMSX emulators, you can debug your games with symbols intermixed in the code disassembly window.
+
+For this you require gasm80 to generate a symbol table in this way:
+
+    gasm80 game.asm -o game.rom -s game.sym
 
 
 >>>>>>>>>>>>>>  Supporting the developer
