@@ -22,8 +22,10 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v1.0.0 Nov/28/2025  o Added note about support of Blue and Purple buttons
+v0.9.1 Feb/05/2026  o Added note about support of Blue and Purple buttons
                       (Super Action Controllers for Colecovision)
+                    o Added support for spinners and roller controller
+                      using CONT1.SPINNER and CONT2.SPINNER (Colecovision)
 
 v0.9.0 Aug/26/2025  o Added support for NES/Famicom using --nes
                     o MSX: Added support for Konami mapper using -konami
@@ -1385,6 +1387,10 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT1.KEY         Current pressed key: 0-9 for numbers, 10-*, 11-#, 15-Not pressed.
                     For Super Action Controllers, 12 is the Blue button,
                     and 13 is the Purple button.
+  CONT1.SPINNER     Reads the spinner displacement for this controller,
+                    and resets the count (save in a variable if required).
+                    This is the X displacement for the Roller Controller.
+                    Only supported for Colecovision.
 
   CONT2             Contains the state of the second controller.
   CONT2.UP          Non-zero if controller pointing up
@@ -1396,6 +1402,10 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   CONT2.KEY         Current pressed key: 0-9 for numbers, 10-*, 11-#, 15-Not pressed.
                     For Super Action Controllers, 12 is the Blue button,
                     and 13 is the Purple button.
+  CONT2.SPINNER     Reads the spinner displacement for this controller,
+                    and resets the count (save in a variable if required).
+                    This is the Y displacement for the Roller Controller.
+                    Only supported for Colecovision.
 
   RANDOM
     Produces a pseudo-random value between 0 and 65535.

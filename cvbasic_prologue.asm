@@ -39,6 +39,8 @@
 	; Revision date: Oct/15/2024. Added LDIRMV. Solved bug where asterisk and number
 	;                             keys values were inverted.
 	; Revision date: Nov/12/2024. Saves the VDP status.
+	; Revision date: Feb/05/2026. Added support for spinners and roller controller
+	;                             (Colecovision).
 	;
 
 JOYSEL:	equ $c0
@@ -79,9 +81,45 @@ JOY2:   equ $ff-$22*(SG1000+SMS)
 	jp 0	; rst $20
 	jp 0	; rst $28
 	jp 0	; rst $30
+      if COLECO_SPINNER
+        jp spinner_handler
+      else
 	jp 0	; rst $38
-
+      endif
 	jp nmi_handler
+
+      if COLECO_SPINNER
+spinner_handler:
+	PUSH AF
+	PUSH HL
+	LD A,$FF
+	LD (spinner_data),A
+	OUT (JOYSEL),A
+	PUSH AF
+	POP AF
+	LD HL,spinner_data+1
+	IN A,(JOY1)
+	BIT 4,A
+	JR NZ,.1
+	BIT 5,A
+	JR NZ,$+4
+	INC (HL)
+	DB $3E
+	DEC (HL)
+.1:	INC HL
+	IN A,(JOY2)
+	BIT 4,A
+	JR NZ,.2
+	BIT 5,A
+	JR NZ,$+4
+	INC (HL)
+	DB $3E
+	DEC (HL)
+.2:	POP HL
+	POP AF
+	EI
+	RETI
+      endif
       endif
     endif
     if SG1000+SMS+SVI
@@ -326,27 +364,45 @@ LDIRVM:
     else
 	; Normal platforms with VDP connected via ports (IORQ)
 WRTVDP:
+      if COLECO_SPINNER
+	di
+      endif
 	ld a,b
 	out (VDP+1),a
 	ld a,c
 	or $80
 	out (VDP+1),a
+      if COLECO_SPINNER
+	ei
+      endif
 	ret
 
 SETWRT:
+      if COLECO_SPINNER
+	di
+      endif
 	ld a,l
 	out (VDP+1),a
 	ld a,h
 	or $40
 	out (VDP+1),a
+      if COLECO_SPINNER
+	ei
+      endif
 	ret
 
 SETRD:
+      if COLECO_SPINNER
+	di
+      endif
 	ld a,l
 	out (VDP+1),a
 	ld a,h
         and $3f
 	out (VDP+1),a
+      if COLECO_SPINNER
+	ei
+      endif
 	ret
 
 WRTVRM:
@@ -1599,6 +1655,9 @@ nmi_handler:
     endif
 
     if COLECO
+      if COLECO_SPINNER
+        DI
+      endif
 	out (JOYSEL),a
 	ex (sp),hl
 	ex (sp),hl
@@ -1606,15 +1665,24 @@ nmi_handler:
 	or $b0
 	ld b,a
 	in a,(JOY2)
+      if COLECO_SPINNER
+        EI
+      endif
 	or $b0
 	ld c,a
 
+      if COLECO_SPINNER
+        DI
+      endif
 	out (KEYSEL),a
 	ex (sp),hl
 	ex (sp),hl
 	in a,(JOY1)
 	ld d,a
 	in a,(JOY2)
+      if COLECO_SPINNER
+        EI
+      endif
 	ld e,a
 
 	ld a,d
@@ -3774,6 +3842,9 @@ Z80_CTC:	equ $28
 	djnz .delay1
     else
 	di
+      if COLECO_SPINNER
+        im 1
+      endif
 	ld sp,STACK
     endif
     if NABU
@@ -4002,6 +4073,11 @@ WRITE_VRAM:	equ $1fdf
     if SORD
 	ld hl,nmi_handler
 	ld ($7006),hl
+    endif
+    if COLECO
+      if COLECO_SPINNER
+        ei
+      endif
     endif
 
 	; CVBasic program start.

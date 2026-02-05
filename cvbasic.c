@@ -33,7 +33,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.0 Jan/06/2026"
+#define VERSION "v0.9.1 Feb/05/2026"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -115,6 +115,7 @@ static char path[4096];
 static int last_is_return;
 static int music_used;
 static int compression_used;
+static int spinner_used;
 static int bank_switching;
 static int bank_rom_size;
 static int bank_current;
@@ -1524,6 +1525,7 @@ struct node *evaluate_level_7(int *type)
             struct node *tree = NULL;
             int cont;
             
+            *type = TYPE_8;
             if (strcmp(name, "CONT1") == 0)
                 cont = 1;
             else if (strcmp(name, "CONT2") == 0)
@@ -1533,7 +1535,22 @@ struct node *evaluate_level_7(int *type)
             get_lex();
             if (lex == C_PERIOD) {
                 get_lex();
-                if (strcmp(name, "KEY") == 0) {
+                if (strcmp(name, "SPINNER") == 0) {
+                    if (machine != COLECOVISION && machine != COLECOVISION_SGM) {
+                        emit_error("SPINNER is only available for Colecovision");
+                        tree = node_create(N_NUM8, 0, NULL, NULL);
+                    } else if (cont == 1) {
+                        tree = node_create(N_SPINNER1, 0, NULL, NULL);
+                    } else if (cont == 2) {
+                        tree = node_create(N_SPINNER2, 0, NULL, NULL);
+                    } else {
+                        emit_error("Using CONT.SPINNER instead of CONT1 or CONT2");
+                        tree = node_create(N_NUM8, 0, NULL, NULL);
+                    }
+                    tree = node_create(N_EXTEND8S, 0, tree, NULL);
+                    *type = TYPE_16;
+                    spinner_used = 1;
+                } else if (strcmp(name, "KEY") == 0) {
                     if (cont == 1) {
                         tree = node_create(N_KEY1, 0, NULL, NULL);
                     } else if (cont == 2) {
@@ -1572,7 +1589,7 @@ struct node *evaluate_level_7(int *type)
                 } else if (strcmp(name, "BUTTON2") == 0) {
                     get_lex();
                     tree = node_create(N_AND8, 0, tree, node_create(N_NUM8, 0x80, NULL, NULL));
-                } else if (strcmp(name, "KEY") == 0) {
+                } else if (strcmp(name, "KEY") == 0 || strcmp(name, "SPINNER") == 0) {
                     get_lex();
                 } else {
                     emit_error("Wrong field for CONT");
@@ -1587,7 +1604,6 @@ struct node *evaluate_level_7(int *type)
                     tree = node_create(N_OR8, 0, tree, node_create(N_JOY2, 0, NULL, NULL));
                 }
             }
-            *type = TYPE_8;
             return tree;
         }
         if (strcmp(name, "RANDOM") == 0) {
@@ -3782,7 +3798,7 @@ void compile_statement(int check_for_else)
                         node_generate(value, 0);
                         cpu9900_2op("movb", "r0", "@SOUND");
                     } else {
-                        emit_warning("OUT to 0xff for audio is the only supported use.");
+                        emit_warning("OUT to $ff for audio is the only supported use.");
                     }
                 } else {
                     node_generate(port, 0);
@@ -6826,6 +6842,7 @@ int main(int argc, char *argv[])
     fprintf(output, "CVBASIC_COMPRESSION:\tequ %d\n", compression_used);
     fprintf(output, "CVBASIC_BANK_SWITCHING:\tequ %d\n", bank_switching);
     fprintf(output, "CVBASIC_BANK_ROM_SIZE:\tequ %d\n", bank_rom_size);
+    fprintf(output, "COLECO_SPINNER:\tequ %d\n", spinner_used);
     fprintf(output, "\n");
     fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].base_ram - extra_ram);
     fprintf(output, "RAM_SIZE:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].memory_size + extra_ram);

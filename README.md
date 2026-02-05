@@ -1,4 +1,4 @@
-# CVBasic compiler v0.9.0
+# CVBasic compiler v0.9.1
 *(c) Copyright 2024-2025 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 

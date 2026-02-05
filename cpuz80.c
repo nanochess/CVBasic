@@ -393,6 +393,8 @@ void cpuz80_node_label(struct node *node)
         case N_JOY2:    /* Read joystick 2 */
         case N_KEY1:    /* Read keypad 1 */
         case N_KEY2:    /* Read keypad 2 */
+        case N_SPINNER1:    /* Read spinner 1 */
+        case N_SPINNER2:    /* Read spinner 2 */
         case N_MUSIC:   /* Read music playing status */
         case N_NTSC:    /* Read NTSC flag */
         case N_VDPSTATUS:   /* Read VDP status */
@@ -916,6 +918,24 @@ void cpuz80_node_generate(struct node *node, int decision)
             break;
         case N_KEY2:    /* Read keypad 2 */
             cpuz80_2op("LD", "A", "(key2_data)");
+            break;
+        case N_SPINNER1:    /* Read spinner 1 */
+            cpuz80_noop("DI");
+            cpuz80_2op("LD", "A", "(spinner_data+1)");
+            cpuz80_1op("PUSH", "AF");
+            cpuz80_1op("XOR", "A");
+            cpuz80_2op("LD", "(spinner_data+1)", "A");
+            cpuz80_1op("POP", "AF");
+            cpuz80_noop("EI");
+            break;
+        case N_SPINNER2:    /* Read spinner 2 */
+            cpuz80_noop("DI");
+            cpuz80_2op("LD", "A", "(spinner_data+2)");
+            cpuz80_1op("PUSH", "AF");
+            cpuz80_1op("XOR", "A");
+            cpuz80_2op("LD", "(spinner_data+2)", "A");
+            cpuz80_1op("POP", "AF");
+            cpuz80_noop("EI");
             break;
         case N_RANDOM:  /* Read pseudorandom generator */
             cpuz80_1op("CALL", "random");

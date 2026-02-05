@@ -20,6 +20,8 @@
 	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
 	; Revision date: Nov/12/2024. Added vdp_status.
 	; Revision date: Feb/03/2025. Round final ROM size to 8K multiples.
+	; Revision date: Feb/05/2026. Added support for spinners and roller controller
+	;                             (Colecovision).
 	;
 
 rom_end:
@@ -86,6 +88,12 @@ ntsc:
 	rb 1
 vdp_status:
 	rb 1
+    if COLECO
+      if COLECO_SPINNER
+spinner_data:
+        rb 3
+      endif
+    endif
     if NABU
 nabu_data0: rb 1
 nabu_data1: rb 1
