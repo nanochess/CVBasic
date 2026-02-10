@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Nov/28/2025
+Last revision: Feb/09/2026
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,7 +22,9 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.1 Feb/05/2026  o Added note about support of Blue and Purple buttons
+v0.9.2 Feb/09/2026  o Added support for MSX2 using --msx2
+                    o MSX2: It supports the PALETTE statement.
+                    o Added note about support of Blue and Purple buttons
                       (Super Action Controllers for Colecovision)
                     o Added support for spinners and roller controller
                       using CONT1.SPINNER and CONT2.SPINNER (Colecovision)
@@ -894,6 +896,15 @@ The following statements are available:
   PALETTE register, color
   PALETTE LOAD array_data_byte
   PALETTE LOAD VARPTR array_data_byte(0)
+
+     For MSX2:
+
+     Sets a single palette register (0-15) to the color. Color bits are
+     specified in a word as 0000 0GGG 0RRR 0BBB (three bits each for
+     red, green, and blue)
+
+     Alternatively, you can load a full 16 entries palette using PALETTE LOAD.
+     The array should be specified with DATA.
 
      For the Sega Master System:
 

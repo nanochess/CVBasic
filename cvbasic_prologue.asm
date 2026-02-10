@@ -41,6 +41,7 @@
 	; Revision date: Nov/12/2024. Saves the VDP status.
 	; Revision date: Feb/05/2026. Added support for spinners and roller controller
 	;                             (Colecovision).
+	; Revision date: Feb/09/2026. Added support for palette in MSX2.
 	;
 
 JOYSEL:	equ $c0
@@ -1218,6 +1219,20 @@ font_bitmaps:
         db $c0,$20,$20,$10,$20,$20,$c0,$00      ; $7d } 
         db $00,$00,$40,$a8,$10,$00,$00,$00      ; $7e
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
+    endif
+
+    if MSX&2
+palette_load:
+	push hl
+	di
+	ld bc,$0010
+	call WRTVDP
+	pop hl
+	ld bc,32*256+VDP+2
+	outi
+	jp nz,$-2
+	ei
+	ret
     endif
 
     if SMS

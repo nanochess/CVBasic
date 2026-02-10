@@ -34,6 +34,7 @@ enum supported_machine {
     NABU,
     SMS,
     NES,
+    MSX2,
     TOTAL_TARGETS
 };
 

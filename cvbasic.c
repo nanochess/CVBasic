@@ -33,7 +33,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.1 Feb/05/2026"
+#define VERSION "v0.9.2 Feb/09/2026"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -105,6 +105,9 @@ struct console consoles[TOTAL_TARGETS] = {
     {"nes",     "",         "NES/Famicom (2K RAM)",
         "NES/Famicom",
         0x0050, 0x01ff, 0x0800,  0,      0,    0,    1, CPU_6502},
+    {"msx2",    "-ram16",   "MSX2 (8K RAM), use -ram16 for 16K of RAM,\n        use -konami for Konami mapper instead of ASCII16",
+        "MSX2",
+        0xe000, 0xf380, 0x1380,  0x98,   0x98, 0,    1, CPU_Z80},
 };
 
 static int err_code;
@@ -437,7 +440,7 @@ void bank_finish(void)
         }
         fprintf(output, "\tDB $%02x\n", bank_current);
         fprintf(output, "\tTIMES $40 DB $ff\n");
-    } else if (machine == MSX) {
+    } else if (machine == MSX || machine == MSX2) {
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $7fff-$\n");
             fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
@@ -4929,13 +4932,13 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("STY", "scroll_y+1");
                     }
                 }
-            } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System / NES */
+            } else if (strcmp(name, "PALETTE") == 0) {  /* Sega Master System / NES / MSX2 */
                 int type;
                 struct node *source;
                 
                 get_lex();
-                if (machine != SMS && machine != NES)
-                    emit_error("PALETTE is only available on Sega Master System and NES/Famicom");
+                if (machine != SMS && machine != NES && machine != MSX2)
+                    emit_error("PALETTE is only available on SMS/NES/Famicom/MSX2");
                 if (lex == C_NAME && strcmp(name, "LOAD") == 0) {
                     get_lex();
                     if (lex != C_NAME) {
@@ -4945,7 +4948,7 @@ void compile_statement(int check_for_else)
                         node_generate(source, 0);
                         node_delete(source);
                     } else {
-                        if (machine == SMS) {
+                        if (machine == SMS || machine == MSX2) {
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
                             cpuz80_2op("LD", "HL", temp);
@@ -4980,12 +4983,17 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("STA", "PPUBUF,X");
                         cpu6502_1op("LDA", "#$7f");
                         cpu6502_1op("STA", "PPUBUF+1,X");
+                    } else if (machine == MSX2) {
+                        generic_interrupt_disable();
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "$10");
+                        cpuz80_1op("CALL", "WRTVDP");
                     }
                     if (lex != C_COMMA)
                         emit_error("missing comma in PALETTE");
                     else
                         get_lex();
-                    type = evaluate_expression(1, TYPE_8, 0);
+                    type = evaluate_expression(1, (machine == MSX2 ? TYPE_16 : TYPE_8), 0);
                     if (machine == SMS) {
                         cpuz80_2op("OUT", "(VDP)", "A");
                         generic_interrupt_enable();
@@ -4996,6 +5004,12 @@ void compile_statement(int check_for_else)
                         cpu6502_noop("INX");
                         cpu6502_noop("INX");
                         cpu6502_1op("STX", "ppu_pointer");
+                    } else if (machine == MSX2) {
+                        cpuz80_2op("LD", "A", "L");
+                        cpuz80_2op("OUT", "(VDP+2)", "A");
+                        cpuz80_2op("LD", "A", "H");
+                        cpuz80_2op("OUT", "(VDP+2)", "A");
+                        generic_interrupt_enable();
                     }
                 }
             } else if (strcmp(name, "NAMETABLE") == 0) {    /* Select nametable arrangement */
@@ -5560,9 +5574,9 @@ void compile_statement(int check_for_else)
                 } else {
                     if (value < 10 && machine == NES) {
                         emit_warning("using SOUND 0-9 with NES/Famicom target");
-                    } else if (value >= 0 && value <= 4 && (machine == MSX || machine == SVI || machine == EINSTEIN || machine == NABU)) {
+                    } else if (value >= 0 && value <= 4 && (machine == MSX || machine == MSX2 || machine == SVI || machine == EINSTEIN || machine == NABU)) {
                         emit_warning("using SOUND 0-3 with AY-3-8910 target");
-                    } else if (value >= 5 && value <= 9 && machine != MSX && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH && machine != NABU) {
+                    } else if (value >= 5 && value <= 9 && machine != MSX && machine != MSX2 && machine != COLECOVISION_SGM && machine != SVI && machine != SORD && machine != MEMOTECH && machine != NABU) {
                         emit_warning("using SOUND 5-9 with SN76489 target");
                     }
                     switch (value) {
@@ -5839,7 +5853,7 @@ void compile_statement(int check_for_else)
                                     if (machine == EINSTEIN || machine == NABU) {
                                         cpuz80_1op("OR", "$40");
                                     } else {
-                                        /* Protect these MSX machines! */
+                                        /* Protect these MSX1/MSX2 machines! */
                                         cpuz80_1op("OR", "$80");
                                     }
                                     cpuz80_2op("LD", "B", "$07");
@@ -6075,7 +6089,7 @@ void compile_statement(int check_for_else)
                                 sprintf(temp, "%d", c);
                                 cpuz80_2op("LD", "A", temp);
                                 cpuz80_2op("LD", "($fffe)", "A");
-                            } else if (machine == MSX) {
+                            } else if (machine == MSX || machine == MSX2) {
                                 if (bank_konami) {
                                     sprintf(temp, "%d", c * 2);
                                     cpuz80_noop("DI");
@@ -6168,7 +6182,7 @@ void compile_statement(int check_for_else)
                             if (machine == SG1000 || machine == SMS) {
                                 cpuz80_1op("FORG", temp);
                                 cpuz80_1op("ORG", "$4000");
-                            } else if (machine == MSX) {
+                            } else if (machine == MSX || machine == MSX2) {
                                 cpuz80_1op("FORG", temp);
                                 cpuz80_1op("ORG", "$8000");
                             } else if (machine == NES) {
@@ -6642,10 +6656,10 @@ int main(int argc, char *argv[])
         tolower(argv[c][3] == 'm') && argv[c][4] == '1' && argv[c][5] == '6' &&
         argv[c][6] == '\0') {
         c++;
-        if (machine == MSX) {
+        if (machine == MSX || machine == MSX2) {
             extra_ram = 8192;
         } else {
-            fprintf(stderr, "-ram16 option only applies to MSX.\n");
+            fprintf(stderr, "-ram16 option only applies to MSX/MSX2.\n");
             exit(2);
         }
     }
@@ -6654,10 +6668,10 @@ int main(int argc, char *argv[])
         tolower(argv[c][3] == 'n') && tolower(argv[c][4]) == 'a' && tolower(argv[c][5]) == 'm' && tolower(argv[c][6]) == 'i' &&
         argv[c][7] == '\0') {
         c++;
-        if (machine == MSX) {
+        if (machine == MSX || machine == MSX2) {
             bank_konami = 1;
         } else {
-            fprintf(stderr, "-konami option only applies to MSX.\n");
+            fprintf(stderr, "-konami option only applies to MSX/MSX2.\n");
             exit(2);
         }
     }
@@ -6815,8 +6829,14 @@ int main(int argc, char *argv[])
     fprintf(output, "COLECO:\tequ %d\n",
             (machine == COLECOVISION || machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SG1000:\tequ %d\n", (machine == SG1000) ? 1 : 0);
-    fprintf(output, "MSX:\tequ %d\n", (machine == MSX) ? 1 : 0);
     if (machine == MSX)
+        c = 1;
+    else if (machine == MSX2)
+        c = 2;
+    else
+        c = 0;
+    fprintf(output, "MSX:\tequ %d\n", c);
+    if (c)
         fprintf(output, "KONAMI:\tequ %d\n", bank_konami);
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
