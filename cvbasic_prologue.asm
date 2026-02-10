@@ -42,6 +42,7 @@
 	; Revision date: Feb/05/2026. Added support for spinners and roller controller
 	;                             (Colecovision).
 	; Revision date: Feb/09/2026. Added support for palette in MSX2.
+	; Revision date: Feb/10/2026. Added support for sprites in MSX2.
 	;
 
 JOYSEL:	equ $c0
@@ -1233,6 +1234,72 @@ palette_load:
 	jp nz,$-2
 	ei
 	ret
+
+define_sprite_color:
+	ex de,hl
+	ld l,a
+	ld h,0
+	add hl,hl	; x2
+	add hl,hl	; x4
+	add hl,hl	; x8
+	add hl,hl	; x16
+	ld c,l
+	ld b,h
+	pop af
+	pop hl
+	push af
+	add hl,hl	; x2
+	add hl,hl	; x4
+	add hl,hl	; x8
+	ld h,$0e
+	add hl,hl	; x16
+	ex de,hl
+	call nmi_off
+	call LDIRVM
+	jp nmi_on
+
+update_sprite2:
+	pop bc
+	ld (sprite_data+2),a
+	pop af
+	ld (sprite_data+1),a
+	pop af
+	ld (sprite_data),a
+	pop af
+	; A = Sprite number
+	push bc
+	ld de,sprites
+	add a,a
+	add a,a
+	ld e,a
+	ld hl,sprite_data
+	ld bc,3
+	ldir
+	ret
+
+mode_4:
+	ld hl,mode
+	res 3,(hl)
+	set 4,(hl)
+	ld bc,$0400	; Normal mode but with enhanced sprites enabled.
+	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
+	call vdp_generic_mode
+	ld bc,$3c05	; $1e00 for sprite attribute table...
+	call WRTVDP	; ...so sprite colors appear at $1c00-$1dff.
+	ld hl,($0004)   
+	inc h
+	ld de,$0100
+	ld bc,$0300
+	call LDIRVM3
+	call nmi_on
+	call nmi_off
+	ld hl,$2000
+	ld bc,$1800
+	ld a,$f0
+	call FILVRM
+	call nmi_on
+	call cls
+	jp vdp_generic_sprites
     endif
 
     if SMS
@@ -1333,6 +1400,7 @@ vdp_generic_mode:
 mode_0:
 	ld hl,mode
 	res 3,(hl)
+	res 4,(hl)
 	ld bc,$0200
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1365,7 +1433,11 @@ mode_0:
 	call cls
 vdp_generic_sprites:
 	call nmi_off
+	ld a,(mode)
+	bit 4,a
 	ld hl,$1b00
+	jr z,$+4
+	ld h,$1e
 	ld bc,$0080
 	ld a,$d1
 	call FILVRM
@@ -1380,6 +1452,7 @@ vdp_generic_sprites:
 mode_1:
 	ld hl,mode
 	res 3,(hl)
+	res 4,(hl)
 	ld bc,$0200
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1410,6 +1483,7 @@ mode_1:
 mode_2:
 	ld hl,mode
 	set 3,(hl)
+	res 4,(hl)
 	ld bc,$0000
 	ld de,$8000	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1581,8 +1655,11 @@ nmi_handler:
 	ld bc,$8000+VDP
 	bit 2,(hl)
 	jr z,.4
-
+	bit 4,(hl)
 	ld hl,$1b00
+	jr z,$+4
+.10:
+	ld h,$1e
 	call SETWRT
 	ld hl,sprites
 .7:
@@ -1602,7 +1679,9 @@ nmi_handler:
 	jr .5
 
 .4:
+	bit 4,(hl)
 	ld hl,$1b00
+	jr nz,.10	; No flicker sprites in MSX2 mode.
 	call SETWRT
 	ld a,(flicker)
 	add a,$04

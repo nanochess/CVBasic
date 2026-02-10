@@ -73,7 +73,11 @@ cursor:
 lfsr:
 	rb 2
 mode:
-	rb 1
+	rb 1	; bit 0: NMI disabled.
+		; bit 1: NMI received.
+		; bit 2: No sprite flicker.
+		; bit 3: Single charset mode.
+		; bit 4: MSX2 sprites.
 flicker:
 	rb 1
 joy1_data:

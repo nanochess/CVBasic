@@ -12,6 +12,11 @@
 	' 0 0 0 0  0 g g g  0 r r r  0 b b b
 	'
 
+	MODE 4
+
+	DEFINE SPRITE 0, 1, happy_face
+	DEFINE SPRITE COLOR 0,1,sprite_color
+
 	PRINT AT 33,"Hello world!"
 
 	PALETTE LOAD main_palette
@@ -43,6 +48,8 @@
 	NEXT #c
 
 main_loop:
+	SPRITE 0, $60, $40, 0
+
 	FOR #c = $0010 TO $0070 STEP $0010
 		WAIT
 		WAIT
@@ -76,7 +83,29 @@ main_palette:
 	DATA $0345
 	DATA $0456
 	DATA $0567
+	DATA $0374
 	DATA $0777
 	DATA $0777
 	DATA $0777
-	DATA $0777
+
+happy_face:
+	BITMAP "......XXXX......"
+	BITMAP "....XXXXXXXX...."
+	BITMAP "...XXXXXXXXXX..."
+	BITMAP "..XXXXXXXXXXXX.."
+	BITMAP ".XXXXXXXXXXXXXX."
+	BITMAP ".XXXXXXXXXXXXXX."
+	BITMAP "XXXX..XXXX..XXXX"
+	BITMAP "XXXX..XXXX..XXXX"
+	BITMAP "XXXXXXXXXXXXXXXX"
+	BITMAP "XXXXXXXXXXXXXXXX"
+	BITMAP ".XXXXXXXXXXXXXX."
+	BITMAP ".XXX..XXXX..XXX."
+	BITMAP "..XXX......XXX.."
+	BITMAP "...XXX....XXX..."
+	BITMAP "....XXXXXXXX...."
+	BITMAP "......XXXX......"
+
+sprite_color:
+	DATA BYTE $0B,$0B,$0A,$0A,$09,$09,$08,$08
+	DATA BYTE $07,$07,$06,$06,$05,$05,$04,$04

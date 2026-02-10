@@ -4120,88 +4120,13 @@ void compile_statement(int check_for_else)
                     emit_error("syntax error in DEFINE");
                 } else if (strcmp(name, "SPRITE") == 0) {
                     get_lex();
-                    if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
-                        pletter = 1;
-                        get_lex();
-                    }
-                    if (pletter) {
-                        type = evaluate_expression(1, TYPE_16, 0);
-                        if (target == CPU_6502) {
-                            cpu6502_1op("ASL", "A");
-                            cpu6502_1op("ASL", "A");
-                            cpu6502_1op("LDY", "#7");
-                            cpu6502_1op("STY", "pointer+1");
-                            cpu6502_1op("ASL", "A");
-                            cpu6502_1op("ROL", "pointer+1");
-                            cpu6502_1op("ASL", "A");
-                            cpu6502_1op("ROL", "pointer+1");
-                            cpu6502_1op("ASL", "A");
-                            cpu6502_1op("ROL", "pointer+1");
-                            cpu6502_1op("STA", "pointer");
-                        } else if (target == CPU_9900) {
-                            cpu9900_2op("mov","r0","r4");
-                            cpu9900_2op("sla","r4","5");
-                            cpu9900_2op("ai","r4",">3800");
-                        } else {
-                            cpuz80_2op("ADD", "HL", "HL");
-                            cpuz80_2op("ADD", "HL", "HL");
-                            if (machine == SMS)
-                                cpuz80_2op("SET", "1", "H");
-                            else
-                                cpuz80_2op("LD", "H", "$07");
-                            cpuz80_2op("ADD", "HL", "HL");
-                            cpuz80_2op("ADD", "HL", "HL");
-                            cpuz80_2op("ADD", "HL", "HL");
-                            if (machine == SMS)
-                                cpuz80_2op("ADD", "HL", "HL");
-                            cpuz80_2op("EX", "DE", "HL");
-                        }
-                        if (lex == C_COMMA)
-                            get_lex();
-                        else
-                            emit_error("missing comma in DEFINE");
-                        type = evaluate_expression(2, TYPE_8, 0);
-                        if (lex == C_COMMA)
-                            get_lex();
-                        else
-                            emit_error("missing comma in DEFINE");
-                        if (lex != C_NAME) {
-                            emit_error("missing label in DEFINE");
-                        } else {
-                            if (target == CPU_6502) {
-                                strcpy(temp, "#" LABEL_PREFIX);
-                                strcat(temp, name);
-                                cpu6502_1op("LDA", temp);
-                                strcat(temp, ">>8");
-                                cpu6502_1op("LDY", temp);
-                                cpu6502_1op("STA", "temp");
-                                cpu6502_1op("STY", "temp+1");
-                            } else if (target == CPU_9900) {
-                                strcpy(temp, LABEL_PREFIX);
-                                strcat(temp, name);
-                                cpu9900_2op("li", "r2", temp);
-                                cpu9900_2op("mov","r4","r1");
-                            } else {
-                                strcpy(temp, LABEL_PREFIX);
-                                strcat(temp, name);
-                                cpuz80_2op("LD", "HL", temp);
-                            }
-                            get_lex();
-                        }
-                        generic_call("unpack");
-                        compression_used = 1;
-                    } else {
+                    if (lex == C_NAME && strcmp(name, "COLOR") == 0 && machine == MSX2) {
                         struct node *length;
                         struct node *source = NULL;
                         
-                        type = evaluate_expression(1, TYPE_16, 0);  /* char number */
-                        if (target == CPU_6502) {
-                            cpu6502_1op("STA", "pointer");
-                        } else if (target == CPU_9900) {
-                            cpu9900_2op("mov","r0","r4");
-                        } else {
-                            cpuz80_1op("PUSH", "HL");
-                        }
+                        get_lex();
+                        type = evaluate_expression(1, TYPE_16, 0);  /* sprite number */
+                        cpuz80_1op("PUSH", "HL");
                         if (lex == C_COMMA)
                             get_lex();
                         else
@@ -4216,49 +4141,162 @@ void compile_statement(int check_for_else)
                         } else if (strcmp(name, "VARPTR") == 0) {
                             source = evaluate_save_expression(1, TYPE_16);  /* CPU address (variable) */
                             node_generate(length, 0);
-                            if (target == CPU_6502) {
-                                cpu6502_noop("PHA");
-                                node_generate(source, 0);
-                                cpu6502_1op("STA", "temp");
-                                cpu6502_1op("STY", "temp+1");
-                                cpu6502_noop("PLA");
-                            } else if (target == CPU_9900) {
-                                cpu9900_2op("mov","r0","r5");
-                                node_generate(source, 0);
-                            } else {
-                                if ((source->regs & REG_A) != 0)
-                                    cpuz80_1op("PUSH", "AF");
-                                node_generate(source, 0);
-                                if ((source->regs & REG_A) != 0)
-                                    cpuz80_1op("POP", "AF");
-                            }
+                            if ((source->regs & REG_A) != 0)
+                                cpuz80_1op("PUSH", "AF");
+                            node_generate(source, 0);
+                            if ((source->regs & REG_A) != 0)
+                                cpuz80_1op("POP", "AF");
                         } else {
                             node_generate(length, 0);   /* CPU address (immediate) */
-                            if (target == CPU_6502) {
-                                cpu6502_noop("PHA");
-                                strcpy(temp, "#" LABEL_PREFIX);
-                                strcat(temp, name);
-                                cpu6502_1op("LDA", temp);
-                                cpu6502_1op("STA", "temp");
-                                strcat(temp, ">>8");
-                                cpu6502_1op("LDA", temp);
-                                cpu6502_1op("STA", "temp+1");
-                                cpu6502_noop("PLA");
-                            } else if (target == CPU_9900) {
-                                cpu9900_2op("mov","r0","r5");
-                                strcpy(temp, LABEL_PREFIX);
-                                strcat(temp, name);
-                                cpu9900_2op("li","r0",temp);
-                            } else {
-                                strcpy(temp, LABEL_PREFIX);
-                                strcat(temp, name);
-                                cpuz80_2op("LD", "HL", temp);
-                            }
+                            strcpy(temp, LABEL_PREFIX);
+                            strcat(temp, name);
+                            cpuz80_2op("LD", "HL", temp);
                             get_lex();
                         }
-                        generic_call("define_sprite");
+                        generic_call("define_sprite_color");
                         node_delete(length);
                         node_delete(source);
+                    } else {
+                        if (lex == C_NAME && strcmp(name, "PLETTER") == 0) {
+                            pletter = 1;
+                            get_lex();
+                        }
+                        if (pletter) {
+                            type = evaluate_expression(1, TYPE_16, 0);
+                            if (target == CPU_6502) {
+                                cpu6502_1op("ASL", "A");
+                                cpu6502_1op("ASL", "A");
+                                cpu6502_1op("LDY", "#7");
+                                cpu6502_1op("STY", "pointer+1");
+                                cpu6502_1op("ASL", "A");
+                                cpu6502_1op("ROL", "pointer+1");
+                                cpu6502_1op("ASL", "A");
+                                cpu6502_1op("ROL", "pointer+1");
+                                cpu6502_1op("ASL", "A");
+                                cpu6502_1op("ROL", "pointer+1");
+                                cpu6502_1op("STA", "pointer");
+                            } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r4");
+                                cpu9900_2op("sla","r4","5");
+                                cpu9900_2op("ai","r4",">3800");
+                            } else {
+                                cpuz80_2op("ADD", "HL", "HL");
+                                cpuz80_2op("ADD", "HL", "HL");
+                                if (machine == SMS)
+                                    cpuz80_2op("SET", "1", "H");
+                                else
+                                    cpuz80_2op("LD", "H", "$07");
+                                cpuz80_2op("ADD", "HL", "HL");
+                                cpuz80_2op("ADD", "HL", "HL");
+                                cpuz80_2op("ADD", "HL", "HL");
+                                if (machine == SMS)
+                                    cpuz80_2op("ADD", "HL", "HL");
+                                cpuz80_2op("EX", "DE", "HL");
+                            }
+                            if (lex == C_COMMA)
+                                get_lex();
+                            else
+                                emit_error("missing comma in DEFINE");
+                            type = evaluate_expression(2, TYPE_8, 0);
+                            if (lex == C_COMMA)
+                                get_lex();
+                            else
+                                emit_error("missing comma in DEFINE");
+                            if (lex != C_NAME) {
+                                emit_error("missing label in DEFINE");
+                            } else {
+                                if (target == CPU_6502) {
+                                    strcpy(temp, "#" LABEL_PREFIX);
+                                    strcat(temp, name);
+                                    cpu6502_1op("LDA", temp);
+                                    strcat(temp, ">>8");
+                                    cpu6502_1op("LDY", temp);
+                                    cpu6502_1op("STA", "temp");
+                                    cpu6502_1op("STY", "temp+1");
+                                } else if (target == CPU_9900) {
+                                    strcpy(temp, LABEL_PREFIX);
+                                    strcat(temp, name);
+                                    cpu9900_2op("li", "r2", temp);
+                                    cpu9900_2op("mov","r4","r1");
+                                } else {
+                                    strcpy(temp, LABEL_PREFIX);
+                                    strcat(temp, name);
+                                    cpuz80_2op("LD", "HL", temp);
+                                }
+                                get_lex();
+                            }
+                            generic_call("unpack");
+                            compression_used = 1;
+                        } else {
+                            struct node *length;
+                            struct node *source = NULL;
+                            
+                            type = evaluate_expression(1, TYPE_16, 0);  /* sprite number */
+                            if (target == CPU_6502) {
+                                cpu6502_1op("STA", "pointer");
+                            } else if (target == CPU_9900) {
+                                cpu9900_2op("mov","r0","r4");
+                            } else {
+                                cpuz80_1op("PUSH", "HL");
+                            }
+                            if (lex == C_COMMA)
+                                get_lex();
+                            else
+                                emit_error("missing comma in DEFINE");
+                            length = evaluate_save_expression(1, TYPE_8);   /* count */
+                            if (lex == C_COMMA)
+                                get_lex();
+                            else
+                                emit_error("missing comma in DEFINE");
+                            if (lex != C_NAME) {
+                                emit_error("missing label in DEFINE");
+                            } else if (strcmp(name, "VARPTR") == 0) {
+                                source = evaluate_save_expression(1, TYPE_16);  /* CPU address (variable) */
+                                node_generate(length, 0);
+                                if (target == CPU_6502) {
+                                    cpu6502_noop("PHA");
+                                    node_generate(source, 0);
+                                    cpu6502_1op("STA", "temp");
+                                    cpu6502_1op("STY", "temp+1");
+                                    cpu6502_noop("PLA");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("mov","r0","r5");
+                                    node_generate(source, 0);
+                                } else {
+                                    if ((source->regs & REG_A) != 0)
+                                        cpuz80_1op("PUSH", "AF");
+                                    node_generate(source, 0);
+                                    if ((source->regs & REG_A) != 0)
+                                        cpuz80_1op("POP", "AF");
+                                }
+                            } else {
+                                node_generate(length, 0);   /* CPU address (immediate) */
+                                if (target == CPU_6502) {
+                                    cpu6502_noop("PHA");
+                                    strcpy(temp, "#" LABEL_PREFIX);
+                                    strcat(temp, name);
+                                    cpu6502_1op("LDA", temp);
+                                    cpu6502_1op("STA", "temp");
+                                    strcat(temp, ">>8");
+                                    cpu6502_1op("LDA", temp);
+                                    cpu6502_1op("STA", "temp+1");
+                                    cpu6502_noop("PLA");
+                                } else if (target == CPU_9900) {
+                                    cpu9900_2op("mov","r0","r5");
+                                    strcpy(temp, LABEL_PREFIX);
+                                    strcat(temp, name);
+                                    cpu9900_2op("li","r0",temp);
+                                } else {
+                                    strcpy(temp, LABEL_PREFIX);
+                                    strcat(temp, name);
+                                    cpuz80_2op("LD", "HL", temp);
+                                }
+                                get_lex();
+                            }
+                            generic_call("define_sprite");
+                            node_delete(length);
+                            node_delete(source);
+                        }
                     }
                 } else if (strcmp(name, "CHAR") == 0 || strcmp(name, "COLOR") == 0) {
                     int color;
@@ -4564,39 +4602,44 @@ void compile_statement(int check_for_else)
                             cpu6502_1op("STA", "sprite_data+3");
                         else
                             cpu6502_1op("STA", "sprite_data+1");
-                    } else if (target == CPU_9900)
+                    } else if (target == CPU_9900) {
                         cpu9900_2op("movb","r0","r6");
-                    else
+                    } else {
                         cpuz80_1op("PUSH", "AF");
+                    }
                     if (lex == C_COMMA)
                         get_lex();
                     else
                         emit_error("missing comma in SPRITE");
                     type = evaluate_expression(1, TYPE_8, 0);
-                    if (machine != SMS) {
-                        if (target == CPU_6502) {
-                            if (machine == NES)
-                                cpu6502_1op("STA", "sprite_data+1");
+                    if (machine == MSX2 && lex != C_COMMA) {
+                        generic_call("update_sprite2");
+                    } else {
+                        if (machine != SMS) {
+                            if (target == CPU_6502) {
+                                if (machine == NES)
+                                    cpu6502_1op("STA", "sprite_data+1");
+                                else
+                                    cpu6502_1op("STA", "sprite_data+2");
+                            } else if (target == CPU_9900)
+                                cpu9900_2op("movb","r0","r7");
                             else
-                                cpu6502_1op("STA", "sprite_data+2");
-                        } else if (target == CPU_9900)
-                            cpu9900_2op("movb","r0","r7");
-                        else
-                            cpuz80_1op("PUSH", "AF");
-                        if (lex == C_COMMA)
-                            get_lex();
-                        else
-                            emit_error("missing comma in SPRITE");
-                        type = evaluate_expression(1, TYPE_8, 0);
-                        if (target == CPU_6502) {
-                            if (machine == NES)
-                                cpu6502_1op("STA", "sprite_data+2");
+                                cpuz80_1op("PUSH", "AF");
+                            if (lex == C_COMMA)
+                                get_lex();
                             else
-                                cpu6502_1op("STA", "sprite_data+3");
-                            cpu6502_noop("PLA");
+                                emit_error("missing comma in SPRITE");
+                            type = evaluate_expression(1, TYPE_8, 0);
+                            if (target == CPU_6502) {
+                                if (machine == NES)
+                                    cpu6502_1op("STA", "sprite_data+2");
+                                else
+                                    cpu6502_1op("STA", "sprite_data+3");
+                                cpu6502_noop("PLA");
+                            }
                         }
+                        generic_call("update_sprite");
                     }
-                    generic_call("update_sprite");
                 }
             } else if (strcmp(name, "BITMAP") == 0) {
                 generic_dump();
@@ -5116,22 +5159,22 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (value == 0) {
                     if (machine == SMS)
-                        emit_error("Use SG1000 if you want to use MODE 0");
+                        emit_warning("MODE 0 isn't upward compatible with Sega Genesis/Mega Drive");
                     generic_call("mode_0");
                 }
                 if (value == 1) {
                     if (machine == SMS)
-                        emit_error("Use SG1000 if you want to use MODE 1");
+                        emit_warning("MODE 1 isn't upward compatible with Sega Genesis/Mega Drive");
                     generic_call("mode_1");
                 }
                 if (value == 2) {
                     if (machine == SMS)
-                        emit_error("Use SG1000 if you want to use MODE 2");
+                        emit_warning("MODE 2 isn't upward compatible with Sega Genesis/Mega Drive");
                     generic_call("mode_2");
                 }
                 if (value == 4) {
-                    if (machine != SMS)
-                        emit_error("MODE 4 only supported for Sega Master System");
+                    if (machine != SMS && machine != MSX2)
+                        emit_error("MODE 4 not supported by this platform");
                     generic_call("mode_4");
                 }
             } else if (strcmp(name, "SCREEN") == 0) {  /* Copy screen */
