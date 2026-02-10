@@ -42,7 +42,8 @@
 	; Revision date: Feb/05/2026. Added support for spinners and roller controller
 	;                             (Colecovision).
 	; Revision date: Feb/09/2026. Added support for palette in MSX2.
-	; Revision date: Feb/10/2026. Added support for sprites in MSX2.
+	; Revision date: Feb/10/2026. Added support for sprites in MSX2 and 64K VRAM
+	;                             access.
 	;
 
 JOYSEL:	equ $c0
@@ -383,6 +384,18 @@ SETWRT:
       if COLECO_SPINNER
 	di
       endif
+    if MSX&2
+	xor a
+	rlc h
+	rla
+	rlc h
+	rla
+	srl h
+	srl h
+	out (VDP+1),a
+	ld a,$8e
+	out (VDP+1),a
+    endif
 	ld a,l
 	out (VDP+1),a
 	ld a,h
@@ -397,6 +410,18 @@ SETRD:
       if COLECO_SPINNER
 	di
       endif
+    if MSX&2
+	xor a
+	rlc h
+	rla
+	rlc h
+	rla
+	srl h
+	srl h
+	out (VDP+1),a
+	ld a,$8e
+	out (VDP+1),a
+    endif
 	ld a,l
 	out (VDP+1),a
 	ld a,h
@@ -1251,7 +1276,7 @@ define_sprite_color:
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
-	ld h,$0e
+	ld h,$40/2
 	add hl,hl	; x16
 	ex de,hl
 	call nmi_off
@@ -1284,8 +1309,10 @@ mode_4:
 	ld bc,$0400	; Normal mode but with enhanced sprites enabled.
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
-	ld bc,$3c05	; $1e00 for sprite attribute table...
-	call WRTVDP	; ...so sprite colors appear at $1c00-$1dff.
+	ld bc,$8405	; $4200 for sprite attribute table...
+	call WRTVDP	; ...so sprite colors appear at $4000-$41ff.
+	ld bc,$000b
+	call WRTVDP
 	ld hl,($0004)   
 	inc h
 	ld de,$0100
@@ -1436,15 +1463,16 @@ vdp_generic_sprites:
 	ld a,(mode)
 	bit 4,a
 	ld hl,$1b00
-	jr z,$+4
-	ld h,$1e
-	ld bc,$0080
 	ld a,$d1
+	jr z,$+6
+	ld h,$42
+	ld a,$e0
+	ld bc,$0080
 	call FILVRM
 	ld hl,sprites
 	ld de,sprites+1
 	ld bc,127
-	ld (hl),$d1
+	ld (hl),a
 	ldir
 	call nmi_on
 	jp ENASCR
@@ -1659,7 +1687,7 @@ nmi_handler:
 	ld hl,$1b00
 	jr z,$+4
 .10:
-	ld h,$1e
+	ld h,$42
 	call SETWRT
 	ld hl,sprites
 .7:
