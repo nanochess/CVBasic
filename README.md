@@ -9,7 +9,7 @@ The CVBasic compiler can create programs up to 1 MB using the BANK statements (u
 It has been extended to support the following platforms:
 
 * Sega SG-1000 / SC-3000  (supporting bank switching with Sega mapper)
-* MSX 1 (supporting bank switching with ASCII16 mapper)
+* MSX 1 and MSX 2 (supporting bank switching with ASCII16 mapper)
 * Texas Instruments TI-99/4A (courtesy of @tursilion, supporting bank switching)
 * Spectravideo SVI-318 / 328.
 * Sord M5.
@@ -79,6 +79,7 @@ The following files compose the compiler:
     examples/oscar.bas          High-resolution graphics example.
     examples/oscar_nes.bas      High-resolution graphics example (NES/Famicom)
     examples/oscar_sms.bas      High-resolution graphics example (Sega Master System)
+    examples/palette_msx2.bas   Example of palette support in MSX2
     examples/portrait.bas       Data used by demo.bas
     examples/portrait_sms.bas   Data used by demo_sms.bas
     examples/space_attack.bas   Game example.
@@ -123,6 +124,19 @@ Using CVBasic to compile a MSX program for 8K RAM (wider compatibility) and 16K 
     gasm80 game.asm -o game.rom
 
     cvbasic --msx -ram16 -konami game.bas game.asm
+    gasm80 game.asm -o game.rom
+    
+For bank-switched programs the default mapper is ASCII16, but you have the option of using a standard Konami 8K mapper using the -konami switch.
+
+Using CVBasic to compile a MSX2 program for 8K RAM (wider compatibility) and 16K RAM:
+
+    cvbasic --msx2 game.bas game.asm
+    gasm80 game.asm -o game.rom
+
+    cvbasic --msx2 -ram16 game.bas game.asm
+    gasm80 game.asm -o game.rom
+
+    cvbasic --msx2 -ram16 -konami game.bas game.asm
     gasm80 game.asm -o game.rom
     
 For bank-switched programs the default mapper is ASCII16, but you have the option of using a standard Konami 8K mapper using the -konami switch.
