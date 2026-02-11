@@ -1,4 +1,4 @@
-# CVBasic compiler v0.9.1
+# CVBasic compiler v0.9.2
 *(c) Copyright 2024-2025 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -95,6 +95,7 @@ The following files compose the compiler:
     examples/vgm.bas            VGM audio player for SN76489.
     examples/vgm_ay.bas         VGM audio player for AY-3-8910.
     examples/viboritas.bas      Game example.
+    examples/viboritas_msx2.bas Game example (MSX2)
     examples/viboritas_nes.bas  Game example (NES/Famicom)
     examples/viboritas_sms.bas  Game example (Sega Master System)
     examples/vramcopy.bas       VRAM copy example.
