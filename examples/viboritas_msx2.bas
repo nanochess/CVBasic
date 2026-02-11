@@ -853,6 +853,17 @@ game_sprites:
 	BITMAP "..XXXXXXXXXXX..."
 	BITMAP "...XXXXXXXXX...."
 
+	'
+	' This is the color table used for sprites on the screen.
+	'
+	' The player is composed by colors 6 and 9. The color 9 has the bit 6 set
+	' so it is OR'ed with the sprite below, and when both pixels are set it
+	' creates color 15 (6 OR 9 = 15)
+	'
+	' The snakes are composed by colors 13 and 14. The color 14 has the bit 6 set
+	' so it is OR'ed with the sprite below, and when both pixels are set it
+	' creates color 15 (13 OR 14 = 15)
+	'
 sprites_color:
 	DATA BYTE $06,$06,$06,$06,$06,$06,$06,$06
 	DATA BYTE $06,$06,$06,$06,$06,$06,$06,$06
