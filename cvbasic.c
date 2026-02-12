@@ -1894,7 +1894,7 @@ struct node *evaluate_level_7(int *type)
         *type = TYPE_16;
         return node_create(N_NUM16, temp & 0xffff, NULL, NULL);
     }
-    emit_error("bad syntax por expression");
+    emit_error("bad syntax for expression");
     *type = TYPE_16;
     return node_create(N_NUM16, 0, NULL, NULL);
 }
