@@ -33,7 +33,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.2 Feb/09/2026"
+#define VERSION "v0.9.2 Feb/16/2026"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -6566,8 +6566,13 @@ int process_variables(void)
                 size = 1;
             size *= label->length;
             if (target == CPU_6502) {
-                if (address < 0x0200 && address + size > 0x0140)
-                    address = 0x0200;
+                if (machine == NES) {
+                    if (address < 0x0300 && address + size > 0x0140)
+                        address = 0x0300;
+                } else {
+                    if (address < 0x0200 && address + size > 0x0140)
+                        address = 0x0200;
+                }
                 sprintf(temp, ARRAY_PREFIX "%s:\tequ $%04x", label->name, address);
                 address += size;
                 fprintf(output, "%s\n", temp);

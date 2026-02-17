@@ -11,6 +11,7 @@
 	;                             Added music player.
 	; Revision date: Aug/25/2025. Added support for 256K and 512K ROM.
 	; Revision date: Aug/26/2025. Added support for CHRRAM selection.
+	; Revision date: Feb/16/2026. Relocated PPUBUF.
 	;
 
 	CPU 6502
@@ -86,7 +87,8 @@ music_mode:		EQU $4e
 	ENDIF
 
 SPRITE_PAGE:	EQU $02
-PPUBUF:		EQU $0100
+PPUBUF:		EQU $0140
+PPUSIZE:	EQU $40
 BANKSEL:	EQU $C000
 
 	FORG $0000
@@ -150,7 +152,7 @@ WRTVRM:
 	INX
 	INX
 	STX ppu_pointer
-	CPX #$40
+	CPX #PPUSIZE
 	BCS .1
 	RTS
 .1:
@@ -195,7 +197,7 @@ LDIRVM:
 	CLC
 	ADC #5
 	STA ppu_pointer
-	CMP #$40
+	CMP #PPUSIZE
 	BCS .1
 	RTS
 .1:
@@ -967,7 +969,11 @@ print_string:
 	BCC .1
 	INC cursor+1
 .1:	
+	CPX #PPUSIZE-5
+	BCS .3
 	RTS
+.3:
+	JMP wait
 
 print_number:
 	LDX #0
