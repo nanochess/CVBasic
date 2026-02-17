@@ -33,7 +33,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.2 Feb/16/2026"
+#define VERSION "v0.9.1 Feb/17/2026"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 

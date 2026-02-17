@@ -22,14 +22,18 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.2 Feb/09/2026  o Added support for MSX2 using --msx2
+v0.9.1 Feb/17/2026  o Added support for MSX2 using --msx2
                     o MSX2: It supports the PALETTE statement.
                     o MSX2: It supports MODE 4, extended sprites, and
                       DEFINE SPRITE COLOR.
+                    o MSX2/SMS: Added PALETTE DEFAULT.
                     o Added note about support of Blue and Purple buttons
                       (Super Action Controllers for Colecovision)
                     o Added support for spinners and roller controller
                       using CONT1.SPINNER and CONT2.SPINNER (Colecovision)
+                    o NES: Solved important bug where VPOKE/PRINT would
+                      corrupt some variables, and arrays could be
+                      allocated to a wrong address.
 
 v0.9.0 Aug/26/2025  o Added support for NES/Famicom using --nes
                     o MSX: Added support for Konami mapper using -konami
