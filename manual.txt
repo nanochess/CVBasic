@@ -923,6 +923,7 @@ The following statements are available:
   PALETTE register, color
   PALETTE LOAD array_data_byte
   PALETTE LOAD VARPTR array_data_byte(0)
+  PALETTE DEFAULT
 
      For MSX2:
 
@@ -932,6 +933,8 @@ The following statements are available:
 
      Alternatively, you can load a full 16 entries palette using PALETTE LOAD.
      The array should be specified with DATA.
+
+     You can restore the palette to TMS9118 colors by using PALETTE DEFAULT.
 
      For the Sega Master System:
 
@@ -944,6 +947,8 @@ The following statements are available:
 
      Alternatively, you can load a full 32 entries palette using PALETTE LOAD.
      The array should be specified with DATA BYTE.
+
+     You can restore the palette to TMS9118 colors by using PALETTE DEFAULT.
 
      For the NES/Famicom:
 

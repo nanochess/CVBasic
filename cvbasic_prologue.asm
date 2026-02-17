@@ -1248,6 +1248,8 @@ font_bitmaps:
     endif
 
     if MSX&2
+palette_default:
+	ld hl,msx2_default_palette
 palette_load:
 	push hl
 	di
@@ -1259,6 +1261,10 @@ palette_load:
 	jp nz,$-2
 	ei
 	ret
+
+msx2_default_palette:
+	dw $000,$000,$611,$733,$117,$327,$151,$627
+	dw $171,$373,$661,$664,$411,$265,$555,$777
 
 define_sprite_color:
 	ex de,hl
@@ -1302,6 +1308,16 @@ update_sprite2:
 	ldir
 	ret
 
+	;
+	; Register that must be set for V9938 (MSX2) because larger VRAM:
+	; Reg. 2 =  0  A16 A15 A14 A13 A12 A11 A10  Pattern name table.
+	; Reg. 3 = A13  1   1   1   1   1   1   1   Color table (reg. D)
+	; Reg. 10=  0   0   0   0   0  A16 A15 A14  Color table high bits.
+	; Reg. 4 =  0   0  A16 A15 A14 A13  1   1   Bitmap table (reg. E)
+	; Reg. 5 = A14 A13 A12 A11 A10  A9  A8  A7  Sprite attribute table...
+	; Reg. 11=  0   0   0   0   0   0  A16 A15  ...and high bits.
+	; Reg. 6 =  0   0  A16 A15 A14 A13 A12 A11  Sprite pattern generator
+	;
 mode_4:
 	ld hl,mode
 	res 3,(hl)
@@ -1309,9 +1325,11 @@ mode_4:
 	ld bc,$0400	; Normal mode but with enhanced sprites enabled.
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
+	ld bc,$000a	; Reg. 10
+	call WRTVDP
 	ld bc,$8405	; $4200 for sprite attribute table...
 	call WRTVDP	; ...so sprite colors appear at $4000-$41ff.
-	ld bc,$000b
+	ld bc,$000b	; Reg. 11
 	call WRTVDP
 	ld hl,($0004)   
 	inc h
@@ -1330,6 +1348,8 @@ mode_4:
     endif
 
     if SMS
+palette_default:
+	ld hl,sms_default_palette
 palette_load:
 	push hl
 	di
@@ -1341,6 +1361,11 @@ palette_load:
 	jp nz,$-2
 	ei
 	ret
+
+	; TMS9118-alike palette
+sms_default_palette:
+	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
+	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
 
 mode_4:
 	di
@@ -1394,14 +1419,8 @@ mode_4:
 	ld (hl),$e0
 	ldir
 	ei
-	ld hl,.3
-	call palette_load
+	call palette_default
 	jp ENASCR
-
-	; TMS9118-alike palette
-.3:
-	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
-	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
 
     else
 vdp_generic_mode:
@@ -1415,7 +1434,7 @@ vdp_generic_mode:
 	ld c,$03	; for color table.
 	call WRTVDP
 	ld b,e
-	ld c,$04	; for bitmap table.
+	ld c,$04	; for bitmap table
 	call WRTVDP
 	ld bc,$3605	; $1b00 for sprite attribute table.
 	call WRTVDP

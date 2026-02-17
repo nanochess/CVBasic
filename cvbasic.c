@@ -5014,6 +5014,11 @@ void compile_statement(int check_for_else)
                         }
                         get_lex();
                     }
+                } else if (lex == C_NAME && strcmp(name, "DEFAULT") == 0) {
+                    get_lex();
+                    if (machine != MSX2 && machine != SMS)
+                        emit_error("PALETTE DEFAULT is only available in MSX2/SMS");
+                    generic_call("palette_default");
                 } else {
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
