@@ -327,4 +327,4 @@ All the games in the book will compile for **all** the platforms, except Sega Ma
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions: abeker, acadiel, aotta, ARTRAG, atari2600land, Atarius Maximus, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, SiRioKD, Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, acadiel, aotta, ARTRAG, atari2600land, Atarius Maximus, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, Revontuli, SiRioKD, Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.

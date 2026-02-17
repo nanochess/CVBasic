@@ -6654,7 +6654,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
         fprintf(stderr, "Many thanks to acadiel, Albert, abeker, aotta, artrag, atari2600land,\n");
         fprintf(stderr, "carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
-        fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, SiRioKD, Tarzilla,\n");
+        fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, Revontuli, SiRioKD, Tarzilla,\n");
         fprintf(stderr, "Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
         fprintf(stderr, "\n");
         exit(1);
