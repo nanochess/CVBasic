@@ -4915,8 +4915,8 @@ void compile_statement(int check_for_else)
                 if (lex == C_COMMA) {
                     get_lex();
                     type = evaluate_expression(1, TYPE_8, 0);
-                    if (machine != SMS && machine != NES) {
-                        emit_error("The 2nd BORDER argument only available on Sega Master System or NES/Famicom");
+                    if (machine != SMS && machine != NES && machine != MSX2) {
+                        emit_error("The 2nd BORDER argument only available for MSX2/SMS/NES/Famicom");
                     } else if (machine == SMS) {
                         cpuz80_1op("AND", "$07");
                         cpuz80_1op("OR", "$20");
@@ -4925,6 +4925,13 @@ void compile_statement(int check_for_else)
                         cpuz80_noop("RRCA");
                         cpuz80_2op("LD", "B", "A");
                         cpuz80_2op("LD", "C", "0");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        generic_interrupt_enable();
+                    } else if (machine == MSX2) {
+                        cpuz80_1op("AND", "$03");
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "25");
                         generic_interrupt_disable();
                         cpuz80_1op("CALL", "WRTVDP");
                         generic_interrupt_enable();
@@ -4940,18 +4947,36 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("STA", "ppu_mask");
                     }
                 }
-            } else if (strcmp(name, "SCROLL") == 0) {   /* Sega Master System / NES/Famicom */
+            } else if (strcmp(name, "SCROLL") == 0) {   /* Sega Master System / MSX2 / NES/Famicom */
                 int type;
                 
                 get_lex();
-                if (machine != SMS && machine != NES)
-                    emit_error("SCROLL is only available on Sega Master System or NES/Famicom");
+                if (machine != SMS && machine != NES && machine != MSX2)
+                    emit_error("SCROLL is only available for MSX2/SMS/NES/Famicom");
                 if (lex != C_COMMA) {
                     if (machine == SMS) {
                         type = evaluate_expression(1, TYPE_8, 0);
                         cpuz80_2op("LD", "B", "A");
                         cpuz80_2op("LD", "C", "8");
                         generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        generic_interrupt_enable();
+                    } else if (machine == MSX2) {
+                        type = evaluate_expression(1, TYPE_16, 0);
+                        cpuz80_2op("LD", "A", "L");
+                        cpuz80_1op("AND", "7");
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "27");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        cpuz80_2op("LD", "A", "L");
+                        cpuz80_1op("SRL", "H");
+                        cpuz80_noop("RRA");
+                        cpuz80_noop("RRA");
+                        cpuz80_noop("RRA");
+                        cpuz80_1op("AND", "63");
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "26");
                         cpuz80_1op("CALL", "WRTVDP");
                         generic_interrupt_enable();
                     } else {
@@ -4966,6 +4991,13 @@ void compile_statement(int check_for_else)
                         type = evaluate_expression(1, TYPE_8, 0);
                         cpuz80_2op("LD", "B", "A");
                         cpuz80_2op("LD", "C", "9");
+                        generic_interrupt_disable();
+                        cpuz80_1op("CALL", "WRTVDP");
+                        generic_interrupt_enable();
+                    } else if (machine == MSX2) {
+                        type = evaluate_expression(1, TYPE_8, 0);
+                        cpuz80_2op("LD", "B", "A");
+                        cpuz80_2op("LD", "C", "23");
                         generic_interrupt_disable();
                         cpuz80_1op("CALL", "WRTVDP");
                         generic_interrupt_enable();

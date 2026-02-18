@@ -24,8 +24,8 @@ All trademarks are property of their respective owners.
 
 v0.9.1 Feb/17/2026  o Added support for MSX2 using --msx2
                     o MSX2: It supports the PALETTE statement.
-                    o MSX2: It supports MODE 4, extended sprites, and
-                      DEFINE SPRITE COLOR.
+                    o MSX2: It supports MODE 4, extended sprites,
+                      DEFINE SPRITE COLOR, BORDER, and SCROLL.
                     o MSX2/SMS: Added PALETTE DEFAULT.
                     o Added note about support of Blue and Purple buttons
                       (Super Action Controllers for Colecovision)
@@ -846,6 +846,8 @@ The following statements are available:
      borders, overlapping sprites in different depths, or using the
      SPRITE 0,$d0,0,0,0 trick.
 
+     Sprite flicker doesn't work when using MODE 4 in MSX2.
+
   OUT port,data
 
      It outputs "data" in the hardware port "port". Not available in 6502 targets.
@@ -918,11 +920,17 @@ The following statements are available:
         bit 0 = Background clipping (0 = hide left 8-pixel column, 1 = no clipping)
         bit 1 = Sprite clipping (0 = hide left 8-pixel column, 1 = no clipping)
 
+     The flags argument for MSX2+ (not MSX2)
+        bit 0 = Extend screen internal width to 64 characters.
+        bit 1 = Hide column 0.
+
   SCROLL x, y
 
      Sets the pixel scrolling for Sega Master System background.
 
      Sets the pixel scrolling for NES/Famicom background.
+
+     Sets the pixel scrolling for MSX2 (the x-coordinate only in MSX2+)
 
   PALETTE register, color
   PALETTE LOAD array_data_byte
