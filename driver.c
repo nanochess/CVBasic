@@ -117,6 +117,23 @@ void generic_jump(char *label)
 }
 
 /*
+ ** Jump
+ */
+void generic_jump_short(char *label)
+{
+    if (target == CPU_6502)
+        cpu6502_1op("JMP", label);  
+    if (target == CPU_9900) {
+        char temp[256];
+        
+        sprintf(temp, "@%s", label);
+        cpu9900_1op("b", temp);
+    }
+    if (target == CPU_Z80)
+        cpuz80_1op("JR", label);
+}
+
+/*
  ** Jump if zero
  */
 void generic_jump_zero(char *label)

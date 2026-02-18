@@ -3914,7 +3914,10 @@ void compile_statement(int check_for_else)
                                 cpuz80_2op("LD", "A", temp);
                                 generic_call("print_string");
                                 sprintf(temp, INTERNAL_PREFIX "%d", label2);
-                                generic_jump(temp);
+                                if (name_size < 126)
+                                    generic_jump_short(temp);
+                                else
+                                    generic_jump(temp);
                                 sprintf(temp, INTERNAL_PREFIX "%d", label);
                                 generic_label(temp);
                                 generic_dump();

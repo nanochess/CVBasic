@@ -165,7 +165,8 @@ void cpuz80_1op(char *mnemonic, char *operand)
             z80_hl_content[0] = '\0';
         }
     } else if (strcmp(mnemonic, "CALL") == 0 ||
-               strcmp(mnemonic, "JP") == 0) {
+               strcmp(mnemonic, "JP") == 0 ||
+               strcmp(mnemonic, "JR") == 0) {
         z80_a_content[0] = '\0';
         z80_hl_content[0] = '\0';
         z80_flag_z_valid = 0;
