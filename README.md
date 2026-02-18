@@ -243,7 +243,7 @@ Untested:
 
 * DEFINE VRAM READ is only tested for Colecovision/MSX, please test in your real hardware to check that the timing is right.
 
-MSX controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
+MSX/MSX2 controller support only handles the two joysticks and keyboard arrows (plus Space and M for buttons). The keys 0-9, Backspace and Return emulate the Colecovision keypad (CONT1.KEY only).
 
 The Sega SG1000 and Sega Master System doesn't have any keypad, so CONT1.KEY and CONT2.KEY aren't operative, but the support includes compatibility with Sega SC3000 computer, and the keyboard can be used as first controller (code contributed by SiRioKD) and for CONT1.KEY using the keys 0-9, Delete and CR.
 

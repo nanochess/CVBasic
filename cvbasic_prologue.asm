@@ -502,6 +502,9 @@ LDIRVM:
         inc a
         ld c,VDP
 .1:
+  if MSX&2
+        otir	; 23 cycles per byte.
+  else
     if SORD+SMS
 	nop	
     endif
@@ -509,8 +512,9 @@ LDIRVM:
 	nop	; SG1000 is 3.58 mhz, but SC3000 is 4 mhz.
 	nop
     endif
-	outi
-        jp nz,.1
+	outi		; 18
+        jp nz,.1	; 11
+  endif
         dec a
         jp nz,.1
         ret
@@ -1257,8 +1261,7 @@ palette_load:
 	call WRTVDP
 	pop hl
 	ld bc,32*256+VDP+2
-	outi
-	jp nz,$-2
+	otir
 	ei
 	ret
 
@@ -1710,6 +1713,13 @@ nmi_handler:
 	call SETWRT
 	ld hl,sprites
 .7:
+  if MSX&2
+	outi
+	outi
+	outi
+	outi
+	jp nz,.7
+  else
     if PV2000
 	ld a,(hl)
 	ld (VDP),a
@@ -1723,12 +1733,13 @@ nmi_handler:
 	outi
 	jp nz,.7
     endif
+  endif
 	jr .5
 
 .4:
 	bit 4,(hl)
 	ld hl,$1b00
-	jr nz,.10	; No flicker sprites in MSX2 mode.
+	jr nz,.10	; No flicker sprites in MSX2 (MODE 4)
 	call SETWRT
 	ld a,(flicker)
 	add a,$04
