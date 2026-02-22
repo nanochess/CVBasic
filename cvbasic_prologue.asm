@@ -415,13 +415,10 @@ SETRD:
 	di
       endif
     if MSX&2
-	xor a
-	rlc h
-	rla
-	rlc h
-	rla
-	srl h
-	srl h
+	ld a,h
+	rlca
+	rlca
+	and 3
 	out (VDP+1),a
 	ld a,$8e
 	out (VDP+1),a
@@ -890,7 +887,7 @@ update_sprite:
 	pop af
 	; A = Sprite number
 	push bc
-	ld de,sprites
+	ld d,sprites>>8
 	add a,a
 	add a,a
     if SORD
@@ -898,8 +895,10 @@ update_sprite:
     endif
 	ld e,a
 	ld hl,sprite_data
-	ld bc,4
-	ldir
+	ldi
+	ldi
+	ldi
+	ldi
     endif
 	ret
 
@@ -1259,8 +1258,8 @@ font_bitmaps:
 palette_default:
 	ld hl,msx2_default_palette
 palette_load:
-	di
 	ld bc,$0010
+	di
 	call WRTVDP
 	ld bc,32*256+VDP+2
 	otir
@@ -1289,9 +1288,10 @@ define_sprite_color:
 	ld h,$40/2
 	add hl,hl	; x16
 	ex de,hl
-	call nmi_off
+	di
 	call LDIRVM
-	jp nmi_on
+	ei
+	ret
 
 update_sprite2:
 	pop bc
@@ -1303,13 +1303,14 @@ update_sprite2:
 	pop af
 	; A = Sprite number
 	push bc
-	ld de,sprites
+	ld d,sprites>>8
 	add a,a
 	add a,a
 	ld e,a
 	ld hl,sprite_data
-	ld bc,3
-	ldir
+	ldi
+	ldi
+	ldi
 	ret
 
 	;

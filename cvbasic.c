@@ -6665,7 +6665,7 @@ int main(int argc, char *argv[])
     date = localtime(&actual);
 
     fprintf(stderr, "\nCVBasic compiler " VERSION "\n");
-    fprintf(stderr, "(c) 2024-2025 Oscar Toledo G. https://nanochess.org/\n\n");
+    fprintf(stderr, "(c) 2024-2026 Oscar Toledo G. https://nanochess.org/\n\n");
     
     if (argc < 3) {
         fprintf(stderr, "Usage:\n");

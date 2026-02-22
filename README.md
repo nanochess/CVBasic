@@ -1,5 +1,5 @@
 # CVBasic compiler v0.9.1
-*(c) Copyright 2024-2025 Óscar Toledo Gutiérrez*
+*(c) Copyright 2024-2026 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
 CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic originally written for the Colecovision video game console.
