@@ -385,22 +385,26 @@ SETWRT:
 	di
       endif
     if MSX&2
-	xor a
-	rlc h
-	rla
-	rlc h
-	rla
-	srl h
-	srl h
+	ld a,h
+	rlca
+	rlca
+	and 3
 	out (VDP+1),a
 	ld a,$8e
 	out (VDP+1),a
-    endif
+	ld a,l
+	out (VDP+1),a
+	ld a,h
+	and $3f
+	or $40
+	out (VDP+1),a
+    else
 	ld a,l
 	out (VDP+1),a
 	ld a,h
 	or $40
 	out (VDP+1),a
+    endif
       if COLECO_SPINNER
 	ei
       endif
