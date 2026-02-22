@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Feb/10/2026
+Last revision: Feb/17/2026
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -27,6 +27,7 @@ v0.9.1 Feb/17/2026  o Added support for MSX2 using --msx2
                     o MSX2: It supports MODE 4, extended sprites,
                       DEFINE SPRITE COLOR, BORDER, and SCROLL.
                     o MSX2/SMS: Added PALETTE DEFAULT.
+                    o MSX2: Access to 64K of VRAM using VPOKE/VPEEK.
                     o Added note about support of Blue and Purple buttons
                       (Super Action Controllers for Colecovision)
                     o Added support for spinners and roller controller

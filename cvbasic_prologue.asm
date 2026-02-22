@@ -1255,11 +1255,9 @@ font_bitmaps:
 palette_default:
 	ld hl,msx2_default_palette
 palette_load:
-	push hl
 	di
 	ld bc,$0010
 	call WRTVDP
-	pop hl
 	ld bc,32*256+VDP+2
 	otir
 	ei
@@ -1271,14 +1269,13 @@ msx2_default_palette:
 
 define_sprite_color:
 	ex de,hl
-	ld l,a
-	ld h,0
-	add hl,hl	; x2
-	add hl,hl	; x4
-	add hl,hl	; x8
-	add hl,hl	; x16
-	ld c,l
-	ld b,h
+	add a,a		; x2
+	add a,a		; x4
+	add a,a		; x8
+	add a,a		; x16
+	ld c,a
+	ld b,0
+	rl b
 	pop af
 	pop hl
 	push af
@@ -1317,7 +1314,7 @@ update_sprite2:
 	; Reg. 3 = A13  1   1   1   1   1   1   1   Color table (reg. D)
 	; Reg. 10=  0   0   0   0   0  A16 A15 A14  Color table high bits.
 	; Reg. 4 =  0   0  A16 A15 A14 A13  1   1   Bitmap table (reg. E)
-	; Reg. 5 = A14 A13 A12 A11 A10  A9  A8  A7  Sprite attribute table...
+	; Reg. 5 = A14 A13 A12 A11 A10  A9  1   1   Sprite attribute table...
 	; Reg. 11=  0   0   0   0   0   0  A16 A15  ...and high bits.
 	; Reg. 6 =  0   0  A16 A15 A14 A13 A12 A11  Sprite pattern generator
 	;
@@ -1328,11 +1325,15 @@ mode_4:
 	ld bc,$0400	; Normal mode but with enhanced sprites enabled.
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
-	ld bc,$000a	; Reg. 10
+	ld bc,$000a	; Reg. 10 (high bits of color table)
 	call WRTVDP
-	ld bc,$8405	; $4200 for sprite attribute table...
+			; The value $84 seems logical but it makes colors
+			; for sprites 0-7 replicate in sprites 8-15,
+			; 16-23, and 24-31. Not described in Yamaha docs,
+			; but emulated by OpenMSX and BlueMSX.
+	ld bc,$8705	; $4200 for sprite attribute table...
 	call WRTVDP	; ...so sprite colors appear at $4000-$41ff.
-	ld bc,$000b	; Reg. 11
+	ld bc,$000b	; Reg. 11 (high bits of sprite attribute table)
 	call WRTVDP
 	ld hl,($0004)   
 	inc h
