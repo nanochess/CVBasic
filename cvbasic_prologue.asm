@@ -44,13 +44,33 @@
 	; Revision date: Feb/09/2026. Added support for palette in MSX2.
 	; Revision date: Feb/10/2026. Added support for sprites in MSX2 and 64K VRAM
 	;                             access.
+	; Revision date: Feb/26/2026. Faster CPYBLK, LDIRVM3, and FILVRM.
 	;
 
+	;
+	; Resources:
+	; * Z80 instructions timing: https://map.grauw.nl/resources/z80instr.php
+	;   * Use the Timing Z80+M1 for MSX and Colecovision (both insert one
+	;     wait state in each M1 cycle)
+	;
+	; Technical requirements:
+	; * Minimum of 28 cycles between VDP writes for 3.58 mhz. systems.
+	; * Minimum of 31 cycles between VDP writes for 4.00 mhz. systems.
+	; * For SMS minimum of 28 cycles between VDP writes (3.58 mhz)
+	; * For MSX2 (V9938) minimum of 23 cycles between VDP writes (3.58 mhz)
+	;
+	; Dependances:
+	; * LDIRVM, assumed to keep DE unchanged (target VRAM address)
+	;   * For speed. Required by CPYBLK and LDIRVM3.
+	;
+
+    if COLECO+SG1000+SMS
 JOYSEL:	equ $c0
 KEYSEL:	equ $80
 
 JOY1:   equ $fc-$20*(SG1000+SMS)
 JOY2:   equ $ff-$22*(SG1000+SMS)
+    endif
 
     if COLECO
 	org $8000
@@ -323,12 +343,14 @@ FILVRM:
 	call SETWRT
 	pop af
 	dec bc		; T-states (normal / M1)
+	inc c
+	inc b
 .1:	ld (VDP),a	; 13 14
-	dec bc		;  6  7
-	bit 7,b		;  8 10
-	jp z,.1		; 10 11
+	dec c		;  4  5
+	jr nz,.1	; 12 13
 			; -- --
-			; 37 42
+			; 29 32
+	djnz .1
 	ret
 
 LDIRMV:
@@ -462,12 +484,23 @@ FILVRM:
 	call SETWRT
 	pop af
 	dec bc		; T-states (normal / M1)
+	inc c
+	inc b
+    if MSX+COLECO
+.1:	out (VDP),a	; 12
+	dec c		;  5
+	jp nz,.1	; 11
+			; --
+			; 28
+    else
 .1:	out (VDP),a	; 11 12
-	dec bc		;  6  7
-	bit 7,b		;  8 10
-	jp z,.1		; 10 11
+	nop		;  4  5
+	dec c		;  4  5
+	jr nz,.1	; 12 13
 			; -- --
-			; 35 40
+			; 31 35
+    endif
+	djnz .1
 	ret
 
 LDIRMV:
@@ -527,11 +560,9 @@ LDIRVM3:
 	call .1
 	call .1
 .1:	push hl
-	push de
 	push bc
 	call LDIRVM
 	pop bc
-	pop de
 	ld a,d
 	add a,8
 	ld d,a
@@ -563,10 +594,9 @@ CPYBLK:
 	call nmi_off
 .1:	push bc
 	push hl
-	push de
 	ld b,0
 	call LDIRVM
-	pop hl
+	ex de,hl
     if SMS
 	ld bc,$0040
     else
