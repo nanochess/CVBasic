@@ -2,12 +2,9 @@
 *(c) Copyright 2024-2026 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
-CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic originally written for the Colecovision video game console.
+CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic. It supports the following platforms:
 
-The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching on most platforms, 8k on TI-99/4A). 
-
-It has been extended to support the following platforms:
-
+* Colecovision (supporting bank switching with Megacart mapper)
 * Sega SG-1000 / SC-3000  (supporting bank switching with Sega mapper)
 * MSX 1 and MSX 2 (supporting bank switching with ASCII16 mapper)
 * Texas Instruments TI-99/4A (courtesy of @tursilion, supporting bank switching)
@@ -22,9 +19,13 @@ It has been extended to support the following platforms:
 * Sega Master System (supporting bank switching with Sega mapper)
 * NES/Famicom (supporting bank switching using mapper 30 - UNROM 512)
 
+The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching on most platforms, 8k on TI-99/4A). 
+
 One of the advantages of using CVBasic is that all the programs can be compiled for all the platforms with mostly no modifications at all. Although the compiler started supporting only Z80, now this includes the 6502 based Creativision, and TMS9900 based TI-99/4A. This way it achieves a truly portable BASIC across the common theme: the video processor Texas Instruments TMS9128/9129.
 
-Currently, Sega Master System and NES/Famicom are different in video terms, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS and NES/Famicom versions for every game so you can see the required changes.
+Porting to MSX2 is relatively easy. You only need to use MODE 4 for enabling the extended video mode, and create 16-byte color tables for sprites, and use these with DEFINE SPRITE COLOR.
+
+Currently, Sega Master System and NES/Famicom are the most different in video terms, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS and NES/Famicom versions for every game so you can see the required changes.
 
 The following files compose the compiler:
 
