@@ -412,7 +412,7 @@ int process_variables(void);
 void emit_error(char *string)
 {
     fprintf(stderr, "ERROR: %s at line %d (%s)\n", string, current_line, current_file);
-    err_code = 1;
+    err_code = EXIT_FAILURE;
 }
 
 /*
@@ -540,7 +540,7 @@ struct label *function_add(char *name)
     new_one = malloc(sizeof(struct label) + strlen(name));
     if (new_one == NULL) {
         fprintf(stderr, "Out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     new_one->used = 0;
     new_one->length = 0;
@@ -578,7 +578,7 @@ struct signedness *signed_add(char *name)
     new_one = malloc(sizeof(struct signedness) + strlen(name));
     if (new_one == NULL) {
         fprintf(stderr, "Out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     new_one->sign = 0;
     strcpy(new_one->name, name);
@@ -615,7 +615,7 @@ struct constant *constant_add(char *name)
     new_one = malloc(sizeof(struct constant) + strlen(name));
     if (new_one == NULL) {
         fprintf(stderr, "Out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     new_one->value = 0;
     strcpy(new_one->name, name);
@@ -652,7 +652,7 @@ struct label *label_add(char *name)
     new_one = malloc(sizeof(struct label) + strlen(name));
     if (new_one == NULL) {
         fprintf(stderr, "Out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     new_one->used = 0;
     strcpy(new_one->name, name);
@@ -690,7 +690,7 @@ struct label *array_add(char *name)
     new_one = malloc(sizeof(struct label) + strlen(name));
     if (new_one == NULL) {
         fprintf(stderr, "Out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     new_one->used = 0;
     strcpy(new_one->name, name);
@@ -727,7 +727,7 @@ struct macro *macro_add(char *name)
     new_one = malloc(sizeof(struct macro) + strlen(name));
     if (new_one == NULL) {
         fprintf(stderr, "Out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     new_one->total_arguments = 0;
     new_one->in_use = 0;
@@ -1966,7 +1966,7 @@ void accumulated_push(enum lexical_component lex, int value, char *name)
         accumulated.definition = realloc(accumulated.definition, (accumulated.max_length + 1) * 2 * sizeof(struct macro_def));
         if (accumulated.definition == NULL) {
             emit_error("out of memory in accumulated_push");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         accumulated.max_length = (accumulated.max_length + 1) * 2;
     }
@@ -1978,7 +1978,7 @@ void accumulated_push(enum lexical_component lex, int value, char *name)
         accumulated.definition[accumulated.length].name = malloc(strlen(name) + 1);
     if (accumulated.definition[accumulated.length].name == NULL) {
         emit_error("out of memory in accumulated_push");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     if (lex == C_STRING) {
         if (value > 0)
@@ -2308,7 +2308,7 @@ void compile_statement(int check_for_else)
                         new_loop = malloc(sizeof(struct loop));
                         if (new_loop == NULL) {
                             fprintf(stderr, "out of memory\n");
-                            exit(1);
+                            exit(EXIT_FAILURE);
                         }
                         new_loop->type = NESTED_IF;
                         new_loop->step = NULL;
@@ -2462,7 +2462,7 @@ void compile_statement(int check_for_else)
                 new_loop = malloc(sizeof(struct loop) + strlen(assigned) + 1);
                 if (new_loop == NULL) {
                     fprintf(stderr, "Out of memory\n");
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 strcpy(new_loop->var, assigned);
                 if (assigned[0] == '#')
@@ -2617,7 +2617,7 @@ void compile_statement(int check_for_else)
                 new_loop = malloc(sizeof(struct loop));
                 if (new_loop == NULL) {
                     fprintf(stderr, "Out of memory\n");
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 new_loop->type = NESTED_WHILE;
                 new_loop->step = NULL;
@@ -2658,7 +2658,7 @@ void compile_statement(int check_for_else)
                 new_loop = malloc(sizeof(struct loop));
                 if (new_loop == NULL) {
                     fprintf(stderr, "Out of memory\n");
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 if (lex == C_NAME && strcmp(name, "WHILE") == 0) {
                     get_lex();
@@ -2741,7 +2741,7 @@ void compile_statement(int check_for_else)
                 new_loop = malloc(sizeof(struct loop));
                 if (new_loop == NULL) {
                     fprintf(stderr, "Out of memory\n");
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 new_loop->type = NESTED_SELECT;
                 if (lex == C_NAME && strcmp(name, "CASE") == 0) {
@@ -6513,11 +6513,11 @@ int process_variables(void)
         while (label != NULL) {
             if ((label->used & (LABEL_CALLED_BY_GOTO & LABEL_IS_PROCEDURE)) == (LABEL_CALLED_BY_GOTO | LABEL_IS_PROCEDURE)) {
                 fprintf(stderr, "Error: PROCEDURE '%s' jumped in by GOTO\n", label->name);
-                err_code = 1;
+                err_code = EXIT_FAILURE;
             }
             if ((label->used & (LABEL_CALLED_BY_GOSUB & LABEL_IS_PROCEDURE)) == LABEL_CALLED_BY_GOSUB) {
                 fprintf(stderr, "Error: Common label '%s' jumped in by GOSUB\n", label->name);
-                err_code = 1;
+                err_code = EXIT_FAILURE;
             }
             if (label->used & LABEL_IS_VARIABLE) {
                 if (target == CPU_6502) {
@@ -6697,7 +6697,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, Revontuli, SiRioKD, Tarzilla,\n");
         fprintf(stderr, "Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
         fprintf(stderr, "\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     /*
@@ -6719,7 +6719,7 @@ int main(int argc, char *argv[])
         }
         if (machine == TOTAL_TARGETS) {
             fprintf(stderr, "Unknown target: %s\n", argv[c]);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         target = consoles[machine].target;
         c++;
@@ -6748,7 +6748,7 @@ int main(int argc, char *argv[])
             extra_ram = 8192;
         } else {
             fprintf(stderr, "-ram16 option only applies to MSX/MSX2.\n");
-            exit(2);
+            exit(EXIT_FAILURE+1);
         }
     }
     bank_konami = 0;
@@ -6760,7 +6760,7 @@ int main(int argc, char *argv[])
             bank_konami = 1;
         } else {
             fprintf(stderr, "-konami option only applies to MSX/MSX2.\n");
-            exit(2);
+            exit(EXIT_FAILURE+1);
         }
     }
     cpm_option = 0;
@@ -6773,7 +6773,7 @@ int main(int argc, char *argv[])
             cpm_option = 1;
         } else {
             fprintf(stderr, "-cpm option only applies to Memotech or NABU.\n");
-            exit(2);
+            exit(EXIT_FAILURE+1);
         }
     }
     small_rom = 0;
@@ -6785,7 +6785,7 @@ int main(int argc, char *argv[])
             small_rom = 1;
         } else {
             fprintf(stderr, "-rom16 option only applies to Creativision.\n");
-            exit(2);
+            exit(EXIT_FAILURE+1);
         }
     }
 
@@ -6804,7 +6804,7 @@ int main(int argc, char *argv[])
                 break;
             if (!isalnum(ch) && ch != '_' && ch != '#' && ch != '=') {
                 fprintf(stderr, "%s name includes invalid characters.\n", argv[c]);
-                exit(2);
+                exit(EXIT_FAILURE+1);
             }
             if (ch == '=') {
                 *p = '\0';
@@ -6823,7 +6823,7 @@ int main(int argc, char *argv[])
         }
         if (d == NULL) {
             fprintf(stderr, "%s missing assignment. Syntax: -DCONST=123 -D#BIGCONST=12345\n", argv[c]);
-            exit(2);
+            exit(EXIT_FAILURE+1);
         }
         c++;
     }
@@ -6832,18 +6832,18 @@ int main(int argc, char *argv[])
      ** Here is compiled the source code and generates a temporary assembler file.
      */
     strcpy(current_file, argv[c]);
-    err_code = 0;
+    err_code = EXIT_SUCCESS;
     input = fopen(current_file, "r");
     if (input == NULL) {
         fprintf(stderr, "Couldn't open '%s' source file.\n", current_file);
-        exit(2);
+        exit(EXIT_FAILURE+1);
     }
     c++;
 
     output = fopen(TEMPORARY_ASSEMBLER, "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' temporary file.\n", TEMPORARY_ASSEMBLER);
-        exit(2);
+        exit(EXIT_FAILURE+1);
     }
     bank_switching = 0;
     option_explicit = 0;
@@ -6878,7 +6878,7 @@ int main(int argc, char *argv[])
     output = fopen(argv[c], "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
-        exit(2);
+        exit(EXIT_FAILURE+1);
     }
     c++;
     
@@ -6989,7 +6989,7 @@ int main(int argc, char *argv[])
     prologue = fopen(path, "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open '%s'.\n", path);
-        exit(2);
+        exit(EXIT_FAILURE+1);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
         p = line;
@@ -7031,7 +7031,7 @@ int main(int argc, char *argv[])
     input = fopen(TEMPORARY_ASSEMBLER, "r");
     if (input == NULL) {
         fprintf(stderr, "Unable to reopen '%s'.\n", TEMPORARY_ASSEMBLER);
-        exit(2);
+        exit(EXIT_FAILURE+1);
     }
     while (fgets(line, sizeof(line) - 1, input)) {
         fputs(line, output);
@@ -7051,7 +7051,7 @@ int main(int argc, char *argv[])
     prologue = fopen(path, "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open '%s'.\n", path);
-        exit(2);
+        exit(EXIT_FAILURE+1);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
         fputs(line, output);
@@ -7104,7 +7104,7 @@ int main(int argc, char *argv[])
             146;                    /* Support variables */
         if (bytes_used > available_bytes) {
             fprintf(stderr, "ERROR: ");
-            err_code = 1;
+            err_code = EXIT_FAILURE;
         }
         fprintf(stderr, "%d RAM bytes used of %d bytes available.\n", bytes_used, available_bytes);
     }
