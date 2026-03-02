@@ -1520,9 +1520,17 @@ void cpuz80_node_generate(struct node *node, int decision)
                         } else {
                             cpuz80_node_generate(node, 0);
                         }
-                        while (c > 1) {
-                            cpuz80_2op("ADD", "HL", "HL");
-                            c /= 2;
+                        if (c == 128) {
+                            cpuz80_1op("SRL", "H");
+                            cpuz80_2op("LD", "H", "L");
+                            cpuz80_1op("RR", "H");
+                            cpuz80_2op("LD", "L", "0");
+                            cpuz80_1op("RR", "L");
+                        } else {
+                            while (c > 1) {
+                                cpuz80_2op("ADD", "HL", "HL");
+                                c /= 2;
+                            }
                         }
                     }
                     break;

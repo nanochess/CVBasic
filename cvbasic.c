@@ -1116,6 +1116,14 @@ int evaluate_expression(int cast, int to_type, int label)
             tree->right->type = N_NUM8;
             tree->type = N_AND8;
             type = TYPE_8;
+        } else if (tree->type == N_EXTEND8 && tree->left->type == N_AND8) {
+            struct node *temp;
+            
+            temp = tree;
+            tree = temp->left;
+            temp->left = NULL;
+            node_delete(temp);
+            type = TYPE_8;
         }
     }
     if (label != 0 && (tree->type == N_NUM8 || tree->type == N_NUM16)) {
