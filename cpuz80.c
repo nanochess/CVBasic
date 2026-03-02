@@ -22,8 +22,10 @@ static char z80_line_1[MAX_LINE_SIZE];
 static char z80_line_2[MAX_LINE_SIZE];
 static char z80_line_3[MAX_LINE_SIZE];
 
-static char z80_a_content[MAX_LINE_SIZE];
-static char z80_hl_content[MAX_LINE_SIZE];
+static char z80_a_value[MAX_LINE_SIZE];
+static char z80_a_alias[MAX_LINE_SIZE];
+static char z80_hl_value[MAX_LINE_SIZE];
+static char z80_hl_alias[MAX_LINE_SIZE];
 static int z80_flag_z_valid;
 
 static void z80_emit_line(void);
@@ -93,8 +95,10 @@ void cpuz80_label(char *label)
 {
     sprintf(z80_line, "%s:\n", label);
     z80_emit_line();
-    z80_a_content[0] = '\0';
-    z80_hl_content[0] = '\0';
+    z80_a_value[0] = '\0';
+    z80_a_alias[0] = '\0';
+    z80_hl_value[0] = '\0';
+    z80_hl_alias[0] = '\0';
     z80_flag_z_valid = 0;
 }
 
@@ -103,7 +107,8 @@ void cpuz80_label(char *label)
  */
 void cpuz80_empty(void)
 {
-    z80_a_content[0] = '\0';
+    z80_a_value[0] = '\0';
+    z80_a_alias[0] = '\0';
     z80_flag_z_valid = 0;
 }
 
@@ -114,7 +119,8 @@ void cpuz80_noop(char *mnemonic)
 {
     sprintf(z80_line, "\t%s\n", mnemonic);
     z80_emit_line();
-    z80_a_content[0] = '\0';
+    z80_a_value[0] = '\0';
+    z80_a_alias[0] = '\0';
     if (strcmp(mnemonic, "NEG") == 0)
         z80_flag_z_valid = 1;
     else
@@ -131,7 +137,7 @@ void cpuz80_1op(char *mnemonic, char *operand)
      */
     if (strcmp(mnemonic, "SUB") == 0) {
         if (strcmp(operand, "A") == 0) {
-            if (strcmp(z80_a_content, "0") == 0)
+            if (strcmp(z80_a_value, "0") == 0)
                 return;
         }
     }
@@ -159,61 +165,77 @@ void cpuz80_1op(char *mnemonic, char *operand)
         z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "POP") == 0) {
         if (strcmp(operand, "AF") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
             z80_flag_z_valid = 0;
         } else if (strcmp(operand, "HL") == 0) {
-            z80_hl_content[0] = '\0';
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
         }
     } else if (strcmp(mnemonic, "CALL") == 0 ||
                strcmp(mnemonic, "JP") == 0 ||
                strcmp(mnemonic, "JR") == 0) {
-        z80_a_content[0] = '\0';
-        z80_hl_content[0] = '\0';
+        z80_a_value[0] = '\0';
+        z80_a_alias[0] = '\0';
+        z80_hl_value[0] = '\0';
+        z80_hl_alias[0] = '\0';
         z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "SUB") == 0) {
         if (strcmp(operand, "A") == 0)
-            strcpy(z80_a_content, "0");
+            strcpy(z80_a_value, "0");
         else
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+        z80_a_alias[0] = '\0';
         z80_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "OR") == 0 ||
                strcmp(mnemonic, "XOR") == 0 ||
                strcmp(mnemonic, "AND") == 0) {
-        z80_a_content[0] = '\0';
+        z80_a_value[0] = '\0';
+        z80_a_alias[0] = '\0';
         z80_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "SRL") == 0) {
-        if (strcmp(operand, "H") == 0)
-            z80_hl_content[0] = '\0';
-        else if (strcmp(operand, "A") == 0)
+        if (strcmp(operand, "H") == 0) {
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
+        } else if (strcmp(operand, "A") == 0) {
             z80_flag_z_valid = 1;
+        }
     } else if (strcmp(mnemonic, "RR") == 0) {
-        if (strcmp(operand, "L") == 0)
-            z80_hl_content[0] = '\0';
+        if (strcmp(operand, "L") == 0) {
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
+        }
         z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "INC") == 0) {
         if (strcmp(operand, "H") == 0 ||
             strcmp(operand, "L") == 0 ||
             strcmp(operand, "HL") == 0) {
-            z80_hl_content[0] = '\0';
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
             z80_flag_z_valid = 0;
         } else if (strcmp(operand, "A") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
             z80_flag_z_valid = 1;
         } else if (strcmp(operand, "(HL)") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
             z80_flag_z_valid = 0;
         }
     } else if (strcmp(mnemonic, "DEC") == 0) {
         if (strcmp(operand, "H") == 0 ||
             strcmp(operand, "L") == 0 ||
             strcmp(operand, "HL") == 0) {
-            z80_hl_content[0] = '\0';
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
             z80_flag_z_valid = 0;
         } else if (strcmp(operand, "A") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
             z80_flag_z_valid = 1;
         } else if (strcmp(operand, "(HL)") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
             z80_flag_z_valid = 0;
         }
     } else if (strcmp(mnemonic, "DW") == 0 || strcmp(mnemonic, "ORG") == 0 || strcmp(mnemonic, "FORG") == 0) {
@@ -236,26 +258,28 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
     special = 0;
     if (strcmp(mnemonic, "LD") == 0) {
         if (strcmp(operand1, "A") == 0) {
-            if (strcmp(operand2, z80_a_content) == 0)
+            if (strcmp(operand2, z80_a_alias) == 0 || strcmp(operand2, z80_a_value) == 0)
                 return;
-            if (strcmp(operand2, z80_hl_content) == 0) {
+            if (strcmp(operand2, z80_hl_alias) == 0 || strcmp(operand2, z80_hl_value) == 0) {
                 operand2 = "L";
             /* Reading from memory address, and HL already has the address */
-            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_content, strlen(operand2) - 2) == 0 && z80_hl_content[strlen(operand2) - 2] == '\0') {
+            } else if (operand2[0] == '(' && operand2[strlen(operand2) - 1] == ')' && memcmp(&operand2[1], z80_hl_alias, strlen(operand2) - 2) == 0 && z80_hl_alias[strlen(operand2) - 2] == '\0') {
                 /* Generate subexpression info and mark as previously processed */
                 z80_flag_z_valid = 0;
-                strcpy(z80_a_content, operand2);
+                z80_a_value[0] = '\0';
+                strcpy(z80_a_alias, operand2);
                 special = 1;    /* Mark as processed */
                 operand2 = "(HL)";
             }
         } else if (strcmp(operand1, "HL") == 0) {
-            if (strcmp(operand2, z80_hl_content) == 0)
+            if (strcmp(operand2, z80_hl_alias) == 0 || strcmp(operand2, z80_hl_value) == 0)
                 return;
         } else if (strcmp(operand2, "A") == 0) {
             /* Writing to memory address, and HL already has the address */
-            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_content, strlen(operand1) - 2) == 0 && z80_hl_content[strlen(operand1) - 2] == '\0') {
+            if (operand1[0] == '(' && operand1[strlen(operand1) - 1] == ')' && memcmp(&operand1[1], z80_hl_alias, strlen(operand1) - 2) == 0 && z80_hl_alias[strlen(operand1) - 2] == '\0') {
                 /* Generate subexpression info and mark as previously processed */
-                strcpy(z80_a_content, operand1);
+                strcpy(z80_a_alias, operand1);
+                /* It doesn't erase z80_a_value as any value is still valid */
                 special = 1;    /* Mark as processed */
                 operand1 = "(HL)";
             }
@@ -272,16 +296,20 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
         strcmp(mnemonic, "SET") == 0) {
         /* No affected registers or flags */
     } else if (strcmp(mnemonic, "EX") == 0) {
-        z80_hl_content[0] = '\0';
+        z80_hl_value[0] = '\0';
+        z80_hl_alias[0] = '\0';
     } else if (strcmp(mnemonic, "IN") == 0) {
-        z80_a_content[0] = '\0';
+        z80_a_value[0] = '\0';
+        z80_a_alias[0] = '\0';
         z80_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "ADD") == 0 || strcmp(mnemonic, "ADC") == 0 || strcmp(mnemonic, "SBC") == 0) {
         if (strcmp(operand1, "A") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
             z80_flag_z_valid = 1;
         } else {
-            z80_hl_content[0] = '\0';
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
             z80_flag_z_valid = 0;
         }
     } else if (strcmp(mnemonic, "LD") == 0) {
@@ -289,23 +317,45 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
             return;
         if (strcmp(operand1, "A") == 0)  /* Read value into accumulator */
             z80_flag_z_valid = 0;       /* Z status isn't valid */
-        if (strcmp(operand1, "L") == 0 || strcmp(operand1, "H") == 0)
-            z80_hl_content[0] = '\0';
-        if (strcmp(operand1, "HL") == 0)
-            strcpy(z80_hl_content, operand2);
-        else if (strcmp(operand2, "HL") == 0)
-            strcpy(z80_hl_content, operand1);
+        if (strcmp(operand1, "L") == 0 || strcmp(operand1, "H") == 0) {
+            z80_hl_value[0] = '\0';
+            z80_hl_alias[0] = '\0';
+        }
+        if (strcmp(operand1, "HL") == 0) {
+            if (isdigit(operand2[0])) {
+                /* Loading a value destroys any previous alias */
+                strcpy(z80_hl_value, operand2);
+                z80_hl_alias[0] = '\0';
+            } else {
+                /* Loading from an address destroy any previous value */
+                strcpy(z80_hl_alias, operand2);
+                z80_hl_value[0] = '\0';
+            }
+        } else if (strcmp(operand2, "HL") == 0) {
+            /* Saving to an address makes HL an alias AND PRESERVES the value */
+            strcpy(z80_hl_alias, operand1);
+        }
         if (strcmp(operand1, "A") == 0 && strcmp(operand2, "(HL)") == 0) {
-            z80_a_content[0] = '\0';
+            z80_a_value[0] = '\0';
+            z80_a_alias[0] = '\0';
         } else if (strcmp(operand1, "(HL)") == 0 && strcmp(operand2, "A") == 0) {
             /* A keeps its value */
         } else if (strcmp(operand1, "A") == 0) {
-            if (isdigit(operand2[0]) || operand2[0] == '(')
-                strcpy(z80_a_content, operand2);
-            else
-                z80_a_content[0] = '\0';
+            if (isdigit(operand2[0])) {
+                /* Loading a value destroys any previous alias */
+                strcpy(z80_a_value, operand2);
+                z80_a_alias[0] = '\0';
+            } else if (operand2[0] == '(') {
+                /* Loading from an address destroy any previous value */
+                z80_a_value[0] = '\0';
+                strcpy(z80_a_alias, operand2);
+            } else {
+                z80_a_value[0] = '\0';
+                z80_a_alias[0] = '\0';
+            }
         } else if (strcmp(operand2, "A") == 0 && operand1[0] == '(') {
-            strcpy(z80_a_content, operand1);
+            /* Saving to an address makes A an alias AND PRESERVES the value */
+            strcpy(z80_a_alias, operand1);
         }
     } else {
         fprintf(stderr, "z80_2op: not found mnemonic %s\n", mnemonic);
