@@ -963,6 +963,9 @@ The following statements are available:
 
      You can restore the palette to TMS9118 colors by using PALETTE DEFAULT.
 
+     It is recommended to update the palette only in the vertical blanking
+     to avoid glitches on the display.
+
      For the NES/Famicom:
 
      Registers
