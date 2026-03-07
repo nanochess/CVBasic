@@ -566,7 +566,9 @@ void cpuz80_node_label(struct node *node)
             } else {
                 cpuz80_node_label(node->right);
                 cpuz80_node_label(node->left);
-                if (node->left->regs == REG_A) {
+                if ((node->type == N_PLUS8 || node->type == N_MINUS8 || node->type == N_OR8 || node->type == N_AND8 || node->type == N_XOR8) && node->right->type == N_PEEK8 && (node->right->left->regs & REG_A) == 0) {
+                    node->regs = node->left->regs | node->right->left->regs;
+                } else if (node->left->regs == REG_A) {
                     node->regs = REG_A | REG_B;
                 } else {
                     node->regs = node->left->regs | node->right->regs | REG_BC;
@@ -1111,6 +1113,10 @@ void cpuz80_node_generate(struct node *node, int decision)
                     break;
                 }
                 sprintf(temp, "%d", c);
+            } else if ((node->type == N_PLUS8 || node->type == N_MINUS8 || node->type == N_OR8 || node->type == N_AND8 || node->type == N_XOR8) && node->right->type == N_PEEK8 && (node->right->left->regs & REG_A) == 0) {
+                cpuz80_node_generate(node->left, 0);
+                cpuz80_node_generate(node->right->left, 0);
+                strcpy(temp, "(HL)");
             } else {
                 if ((node->left->regs & REG_B) == 0) {
                     cpuz80_node_generate(node->right, 0);
