@@ -21,9 +21,12 @@ static char temp2[MAX_LINE_SIZE];
 
 static char cpu6502_line[MAX_LINE_SIZE];
 
-static char cpu6502_a[MAX_LINE_SIZE];
-static char cpu6502_x[MAX_LINE_SIZE];
-static char cpu6502_y[MAX_LINE_SIZE];
+static char cpu6502_a_value[MAX_LINE_SIZE];
+static char cpu6502_a_alias[MAX_LINE_SIZE];
+static char cpu6502_x_value[MAX_LINE_SIZE];
+static char cpu6502_x_alias[MAX_LINE_SIZE];
+static char cpu6502_y_value[MAX_LINE_SIZE];
+static char cpu6502_y_alias[MAX_LINE_SIZE];
 static int cpu6502_flag_z_valid;
 
 static void cpu6502_emit_line(void);
@@ -44,9 +47,11 @@ void cpu6502_label(char *label)
 {
     sprintf(cpu6502_line, "%s:\n", label);
     cpu6502_emit_line();
-    cpu6502_a[0] = '\0';
-    cpu6502_x[0] = '\0';
-    cpu6502_y[0] = '\0';
+    cpu6502_a_value[0] = '\0';
+    cpu6502_a_alias[0] = '\0';
+    cpu6502_x_value[0] = '\0';
+    cpu6502_y_value[0] = '\0';
+    cpu6502_y_alias[0] = '\0';
     cpu6502_flag_z_valid = 0;
 }
 
@@ -55,9 +60,11 @@ void cpu6502_label(char *label)
  */
 void cpu6502_empty(void)
 {
-    cpu6502_a[0] = '\0';
-    cpu6502_x[0] = '\0';
-    cpu6502_y[0] = '\0';
+    cpu6502_a_value[0] = '\0';
+    cpu6502_a_alias[0] = '\0';
+    cpu6502_x_value[0] = '\0';
+    cpu6502_y_value[0] = '\0';
+    cpu6502_y_alias[0] = '\0';
     cpu6502_flag_z_valid = 0;
 }
 
@@ -84,30 +91,36 @@ void cpu6502_noop(char *mnemonic)
     if (strcmp(mnemonic, "PHA") == 0 || strcmp(mnemonic, "SEI") == 0 || strcmp(mnemonic, "CLI") == 0 || strcmp(mnemonic, "SEC") == 0 || strcmp(mnemonic, "CLC") == 0) {
         /* Nothing to do */
     } else if (strcmp(mnemonic, "PLA") == 0) {
-        cpu6502_a[0] = '\0';
+        cpu6502_a_value[0] = '\0';
+        cpu6502_a_alias[0] = '\0';
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "TAX") == 0) {
-        strcpy(cpu6502_x, cpu6502_a);
+        strcpy(cpu6502_x_value, cpu6502_a_value);
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "TAY") == 0) {
-        strcpy(cpu6502_y, cpu6502_a);
+        strcpy(cpu6502_y_value, cpu6502_a_value);
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "TXA") == 0) {
-        strcpy(cpu6502_a, cpu6502_x);
+        strcpy(cpu6502_a_value, cpu6502_x_value);
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "TYA") == 0) {
-        strcpy(cpu6502_a, cpu6502_y);
+        strcpy(cpu6502_a_value, cpu6502_y_value);
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "INX") == 0 || strcmp(mnemonic, "DEX") == 0) {
-        cpu6502_x[0] = '\0';
+        cpu6502_x_value[0] = '\0';
+        cpu6502_x_alias[0] = '\0';
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "INY") == 0 || strcmp(mnemonic, "DEY") == 0) {
-        cpu6502_y[0] = '\0';
+        cpu6502_y_value[0] = '\0';
+        cpu6502_y_alias[0] = '\0';
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "RTS") == 0) {
-        cpu6502_a[0] = '\0';
-        cpu6502_x[0] = '\0';
-        cpu6502_y[0] = '\0';
+        cpu6502_a_value[0] = '\0';
+        cpu6502_a_alias[0] = '\0';
+        cpu6502_x_value[0] = '\0';
+        cpu6502_x_alias[0] = '\0';
+        cpu6502_y_value[0] = '\0';
+        cpu6502_y_alias[0] = '\0';
         cpu6502_flag_z_valid = 0;
     } else {
         fprintf(stderr, "cpu6502_noop: not found mnemonic %s\n", mnemonic);
@@ -131,94 +144,128 @@ void cpu6502_1op(char *mnemonic, char *operand)
      ** copy into registers using a single byte instruction.
      */
     if (strcmp(mnemonic, "LDA") == 0) {
-        if (strcmp(operand, cpu6502_x) == 0) {
+        if (strcmp(operand, cpu6502_a_value) == 0 || strcmp(operand, cpu6502_a_alias) == 0)
+            return;
+        if (strcmp(operand, cpu6502_x_value) == 0 || strcmp(operand, cpu6502_x_alias) == 0) {
             cpu6502_noop("TXA");
+            strcpy(cpu6502_a_value, cpu6502_x_value);
+            strcpy(cpu6502_a_alias, cpu6502_x_alias);
             return;
         }
-        if (strcmp(operand, cpu6502_y) == 0) {
+        if (strcmp(operand, cpu6502_y_value) == 0 || strcmp(operand, cpu6502_y_alias) == 0) {
             cpu6502_noop("TYA");
+            strcpy(cpu6502_a_value, cpu6502_y_value);
+            strcpy(cpu6502_a_alias, cpu6502_y_alias);
             return;
         }
     }
     if (strcmp(mnemonic, "LDX") == 0) {
-        if (strcmp(operand, cpu6502_a) == 0) {
+        if (strcmp(operand, cpu6502_x_value) == 0 || strcmp(operand, cpu6502_x_alias) == 0)
+            return;
+        if (strcmp(operand, cpu6502_a_value) == 0 || strcmp(operand, cpu6502_a_alias) == 0) {
             cpu6502_noop("TAX");
+            strcpy(cpu6502_x_value, cpu6502_a_value);
+            strcpy(cpu6502_x_alias, cpu6502_a_alias);
             return;
         }
     }
     if (strcmp(mnemonic, "LDY") == 0) {
-        if (strcmp(operand, cpu6502_a) == 0) {
+        if (strcmp(operand, cpu6502_y_value) == 0 || strcmp(operand, cpu6502_y_alias) == 0)
+            return;
+        if (strcmp(operand, cpu6502_a_value) == 0 || strcmp(operand, cpu6502_a_alias) == 0) {
             cpu6502_noop("TAY");
+            strcpy(cpu6502_y_value, cpu6502_a_value);
+            strcpy(cpu6502_y_alias, cpu6502_a_alias);
             return;
         }
     }
     sprintf(cpu6502_line, "\t%s %s\n", mnemonic, operand);
     cpu6502_emit_line();
     if (strcmp(mnemonic, "LDA") == 0) {
-        if (strchr(operand, ',') != NULL)
-            cpu6502_a[0] = '\0';
-        else
-            strcpy(cpu6502_a, operand);
+        if (strchr(operand, ',') != NULL) {
+            cpu6502_a_value[0] = '\0';
+            cpu6502_a_alias[0] = '\0';
+        } else if (operand[0] == '#') {
+            strcpy(cpu6502_a_value, operand);
+            cpu6502_a_alias[0] = '\0';
+        } else {
+            cpu6502_a_value[0] = '\0';
+            strcpy(cpu6502_a_alias, operand);
+        }
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "LDX") == 0) {
-        if (strchr(operand, ',') != NULL)
-            cpu6502_x[0] = '\0';
-        else
-            strcpy(cpu6502_x, operand);
+        if (strchr(operand, ',') != NULL) {
+            cpu6502_x_value[0] = '\0';
+            cpu6502_x_alias[0] = '\0';
+        } else if (operand[0] == '#') {
+            strcpy(cpu6502_x_value, operand);
+            cpu6502_x_alias[0] = '\0';
+        } else {
+            cpu6502_x_value[0] = '\0';
+            strcpy(cpu6502_x_alias, operand);
+        }
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "LDY") == 0) {
-        if (strchr(operand, ',') != NULL)
-            cpu6502_y[0] = '\0';
-        else
-            strcpy(cpu6502_y, operand);
+        if (strchr(operand, ',') != NULL) {
+            cpu6502_y_value[0] = '\0';
+            cpu6502_y_alias[0] = '\0';
+        } else if (operand[0] == '#') {
+            strcpy(cpu6502_y_value, operand);
+            cpu6502_y_alias[0] = '\0';
+        } else {
+            cpu6502_y_value[0] = '\0';
+            strcpy(cpu6502_y_alias, operand);
+        }
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "CMP") == 0 || strcmp(mnemonic, "CPX") == 0 || strcmp(mnemonic, "CPY") == 0) {
         /* Only flags affected */
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "ADC") == 0 || strcmp(mnemonic, "SBC") == 0 || strcmp(mnemonic, "ORA") == 0 || strcmp(mnemonic, "EOR") == 0 || strcmp(mnemonic, "AND") == 0) {
-        cpu6502_a[0] = '\0';
+        cpu6502_a_value[0] = '\0';
+        cpu6502_a_alias[0] = '\0';
         cpu6502_flag_z_valid = 1;
     } else if (strcmp(mnemonic, "ROR") == 0 || strcmp(mnemonic, "ROL") == 0 || strcmp(mnemonic, "ASL") == 0 || strcmp(mnemonic, "LSR") == 0) {
         if (strcmp(operand, "A") == 0) {
-            cpu6502_a[0] = '\0';
+            cpu6502_a_value[0] = '\0';
+            cpu6502_a_alias[0] = '\0';
             cpu6502_flag_z_valid = 1;
         } else {
-            if (cpu6502_a[0] != '#')
-                cpu6502_a[0] = '\0';
-            if (cpu6502_x[0] != '#')
-                cpu6502_x[0] = '\0';
-            if (cpu6502_y[0] != '#')
-                cpu6502_y[0] = '\0';
+            cpu6502_a_alias[0] = '\0';
+            cpu6502_x_alias[0] = '\0';
+            cpu6502_y_alias[0] = '\0';
             cpu6502_flag_z_valid = 0;
         }
     } else if (strcmp(mnemonic, "INC") == 0 || strcmp(mnemonic, "DEC") == 0) {
-        if (cpu6502_a[0] != '#')
-            cpu6502_a[0] = '\0';
-        if (cpu6502_x[0] != '#')
-            cpu6502_x[0] = '\0';
-        if (cpu6502_y[0] != '#')
-            cpu6502_y[0] = '\0';
+        cpu6502_a_alias[0] = '\0';
+        cpu6502_x_alias[0] = '\0';
+        cpu6502_y_alias[0] = '\0';
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "JSR") == 0 || strcmp(mnemonic, "JMP") == 0 || strcmp(mnemonic, "ORG") == 0 || strcmp(mnemonic, "FORG") == 0) {
-        cpu6502_a[0] = '\0';
-        cpu6502_x[0] = '\0';
-        cpu6502_y[0] = '\0';
+        cpu6502_a_value[0] = '\0';
+        cpu6502_a_alias[0] = '\0';
+        cpu6502_x_value[0] = '\0';
+        cpu6502_x_alias[0] = '\0';
+        cpu6502_y_value[0] = '\0';
+        cpu6502_y_alias[0] = '\0';
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "STA") == 0) {
-        if (strchr(operand, ',') != NULL)
-            cpu6502_a[0] = '\0';
-        else
-            strcpy(cpu6502_a, operand);
+        if (strchr(operand, ',') != NULL) {
+            cpu6502_a_alias[0] = '\0';
+        } else {
+            strcpy(cpu6502_a_alias, operand);
+        }
     } else if (strcmp(mnemonic, "STX") == 0) {
-        if (strchr(operand, ',') != NULL)
-            cpu6502_x[0] = '\0';
-        else
-            strcpy(cpu6502_x, operand);
+        if (strchr(operand, ',') != NULL) {
+            cpu6502_x_alias[0] = '\0';
+        } else {
+            strcpy(cpu6502_x_alias, operand);
+        }
     } else if (strcmp(mnemonic, "STY") == 0) {
-        if (strchr(operand, ',') != NULL)
-            cpu6502_y[0] = '\0';
-        else
-            strcpy(cpu6502_y, operand);
+        if (strchr(operand, ',') != NULL) {
+            cpu6502_y_alias[0] = '\0';
+        } else {
+            strcpy(cpu6502_y_alias, operand);
+        }
     } else if (strcmp(mnemonic, "BEQ") == 0 || strcmp(mnemonic, "BEQ.L") == 0
                || strcmp(mnemonic, "BNE") == 0 || strcmp(mnemonic, "BNE.L") == 0
                || strcmp(mnemonic, "BCC") == 0 || strcmp(mnemonic, "BCC.L") == 0
