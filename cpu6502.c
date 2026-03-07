@@ -17,6 +17,12 @@
 #define REG_NONE    0
 #define REG_ALL     (REG_ACC | REG_X | REG_Y | REG_TEMP)
 
+/*
+ ** Character used internally to mark precalculated array[index] addresses
+ */
+#define INDEX_ADD           '['
+#define INDEX_ADD_STRING    "["
+
 static char temp2[MAX_LINE_SIZE];
 
 static char cpu6502_line[MAX_LINE_SIZE];
@@ -27,6 +33,7 @@ static char cpu6502_x_value[MAX_LINE_SIZE];
 static char cpu6502_x_alias[MAX_LINE_SIZE];
 static char cpu6502_y_value[MAX_LINE_SIZE];
 static char cpu6502_y_alias[MAX_LINE_SIZE];
+static char cpu6502_pointer_alias[MAX_LINE_SIZE];
 static int cpu6502_flag_z_valid;
 
 static void cpu6502_emit_line(void);
@@ -50,8 +57,10 @@ void cpu6502_label(char *label)
     cpu6502_a_value[0] = '\0';
     cpu6502_a_alias[0] = '\0';
     cpu6502_x_value[0] = '\0';
+    cpu6502_x_alias[0] = '\0';
     cpu6502_y_value[0] = '\0';
     cpu6502_y_alias[0] = '\0';
+    cpu6502_pointer_alias[0] = '\0';
     cpu6502_flag_z_valid = 0;
 }
 
@@ -63,8 +72,10 @@ void cpu6502_empty(void)
     cpu6502_a_value[0] = '\0';
     cpu6502_a_alias[0] = '\0';
     cpu6502_x_value[0] = '\0';
+    cpu6502_x_alias[0] = '\0';
     cpu6502_y_value[0] = '\0';
     cpu6502_y_alias[0] = '\0';
+    cpu6502_pointer_alias[0] = '\0';
     cpu6502_flag_z_valid = 0;
 }
 
@@ -247,6 +258,7 @@ void cpu6502_1op(char *mnemonic, char *operand)
         cpu6502_x_alias[0] = '\0';
         cpu6502_y_value[0] = '\0';
         cpu6502_y_alias[0] = '\0';
+        cpu6502_pointer_alias[0] = '\0';
         cpu6502_flag_z_valid = 0;
     } else if (strcmp(mnemonic, "STA") == 0) {
         if (strchr(operand, ',') != NULL) {
@@ -818,6 +830,14 @@ void cpu6502_node_generate(struct node *node, int decision)
             }
             cpu6502_node_generate(node->left, 0);
             cpu6502_1op("JSR", "_peek8");
+            node = node->left;
+            if (node->type == N_PLUS16 && node->left->type == N_ADDR && node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {    /* addr + var : addr - var */
+                node_get_label(node->left, 0);
+                strcpy(cpu6502_pointer_alias, temp);
+                strcat(cpu6502_pointer_alias, INDEX_ADD_STRING);
+                node_get_label(node->right->left, 0);
+                strcat(cpu6502_pointer_alias, temp);
+            }
             break;
         case N_PEEK16:  /* Load 16-bit content */
             if (node->left->type == N_ADDR) {   /* Optimize address */
@@ -1284,7 +1304,26 @@ void cpu6502_node_generate(struct node *node, int decision)
                         sprintf(p, "%d)>>8", node->right->value);
                         cpu6502_1op("LDY", temp);
                         break;
-                    } else if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {
+                    } else if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {    /* addr + var : addr - var */
+                        char *p;
+                        
+                        if ((p = strchr(cpu6502_pointer_alias, INDEX_ADD)) != NULL) { /* If there is an index saved... */
+                            node_get_label(node->right->left, 0);
+                            if (strcmp(temp, p + 1) == 0) {  /* ...and it is the same index */
+                                *p = '\0';
+                                node_get_label(node->left, 0);
+                                if (strcmp(cpu6502_pointer_alias, temp) == 0) {
+                                    cpu6502_1op("LDA", "pointer");
+                                    cpu6502_1op("LDY", "pointer+1");
+                                    node_get_label(node->left, 0);
+                                    strcpy(cpu6502_pointer_alias, temp);
+                                    strcat(cpu6502_pointer_alias, INDEX_ADD_STRING);
+                                    node_get_label(node->right->left, 0);
+                                    strcat(cpu6502_pointer_alias, temp);
+                                    break;
+                                }
+                            }
+                        }
                         node_get_label(node->left, 2);
                         cpu6502_1op("LDA", temp);
                         cpu6502_noop("CLC");
