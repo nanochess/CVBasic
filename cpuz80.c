@@ -16,6 +16,12 @@
 
 #define REG_ALL (REG_AF | REG_BC | REG_DE | REG_HL)
 
+/*
+ ** Character used internally to mark precalculated array[index] addresses
+ */
+#define INDEX_ADD           '['
+#define INDEX_ADD_STRING    "["
+
 static char z80_line[MAX_LINE_SIZE];
 
 static char z80_line_1[MAX_LINE_SIZE];
@@ -221,6 +227,8 @@ void cpuz80_1op(char *mnemonic, char *operand)
             z80_a_value[0] = '\0';
             z80_a_alias[0] = '\0';
             z80_flag_z_valid = 0;
+            if (strchr(z80_hl_alias, INDEX_ADD) != NULL)
+                z80_hl_alias[0] = '\0';
         }
     } else if (strcmp(mnemonic, "DEC") == 0) {
         if (strcmp(operand, "H") == 0 ||
@@ -237,6 +245,8 @@ void cpuz80_1op(char *mnemonic, char *operand)
             z80_a_value[0] = '\0';
             z80_a_alias[0] = '\0';
             z80_flag_z_valid = 0;
+            if (strchr(z80_hl_alias, INDEX_ADD) != NULL)
+                z80_hl_alias[0] = '\0';
         }
     } else if (strcmp(mnemonic, "DW") == 0 || strcmp(mnemonic, "ORG") == 0 || strcmp(mnemonic, "FORG") == 0) {
         /* Nothing to do */
@@ -353,9 +363,11 @@ void cpuz80_2op(char *mnemonic, char *operand1, char *operand2)
                 z80_a_value[0] = '\0';
                 z80_a_alias[0] = '\0';
             }
-        } else if (strcmp(operand2, "A") == 0 && operand1[0] == '(') {
+        } else if (operand1[0] == '(' && strcmp(operand2, "A") == 0) {
             /* Saving to an address makes A an alias AND PRESERVES the value */
             strcpy(z80_a_alias, operand1);
+            if (strchr(z80_hl_alias, INDEX_ADD) != NULL)
+                z80_hl_alias[0] = '\0';
         }
     } else {
         fprintf(stderr, "z80_2op: not found mnemonic %s\n", mnemonic);
@@ -1368,8 +1380,8 @@ void cpuz80_node_generate(struct node *node, int decision)
             }
             /* Optimization of address plus/minus constant */
             if (node->type == N_PLUS16 || node->type == N_MINUS16) {
-                if (node->left->type == N_ADDR) {
-                    if (node->right->type == N_NUM16) {
+                if (node->left->type == N_ADDR) {   /* addr + : addr - */
+                    if (node->right->type == N_NUM16) {  /* addr + const : addr - const */
                         node_get_label(node->left, 0);
                         if (node->type == N_PLUS16)
                             strcat(temp, "+");
@@ -1386,10 +1398,45 @@ void cpuz80_node_generate(struct node *node, int decision)
             }
             if (node->type == N_PLUS16) {
                 if (node->left->type == N_ADDR) {
+                    if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {    /* addr + var : addr - var */
+                        char *p;
+                        
+                        if ((p = strchr(z80_hl_alias, INDEX_ADD)) != NULL) { /* If there is an index saved... */
+                            node_get_label(node->right->left, 0);
+                            if (strcmp(temp, p + 1) == 0) {  /* ...and it is the same index */
+                                *p = '\0';
+                                node_get_label(node->left, 0);
+                                if (strcmp(z80_hl_alias, temp) != 0) {  /* Add difference between the two arrays position, or none if same array */
+                                    strcat(temp, "-");
+                                    strcat(temp, z80_hl_alias);
+                                    cpuz80_2op("LD", "DE", temp);
+                                    cpuz80_2op("ADD", "HL", "DE");
+                                }
+                                node_get_label(node->left, 0);
+                                strcpy(z80_hl_alias, temp);
+                                strcat(z80_hl_alias, INDEX_ADD_STRING);
+                                node_get_label(node->right->left, 0);
+                                strcat(z80_hl_alias, temp);
+                                break;
+                            }
+                        }
+                    }
                     cpuz80_node_generate(node->right, 0);
                     node_get_label(node->left, 0);
                     cpuz80_2op("LD", "DE", temp);
                     cpuz80_2op("ADD", "HL", "DE");
+                    
+                    /*
+                     ** Higher-level optimization
+                     ** z80_hl_alias indicates it contains address for array[var]
+                     */
+                    if (node->right->type == N_EXTEND8 && node->right->left->type == N_LOAD8) {    /* addr + var : addr - var */
+                        node_get_label(node->left, 0);
+                        strcpy(z80_hl_alias, temp);
+                        strcat(z80_hl_alias, INDEX_ADD_STRING);
+                        node_get_label(node->right->left, 0);
+                        strcat(z80_hl_alias, temp);
+                    }
                     break;
                 }
                 if (node->left->type == N_NUM16 || node->right->type == N_NUM16) {
