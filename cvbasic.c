@@ -138,6 +138,7 @@ int next_local = 1;
 
 static int option_explicit;
 static int option_warnings;
+static int option_fm;
 
 static enum lexical_component {
     C_END, C_NAME,
@@ -3557,6 +3558,19 @@ void compile_statement(int check_for_else)
                     } else {
                         emit_error("missing ON/OFF in OPTION WARNINGS");
                     }
+                } else if (strcmp(name, "FM") == 0) {
+                    if (machine != MSX && machine != MSX2)
+                        emit_warning("OPTION FM only works for MSX/MSX2 platforms");
+                    get_lex();
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        get_lex();
+                        option_fm = 1;
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        get_lex();
+                        option_fm = 0;
+                    } else {
+                        emit_error("missing ON/OFF in OPTION FM");
+                    }
                 } else {
                     emit_error("non-recognized OPTION");
                 }
@@ -5532,6 +5546,34 @@ void compile_statement(int check_for_else)
                         cpuz80_2op("LD", "A", temp);
                         cpuz80_2op("LD", "(music_mode)", "A");
                     }
+                } else if (strcmp(name, "INSTRUMENT") == 0) {
+                    get_lex();
+                    if (machine != MSX && machine != MSX2)
+                        emit_warning("PLAY INSTRUMENT only allowed for MSX and MSX2");
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (target == CPU_Z80)
+                        cpuz80_2op("LD", "(fm_inst)", "A");
+                    if (lex != C_COMMA)
+                        emit_error("missing comma");
+                    else
+                        get_lex();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (target == CPU_Z80)
+                        cpuz80_2op("LD", "(fm_inst+1)", "A");
+                    if (lex != C_COMMA)
+                        emit_error("missing comma");
+                    else
+                        get_lex();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (target == CPU_Z80)
+                        cpuz80_2op("LD", "(fm_inst+2)", "A");
+                    if (lex != C_COMMA)
+                        emit_error("missing comma");
+                    else
+                        get_lex();
+                    type = evaluate_expression(1, TYPE_8, 0);
+                    if (target == CPU_Z80)
+                        cpuz80_2op("LD", "(fm_inst+3)", "A");
                 } else {
                     struct label *label;
                     
@@ -6932,8 +6974,10 @@ int main(int argc, char *argv[])
     else
         c = 0;
     fprintf(output, "MSX:\tequ %d\n", c);
-    if (c)
+    if (c) {
         fprintf(output, "KONAMI:\tequ %d\n", bank_konami);
+        fprintf(output, "FM_SUPPORT:\tequ %d\n", option_fm);
+    }
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
     fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);

@@ -1,3 +1,37 @@
+	; CVBasic compiler v0.9.2 Mar/06/2026
+	; Command: ./cvbasic --msx examples/controller.bas controller.asm 
+	; Created: Mon Mar  9 11:24:18 2026
+
+COLECO:	equ 0
+SG1000:	equ 0
+MSX:	equ 1
+KONAMI:	equ 0
+FM_SUPPORT:	equ 0
+SGM:	equ 0
+SVI:	equ 0
+SORD:	equ 0
+MEMOTECH:	equ 0
+EINSTEIN:	equ 0
+CPM:	equ 0
+PENCIL:	equ 0
+PV2000:	equ 0
+TI99:	equ 0
+NABU:	equ 0
+SMS:	equ 0
+
+CVBASIC_MUSIC_PLAYER:	equ 0
+CVBASIC_COMPRESSION:	equ 0
+CVBASIC_BANK_SWITCHING:	equ 0
+CVBASIC_BANK_ROM_SIZE:	equ 0
+COLECO_SPINNER:	equ 0
+
+BASE_RAM:	equ $e000	; Base of RAM
+RAM_SIZE:	equ $1380	; Base of RAM
+STACK:	equ $f380	; Base stack pointer
+VDP:	equ $98	; VDP port (write)
+VDPR:	equ $98	; VDP port (read)
+PSG:	equ $00	; PSG port (write)
+
 	;
 	; CVBasic prologue (BASIC compiler for Colecovision and other consoles)
 	;
@@ -2065,8 +2099,8 @@ nmi_handler:
 	; Keyboard matrix from https://map.grauw.nl/articles/keymatrix.php
 	ld a,15
 	call RDPSG
-	and $80		
-	or $5c		; Read joystick 2.
+	and $d0		
+	or $4c		; Read joystick 2.
 	ld e,a
 	ld a,15
 	call WRTPSG
@@ -2165,8 +2199,8 @@ nmi_handler:
 
 	ld a,15
 	call RDPSG
-	and $80
-	or $23		; Read joystick 1.
+	and $a0
+	or $03		; Read joystick 1.
 	ld e,a
 	ld a,15
 	call WRTPSG
@@ -2839,7 +2873,6 @@ nmi_handler:
 	call nz,music_generate
 .3:
     endif
-	;CVBASIC MARK DON'T CHANGE
 
   if CVBASIC_BANK_SWITCHING
 	pop af
@@ -4350,3 +4383,1170 @@ WRITE_VRAM:	equ $1fdf
     endif
 
 	; CVBasic program start.
+	; 	'
+	; 	' Controller test
+	; 	'
+	; 	' by Oscar Toledo G.
+	; 	' https://nanochess.org/
+	; 	'
+	; 	' Creation date: Aug/21/2024.
+	; 	' Revision date: Oct/15/2024. Solved wrong display for number key in 2nd controller.
+	; 	' Revision date: Nov/28/2025. Added support for Blue and Purple buttons (Super
+	; 	'                             Action Controller)
+	; 	'
+	; 
+	; 	CONST left_x = 56
+const_LEFT_X:	equ $0038
+	; 	CONST left_y = 40
+const_LEFT_Y:	equ $0028
+	; 	CONST right_x = 160
+const_RIGHT_X:	equ $00a0
+	; 	CONST right_y = 40
+const_RIGHT_Y:	equ $0028
+	; 
+	; 	DEF FN CHAR_XY(x, y) = ((y) / 8 * 32 + (x) / 8)
+	; 
+	; 	MODE 2		' Color for sets of 8 characters.
+	CALL mode_2
+	; 
+	; 	DEFINE CHAR 27,7,extra_bitmaps
+	LD HL,27
+	PUSH HL
+	LD A,7
+	LD HL,cvb_EXTRA_BITMAPS
+	CALL define_char
+	; 
+	; 	VPOKE $2003, $E1	' Color for characters $18-$1f
+	LD HL,8195
+	LD A,225
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $2004, $14	' $20-$27
+	LD HL,8196
+	LD A,20
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $2005, $1F	' $28-$29
+	LD HL,8197
+	LD A,31
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $2006, $1F	' $30-$37
+	LD HL,8198
+	LD A,31
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $2007, $1F	' $38-$3f
+	LD HL,8199
+	LD A,31
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $2008, $F4	' $40-$47
+	LD HL,8200
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $2009, $F4	' $48-$4f
+	LD HL,8201
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $200A, $F4	' $50-$57
+	LD HL,8202
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $200B, $F4	' $58-$5f
+	LD HL,8203
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $200C, $F4	' $60-$67
+	LD HL,8204
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $200D, $F4	' $68-$6f
+	LD HL,8205
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $200E, $F4	' $70-$77
+	LD HL,8206
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 	VPOKE $200F, $F4	' $78-$7f
+	LD HL,8207
+	LD A,244
+	DI
+	CALL WRTVRM
+	EI
+	; 
+	; 	' Center numbers bitmaps
+	; 	FOR #c = $0150 TO $01CF
+	LD HL,336
+	LD (cvb_#C),HL
+cv1:
+	; 		d = VPEEK(#c)
+	LD HL,(cvb_#C)
+	CALL nmi_off
+	CALL RDVRM
+	CALL nmi_on
+	LD (cvb_D),A
+	; 		VPOKE #c, (d / 2) OR (d / 4)
+	LD HL,(cvb_D)
+	LD H,0
+	SRL H
+	RR L
+	SRL H
+	RR L
+	EX DE,HL
+	LD HL,(cvb_D)
+	LD H,0
+	SRL H
+	RR L
+	LD A,L
+	OR E
+	LD L,A
+	LD A,H
+	OR D
+	LD H,A
+	LD A,L
+	LD HL,(cvb_#C)
+	DI
+	CALL WRTVRM
+	EI
+	; 	NEXT #c
+	LD HL,(cvb_#C)
+	INC HL
+	LD (cvb_#C),HL
+	LD DE,464
+	OR A
+	SBC HL,DE
+	JP C,cv1
+	; 	DEFINE CHAR 42,4,number_bitmap
+	LD HL,42
+	PUSH HL
+	LD A,4
+	LD HL,cvb_NUMBER_BITMAP
+	CALL define_char
+	; 
+	; 	VDP(1) = $E0	' 8x8 sprites
+	LD A,224
+	LD B,A
+	LD C,1
+	DI
+	CALL WRTVDP
+	EI
+	; 	VDP(6) = $00	' Sprites use character bitmaps.
+	SUB A
+	LD B,A
+	LD C,6
+	DI
+	CALL WRTVDP
+	EI
+	; 
+	; 	PRINT AT 36,"CVBasic controller test"
+	LD HL,36
+	LD (cursor),HL
+	LD HL,cv2
+	LD A,23
+	CALL print_string
+	JR cv3
+cv2:
+	DB $43,$56,$42,$61,$73,$69,$63,$20
+	DB $63,$6f,$6e,$74,$72,$6f,$6c,$6c
+	DB $65,$72,$20,$74,$65,$73,$74
+cv3:
+	; 
+	; 	#c = CHAR_XY(left_x, left_y)
+	LD HL,167
+	LD (cvb_#C),HL
+	; 	GOSUB draw_controller
+	CALL cvb_DRAW_CONTROLLER
+	; 	#c = CHAR_XY(right_x, right_y)
+	LD HL,180
+	LD (cvb_#C),HL
+	; 	GOSUB draw_controller
+	CALL cvb_DRAW_CONTROLLER
+	; 
+	; main_loop:
+cvb_MAIN_LOOP:
+	; 	WHILE 1
+cv4:
+	; 		IF cont1.up THEN
+	LD A,(joy1_data)
+	AND 1
+	JP Z,cv6
+	; 			SPRITE 0, left_y - 1, left_x + 16, 27, 9
+	SUB A
+	PUSH AF
+	LD A,39
+	PUSH AF
+	LD A,72
+	PUSH AF
+	LD A,27
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv7
+cv6:
+	; 			SPRITE 0, $d1, 0, 0, 0
+	SUB A
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv7:
+	; 		IF cont1.left THEN
+	LD A,(joy1_data)
+	AND 8
+	JP Z,cv8
+	; 			SPRITE 1, left_y + 15, left_x, 30, 9
+	LD A,1
+	PUSH AF
+	LD A,55
+	PUSH AF
+	LD A,56
+	PUSH AF
+	LD A,30
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv9
+cv8:
+	; 			SPRITE 1, $d1, 0, 0, 0
+	LD A,1
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv9:
+	; 		IF cont1.right THEN
+	LD A,(joy1_data)
+	AND 2
+	JP Z,cv10
+	; 			SPRITE 2, left_y + 15, left_x + 32, 28, 9
+	LD A,2
+	PUSH AF
+	LD A,55
+	PUSH AF
+	LD A,88
+	PUSH AF
+	LD A,28
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv11
+cv10:
+	; 			SPRITE 2, $d1, 0, 0, 0
+	LD A,2
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv11:
+	; 		IF cont1.down THEN
+	LD A,(joy1_data)
+	AND 4
+	JP Z,cv12
+	; 			SPRITE 3, left_y + 31, left_x + 16, 29, 9
+	LD A,3
+	PUSH AF
+	LD A,71
+	PUSH AF
+	LD A,72
+	PUSH AF
+	LD A,29
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv13
+cv12:
+	; 			SPRITE 3, $d1, 0, 0, 0
+	LD A,3
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv13:
+	; 		IF cont1.button THEN
+	LD A,(joy1_data)
+	AND 64
+	JP Z,cv14
+	; 			SPRITE 4, left_y + 47, left_x - 8, 31, 9
+	LD A,4
+	PUSH AF
+	LD A,87
+	PUSH AF
+	LD A,48
+	PUSH AF
+	LD A,31
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv15
+cv14:
+	; 			SPRITE 4, $d1, 0, 0, 0
+	LD A,4
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv15:
+	; 		IF cont1.button2 THEN
+	LD A,(joy1_data)
+	AND 128
+	JP Z,cv16
+	; 			SPRITE 5, left_y + 47, left_x + 40, 31, 9
+	LD A,5
+	PUSH AF
+	LD A,87
+	PUSH AF
+	LD A,96
+	PUSH AF
+	LD A,31
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv17
+cv16:
+	; 			SPRITE 5, $d1, 0, 0, 0
+	LD A,5
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv17:
+	; 		c = cont1.key
+	LD A,(key1_data)
+	LD (cvb_C),A
+	; 		IF c = 15 THEN
+	CP 15
+	JP NZ,cv18
+	; 			SPRITE 6, $d1, 0, 0, 0
+	LD A,6
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		ELSE
+	JP cv19
+cv18:
+	; 			GOSUB prepare_key
+	CALL cvb_PREPARE_KEY
+	; 			SPRITE 6, left_y + y, left_x + x, c, 9
+	LD A,6
+	PUSH AF
+	LD A,(cvb_Y)
+	ADD A,40
+	PUSH AF
+	LD A,(cvb_X)
+	ADD A,56
+	PUSH AF
+	LD A,(cvb_C)
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		END IF
+cv19:
+	; 		IF cont2.up THEN
+	LD A,(joy2_data)
+	AND 1
+	JP Z,cv20
+	; 			SPRITE 7, right_y - 1, right_x + 16, 27, 9
+	LD A,7
+	PUSH AF
+	LD A,39
+	PUSH AF
+	LD A,176
+	PUSH AF
+	LD A,27
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv21
+cv20:
+	; 			SPRITE 7, $d1, 0, 0, 0
+	LD A,7
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv21:
+	; 		IF cont2.left THEN
+	LD A,(joy2_data)
+	AND 8
+	JP Z,cv22
+	; 			SPRITE 8, right_y + 15, right_x, 30, 9
+	LD A,8
+	PUSH AF
+	LD A,55
+	PUSH AF
+	LD A,160
+	PUSH AF
+	LD A,30
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv23
+cv22:
+	; 			SPRITE 8, $d1, 0, 0, 0
+	LD A,8
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv23:
+	; 		IF cont2.right THEN
+	LD A,(joy2_data)
+	AND 2
+	JP Z,cv24
+	; 			SPRITE 9, right_y + 15, right_x + 32, 28, 9
+	LD A,9
+	PUSH AF
+	LD A,55
+	PUSH AF
+	LD A,192
+	PUSH AF
+	LD A,28
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv25
+cv24:
+	; 			SPRITE 9, $d1, 0, 0, 0
+	LD A,9
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv25:
+	; 		IF cont2.down THEN
+	LD A,(joy2_data)
+	AND 4
+	JP Z,cv26
+	; 			SPRITE 10, right_y + 31, right_x + 16, 29, 9
+	LD A,10
+	PUSH AF
+	LD A,71
+	PUSH AF
+	LD A,176
+	PUSH AF
+	LD A,29
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv27
+cv26:
+	; 			SPRITE 10, $d1, 0, 0, 0
+	LD A,10
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv27:
+	; 		IF cont2.button THEN
+	LD A,(joy2_data)
+	AND 64
+	JP Z,cv28
+	; 			SPRITE 11, right_y + 47, right_x - 8, 31, 9
+	LD A,11
+	PUSH AF
+	LD A,87
+	PUSH AF
+	LD A,152
+	PUSH AF
+	LD A,31
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv29
+cv28:
+	; 			SPRITE 11, $d1, 0, 0, 0
+	LD A,11
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv29:
+	; 		IF cont2.button2 THEN
+	LD A,(joy2_data)
+	AND 128
+	JP Z,cv30
+	; 			SPRITE 12, right_y + 47, right_x + 40, 31, 9
+	LD A,12
+	PUSH AF
+	LD A,87
+	PUSH AF
+	LD A,200
+	PUSH AF
+	LD A,31
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		ELSE
+	JP cv31
+cv30:
+	; 			SPRITE 12, $d1, 0, 0, 0
+	LD A,12
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		END IF
+cv31:
+	; 		c = cont2.key
+	LD A,(key2_data)
+	LD (cvb_C),A
+	; 		IF c = 15 THEN
+	CP 15
+	JP NZ,cv32
+	; 			SPRITE 14, $d1, 0, 0, 0
+	LD A,14
+	PUSH AF
+	LD A,209
+	PUSH AF
+	SUB A
+	PUSH AF
+	PUSH AF
+	CALL update_sprite
+	; 		ELSE
+	JP cv33
+cv32:
+	; 			GOSUB prepare_key
+	CALL cvb_PREPARE_KEY
+	; 			SPRITE 14, right_y + y, right_x + x, c, 9
+	LD A,14
+	PUSH AF
+	LD A,(cvb_Y)
+	ADD A,40
+	PUSH AF
+	LD A,(cvb_X)
+	ADD A,160
+	PUSH AF
+	LD A,(cvb_C)
+	PUSH AF
+	LD A,9
+	CALL update_sprite
+	; 		END IF
+cv33:
+	; 
+	; 		WAIT
+	HALT
+	; 
+	; 	WEND
+	JP cv4
+cv5:
+	; 
+	; draw_controller:	PROCEDURE
+cvb_DRAW_CONTROLLER:
+	; 	FOR #d = #c - $0021 TO #c + $01DF STEP $20
+	LD HL,(cvb_#C)
+	LD DE,65503
+	ADD HL,DE
+	LD (cvb_#D),HL
+cv34:
+	; 		PRINT AT #d, "!!!!!!!"
+	LD HL,(cvb_#D)
+	LD (cursor),HL
+	LD HL,cv35
+	LD A,7
+	CALL print_string
+	JR cv36
+cv35:
+	DB $21,$21,$21,$21,$21,$21,$21
+cv36:
+	; 	NEXT #d
+	LD HL,(cvb_#D)
+	LD DE,32
+	ADD HL,DE
+	LD (cvb_#D),HL
+	LD HL,(cvb_#C)
+	LD DE,479
+	ADD HL,DE
+	LD DE,(cvb_#D)
+	OR A
+	SBC HL,DE
+	JP NC,cv34
+	; 
+	; 	PRINT AT #c + $0000, "!!\27!!"
+	LD HL,(cvb_#C)
+	LD (cursor),HL
+	LD HL,cv37
+	LD A,5
+	CALL print_string
+	JR cv38
+cv37:
+	DB $21,$21,$1b,$21,$21
+cv38:
+	; 	PRINT AT #c + $0040, "\30!\31!\28"
+	LD HL,(cvb_#C)
+	LD DE,64
+	ADD HL,DE
+	LD (cursor),HL
+	LD HL,cv39
+	LD A,5
+	CALL print_string
+	JR cv40
+cv39:
+	DB $1e,$21,$1f,$21,$1c
+cv40:
+	; 	PRINT AT #c + $0080, "!!\29!!"
+	LD HL,(cvb_#C)
+	LD DE,128
+	ADD HL,DE
+	LD (cursor),HL
+	LD HL,cv41
+	LD A,5
+	CALL print_string
+	JR cv42
+cv41:
+	DB $21,$21,$1d,$21,$21
+cv42:
+	; 	PRINT AT #c + $00bf, "\31!!!!!\31"
+	LD HL,(cvb_#C)
+	LD DE,191
+	ADD HL,DE
+	LD (cursor),HL
+	LD HL,cv43
+	LD A,7
+	CALL print_string
+	JR cv44
+cv43:
+	DB $1f,$21,$21,$21,$21,$21,$1f
+cv44:
+	; 	PRINT AT #c + $0100, "1!2!3"
+	LD HL,(cvb_#C)
+	INC H
+	LD (cursor),HL
+	LD HL,cv45
+	LD A,5
+	CALL print_string
+	JR cv46
+cv45:
+	DB $31,$21,$32,$21,$33
+cv46:
+	; 	PRINT AT #c + $0140, "4!5!6"
+	LD HL,(cvb_#C)
+	LD DE,320
+	ADD HL,DE
+	LD (cursor),HL
+	LD HL,cv47
+	LD A,5
+	CALL print_string
+	JR cv48
+cv47:
+	DB $34,$21,$35,$21,$36
+cv48:
+	; 	PRINT AT #c + $0180, "7!8!9"
+	LD HL,(cvb_#C)
+	LD DE,384
+	ADD HL,DE
+	LD (cursor),HL
+	LD HL,cv49
+	LD A,5
+	CALL print_string
+	JR cv50
+cv49:
+	DB $37,$21,$38,$21,$39
+cv50:
+	; 	PRINT AT #c + $01C0, "*!0!+"
+	LD HL,(cvb_#C)
+	LD DE,448
+	ADD HL,DE
+	LD (cursor),HL
+	LD HL,cv51
+	LD A,5
+	CALL print_string
+	JR cv52
+cv51:
+	DB $2a,$21,$30,$21,$2b
+cv52:
+	; 	END
+	RET
+	; 
+	; prepare_key:	PROCEDURE
+cvb_PREPARE_KEY:
+	; 	IF c = 0 THEN
+	LD A,(cvb_C)
+	AND A
+	JP NZ,cv53
+	; 		x = 16
+	LD A,16
+	LD (cvb_X),A
+	; 		y = 111
+	LD A,111
+	LD (cvb_Y),A
+	; 		c = 48
+	LD A,48
+	LD (cvb_C),A
+	; 	ELSEIF c = 10 THEN
+	JP cv54
+cv53:
+	LD A,(cvb_C)
+	CP 10
+	JP NZ,cv55
+	; 		x = 0
+	SUB A
+	LD (cvb_X),A
+	; 		y = 111
+	LD A,111
+	LD (cvb_Y),A
+	; 		c = 42
+	LD A,42
+	LD (cvb_C),A
+	; 	ELSEIF c = 11 THEN
+	JP cv54
+cv55:
+	LD A,(cvb_C)
+	CP 11
+	JP NZ,cv56
+	; 		x = 32
+	LD A,32
+	LD (cvb_X),A
+	; 		y = 111
+	LD A,111
+	LD (cvb_Y),A
+	; 		c = 43
+	LD A,43
+	LD (cvb_C),A
+	; 	ELSEIF c > 0 AND c < 10 THEN
+	JP cv54
+cv56:
+	LD A,(cvb_C)
+	CP 10
+	LD A,0
+	SBC A,A
+	LD B,A
+	LD A,(cvb_C)
+	CP 1
+	LD A,255
+	ADC A,0
+	AND B
+	JP Z,cv57
+	; 		x = ((c - 1) % 3) * 16
+	LD HL,(cvb_C)
+	LD H,0
+	DEC HL
+	LD DE,3
+	CALL _mod16
+	LD A,L
+	ADD A,A
+	ADD A,A
+	ADD A,A
+	ADD A,A
+	LD (cvb_X),A
+	; 		y = 63 + ((c - 1) / 3) * 16
+	LD HL,(cvb_C)
+	LD H,0
+	DEC HL
+	LD DE,3
+	CALL _div16
+	LD A,L
+	ADD A,A
+	ADD A,A
+	ADD A,A
+	ADD A,A
+	ADD A,63
+	LD (cvb_Y),A
+	; 		c = c + 48
+	LD HL,cvb_C
+	LD A,48
+	ADD A,(HL)
+	LD (HL),A
+	; 	ELSEIF c = 12 THEN
+	JP cv54
+cv57:
+	LD A,(cvb_C)
+	CP 12
+	JP NZ,cv58
+	; 		x = 8
+	LD A,8
+	LD (cvb_X),A
+	; 		y = 0
+	SUB A
+	LD (cvb_Y),A
+	; 		c = 44
+	LD A,44
+	LD (cvb_C),A
+	; 	ELSEIF c = 13 THEN
+	JP cv54
+cv58:
+	LD A,(cvb_C)
+	CP 13
+	JP NZ,cv59
+	; 		x = 8
+	LD A,8
+	LD (cvb_X),A
+	; 		y = 8
+	LD (cvb_Y),A
+	; 		c = 45
+	LD A,45
+	LD (cvb_C),A
+	; 	ELSE
+	JP cv54
+cv59:
+	; 		' Some systems have extra characters
+	; 		x = 16
+	LD A,16
+	LD (cvb_X),A
+	; 		y = 127
+	LD A,127
+	LD (cvb_Y),A
+	; 	END IF
+cv54:
+	; 	END
+	RET
+	; 		
+	; extra_bitmaps:
+cvb_EXTRA_BITMAPS:
+	; 	BITMAP "...XX..."
+	; 	BITMAP "..XXXX.."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	DB $18,$3c,$7e,$18,$18,$18,$18,$18
+	; 
+	; 	BITMAP "........"
+	; 	BITMAP ".....X.."
+	; 	BITMAP ".....XX."
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP ".....XX."
+	; 	BITMAP ".....X.."
+	; 	BITMAP "........"
+	DB $00,$04,$06,$ff,$ff,$06,$04,$00
+	; 
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP "...XX..."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP "..XXXX.."
+	; 	BITMAP "...XX..."
+	DB $18,$18,$18,$18,$18,$7e,$3c,$18
+	; 
+	; 	BITMAP "........"
+	; 	BITMAP "..X....."
+	; 	BITMAP ".XX....."
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP ".XX....."
+	; 	BITMAP "..X....."
+	; 	BITMAP "........"
+	DB $00,$20,$60,$ff,$ff,$60,$20,$00
+	; 
+	; 	BITMAP "..XXXX.."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP "..XXXX.."
+	DB $3c,$7e,$ff,$ff,$ff,$ff,$7e,$3c
+	; 
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	DB $00,$00,$00,$00,$00,$00,$00,$00
+	; 
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	; 	BITMAP "XXXXXXXX"
+	DB $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+	; 
+	; number_bitmap:
+cvb_NUMBER_BITMAP:
+	; 	BITMAP "........"
+	; 	BITMAP ".XX..XX."
+	; 	BITMAP "..XXXX.."
+	; 	BITMAP ".XXXXXX."
+	; 	BITMAP "..XXXX.."
+	; 	BITMAP ".XX..XX."
+	; 	BITMAP "........"
+	; 	BITMAP "........"
+	DB $00,$66,$3c,$7e,$3c,$66,$00,$00
+	; 
+	; 	BITMAP "..XX.XX."
+	; 	BITMAP "..XX.XX."
+	; 	BITMAP ".XXXXXXX"
+	; 	BITMAP "..XX.XX."
+	; 	BITMAP ".XXXXXXX"
+	; 	BITMAP "..XX.XX."
+	; 	BITMAP "..XX.XX."
+	; 	BITMAP "........"
+	DB $36,$36,$7f,$36,$7f,$36,$36,$00
+	; 
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "........"
+	DB $fe,$c3,$c3,$fe,$c3,$c3,$fe,$00
+	; 
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "XX....XX"
+	; 	BITMAP "XXXXXXX."
+	; 	BITMAP "XX......"
+	; 	BITMAP "XX......"
+	; 	BITMAP "XX......"
+	; 	BITMAP "........"
+	DB $fe,$c3,$c3,$fe,$c0,$c0,$c0,$00
+	; 
+	;
+	; CVBasic epilogue (BASIC compiler for Colecovision)
+	;
+	; by Oscar Toledo G.
+	; https://nanochess.org/
+	;
+	; Creation date: Feb/27/2024.
+	; Revision date: Feb/29/2024. Added joystick, keypad, frame, random, and
+	;                             read_pointer variables.
+	; Revision date: Mar/04/2024. Added music player.
+	; Revision date: Mar/05/2024. Added support for Sega SG1000.
+	; Revision date: Mar/12/2024. Added support for MSX.
+	; Revision date: Mar/13/2024. Added Pletter decompressor.
+	; Revision date: Mar/19/2024. Added support for sprite flicker.
+	; Revision date: Apr/11/2024. Added support for Super Game Module.
+	; Revision date: Apr/13/2024. Updates LFSR in interruption handler.
+	; Revision date: Apr/26/2024. All code moved to cvbasic_prologue.asm so it
+	;                             can remain accessible in bank 0 (bank switching).
+	; Revision date: Aug/02/2024. Added rom_end label for Memotech.
+	; Revision date: Aug/15/2024. Added support for Tatung Einstein.
+	; Revision date: Nov/12/2024. Added vdp_status.
+	; Revision date: Feb/03/2025. Round final ROM size to 8K multiples.
+	; Revision date: Feb/05/2026. Added support for spinners and roller controller
+	;                             (Colecovision).
+	;
+
+rom_end:
+
+	; ROM final size rounding
+    if MSX+COLECO+SG1000+SMS+SVI+SORD
+        TIMES (($+$1FFF)&$1e000)-$ DB $ff
+    endif
+    if MEMOTECH+EINSTEIN+NABU
+	; Align following data to a 256-byte page.
+        TIMES $100-($&$ff) DB $4f
+    endif
+    if PV2000
+	TIMES $10000-$ DB $ff
+    endif
+    if SG1000+SMS
+      if CVBASIC_BANK_SWITCHING
+        forg CVBASIC_BANK_ROM_SIZE*1024-1	; Force final ROM size
+	db $ff
+      endif
+	forg $7FF0
+	org $7FF0
+	db "TMR SEGA"
+	db 0,0
+	db 0,0		; Checksum
+	db $11,$78	; Product code
+	db $00		; Version
+	db $4c		; SMS Export + 32KB for checksum
+    endif
+    if COLECO+SG1000+SMS+MSX+SVI+SORD+PV2000
+	org BASE_RAM
+    endif
+ram_start:
+
+sprites:
+    if SMS
+	rb 256
+    else
+	rb 128
+    endif
+sprite_data:
+	rb 4
+frame:
+	rb 2
+read_pointer:
+	rb 2
+cursor:
+	rb 2
+lfsr:
+	rb 2
+    if MSX
+cartridge_slot:
+	rb 1
+fm_slot:
+	rb 1
+fm_enabled:
+	rb 1
+fm_inst:
+	rb 4
+    endif
+mode:
+	rb 1	; bit 0: NMI disabled.
+		; bit 1: NMI received.
+		; bit 2: No sprite flicker.
+		; bit 3: Single charset mode.
+		; bit 4: MSX2 sprites.
+flicker:
+	rb 1
+joy1_data:
+	rb 1
+joy2_data:
+	rb 1
+key1_data:
+	rb 1
+key2_data:
+	rb 1
+ntsc:
+	rb 1
+vdp_status:
+	rb 1
+    if COLECO
+      if COLECO_SPINNER
+spinner_data:
+        rb 3
+      endif
+    endif
+    if NABU
+nabu_data0: rb 1
+nabu_data1: rb 1
+nabu_data2: rb 1
+    endif
+
+    if CVBASIC_MUSIC_PLAYER
+music_tick:             rb 1
+music_mode:             rb 1
+
+    if CVBASIC_BANK_SWITCHING
+music_bank:             rb 1
+    endif
+music_start:		rb 2
+music_pointer:		rb 2
+music_playing:		rb 1
+music_timing:		rb 1
+music_note_counter:	rb 1
+music_instrument_1:	rb 1
+music_counter_1:	rb 1
+music_note_1:		rb 1
+music_instrument_2:	rb 1
+music_counter_2:	rb 1
+music_note_2:		rb 1
+music_instrument_3:	rb 1
+music_counter_3:	rb 1
+music_note_3:		rb 1
+music_counter_4:	rb 1
+music_drum:		rb 1
+
+audio_freq1:		rb 2
+audio_freq2:		rb 2
+audio_freq3:		rb 2
+audio_noise:		rb 1
+audio_mix:		rb 1
+audio_vol1:		rb 1
+audio_vol2:		rb 1
+audio_vol3:		rb 1
+
+audio_control:		rb 1
+audio_vol4hw:		rb 1
+    endif
+
+    if SGM
+	org $2000	; Start for variables.
+    endif
+cvb_C:	rb 1
+cvb_D:	rb 1
+cvb_X:	rb 1
+cvb_Y:	rb 1
+cvb_#C:	rb 2
+cvb_#D:	rb 2
+ram_end:

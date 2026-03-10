@@ -72,6 +72,16 @@ cursor:
 	rb 2
 lfsr:
 	rb 2
+    if MSX
+cartridge_slot:
+	rb 1
+fm_slot:
+	rb 1
+fm_enabled:
+	rb 1
+fm_inst:
+	rb 4
+    endif
 mode:
 	rb 1	; bit 0: NMI disabled.
 		; bit 1: NMI received.
