@@ -666,7 +666,7 @@ The following statements are available:
 
      It allows to define the color for each pixel row of a 16x16 sprite.
 
-     The data should be represente as DATA BYTE and 16 values for each sprite.
+     The data should be represented as DATA BYTE and 16 values for each sprite.
 
      Each byte contains the color (bits 3-0)
 
