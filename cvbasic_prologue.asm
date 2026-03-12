@@ -3056,6 +3056,13 @@ music_init:
       if MEMOTECH
 	in a,($03)
       endif
+      if FM_SUPPORT
+	ld a,7
+	ld ($fffe),a
+	ld a,(fm_slot)
+	inc a   
+	call nz,init_fm
+      endif
     endif
     if COLECO+SG1000+SMS+MSX+SVI+SORD+MEMOTECH+PV2000
 MIX_BASE:	equ $b8
@@ -3161,14 +3168,14 @@ music_generate:
 	ld a,$ff
 	ld (audio_vol4hw),a
 
-    if MSX
-      if FM_SUPPORT
+    if FM_SUPPORT
 	ld a,(fm_enabled)
 	or a
 	jp z,.fm1
 	ld a,(fm_slot)
 	inc a
 	jp z,.fm1
+     if MSX
       if KONAMI
 	ld a,14
 	ld ($8000),a
@@ -3178,6 +3185,11 @@ music_generate:
 	ld a,7
 	ld ($7000),a
       endif
+     endif
+     if SMS
+	ld a,7
+	ld ($fffe),a
+     endif
         ld a,(music_note_counter)
         or a
         jp nz,music_generate_fm.6
@@ -3225,6 +3237,7 @@ music_generate:
 
 .fm19:  cp -3           ; Repeat music?
 	push af
+     if MSX
       if KONAMI
 	ld a,14
 	ld ($8000),a
@@ -3234,13 +3247,17 @@ music_generate:
 	ld a,7
 	ld ($7000),a
       endif
+     endif
+     if SMS
+	ld a,7
+	ld ($fffe),a
+     endif
 	pop af
         jp nz,music_generate_fm.0
         ld hl,(music_start)
         jr .fm15
 
 .fm1:
-      endif
     endif
 
         ld a,(music_note_counter)
@@ -4044,6 +4061,13 @@ START:
     if SVI+SG1000+SMS
 	im 1
     endif
+    if SMS
+	ld a,7
+	ld ($fffe),a
+	call sms_detect_fm
+	ld a,1
+	ld ($fffe),a
+    endif
     if MEMOTECH
 Z80_CTC:	equ $08
     endif
@@ -4197,11 +4221,17 @@ Z80_CTC:	equ $28
     endif
     if MSX+SVI+SMS
 	ld ix,(lfsr)
+      if SMS
+        ld iy,(fm_slot)
+      endif
 	ld hl,BASE_RAM
 	ld de,BASE_RAM+1
 	ld bc,RAM_SIZE-1
 	ld (hl),0
 	ldir
+      if SMS
+        ld (fm_slot),iy
+      endif
 	ld (lfsr),ix
     endif
     if COLECO+SG1000+SORD+PENCIL+PV2000
@@ -4330,7 +4360,16 @@ WRITE_VRAM:	equ $1fdf
 	ld a,7
 	ld ($7000),a
       endif
-	call detect_fm
+	call msx_detect_fm
+      if KONAMI
+	ld a,2
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
+	ld a,1
+	ld ($7000),a
+      endif
       endif
 	ld a,($002b)
 	cpl

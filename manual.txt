@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Feb/17/2026
+Last revision: Mar/12/2026
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,7 +22,8 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.2 Mar/12/2026  o Added OPTION FM.
+v0.9.2 Mar/12/2026  o FM synthesis for MSX, MSX2, and Sega Master System.
+                    o Added OPTION FM.
                     o Added PLAY INSTRUMENT.
                     o Added PLAY FM.
                     o Added MUSIC.FM_ENABLED and MUSIC.FM_AVAILABLE.
@@ -1513,9 +1514,10 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
     value otherwise.
 
 
->>>>>>>>>>>>>>. FM support for MSX/MSX2
+>>>>>>>>>>>>>>. FM support for MSX/MSX2/SMS
 
-CVBasic supports FM synthesis for MSX / MSX2 computers.
+CVBasic supports FM synthesis for MSX/MSX2 computers, and Sega Master System consoles
+with FM card.
 
 For MSX and MSX2 computers it is needed an external FM cartridge. For MSX2+ computers
 the FM support is built-in.
@@ -1535,7 +1537,7 @@ An example is available in the directory examples/music_fm.bas
 
   MUSIC.FM_ENABLED
     This indicates with non-zero if the music player is using FM to play music, or
-    zero if it is playing music using the AY-3-8910 chip.
+    zero if it is playing music using the AY-3-8910 chip (or SN76489 in SMS)
 
   PLAY FM ON
   PLAY FM OFF

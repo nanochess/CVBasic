@@ -435,6 +435,9 @@ void bank_finish(void)
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $3fbf-$\n");
             fprintf(output, "\tTIMES $3fbf-$ DB $ff\n");
+        } else if (bank_current == 7 && option_fm != 0) {
+            fprintf(output, "BANK_%d_FREE:\tEQU $7d00-$\n", bank_current);
+            fprintf(output, "\tTIMES $7fbf-$ DB $ff\n");
         } else {
             fprintf(output, "BANK_%d_FREE:\tEQU $7fbf-$\n", bank_current);
             fprintf(output, "\tTIMES $7fbf-$ DB $ff\n");
@@ -1660,10 +1663,10 @@ struct node *evaluate_level_7(int *type)
             } else if (strcmp(name, "PLAYING") == 0) {
                 get_lex();
                 c = 0;
-            } else if (strcmp(name, "FM_AVAILABLE") == 0 && (machine == MSX || machine == MSX2)) {
+            } else if (strcmp(name, "FM_AVAILABLE") == 0 && (machine == MSX || machine == MSX2 || machine == SMS)) {
                 get_lex();
                 c = 1;
-            } else if (strcmp(name, "FM_ENABLED") == 0 && (machine == MSX || machine == MSX2)) {
+            } else if (strcmp(name, "FM_ENABLED") == 0 && (machine == MSX || machine == MSX2 || machine == SMS)) {
                 get_lex();
                 c = 2;
             } else {
@@ -3575,8 +3578,8 @@ void compile_statement(int check_for_else)
                         emit_error("missing ON/OFF in OPTION WARNINGS");
                     }
                 } else if (strcmp(name, "FM") == 0) {
-                    if (machine != MSX && machine != MSX2)
-                        emit_warning("OPTION FM only works for MSX/MSX2 platforms");
+                    if (machine != MSX && machine != MSX2 && machine != SMS)
+                        emit_warning("OPTION FM only works for MSX/MSX2/SMS");
                     get_lex();
                     if (lex == C_NAME && strcmp(name, "ON") == 0) {
                         get_lex();
@@ -5564,8 +5567,8 @@ void compile_statement(int check_for_else)
                     }
                 } else if (strcmp(name, "FM") == 0) {
                     get_lex();
-                    if (machine != MSX && machine != MSX2)
-                        emit_warning("PLAY FM only allowed for MSX and MSX2");
+                    if (machine != MSX && machine != MSX2 && machine != SMS)
+                        emit_warning("PLAY FM only allowed for MSX/MSX2/SMS");
                     if (lex == C_NAME && strcmp(name, "ON") == 0) {
                         get_lex();
                         cpuz80_2op("LD", "A", "1");
@@ -5580,8 +5583,8 @@ void compile_statement(int check_for_else)
                     }
                 } else if (strcmp(name, "INSTRUMENT") == 0) {
                     get_lex();
-                    if (machine != MSX && machine != MSX2)
-                        emit_warning("PLAY INSTRUMENT only allowed for MSX and MSX2");
+                    if (machine != MSX && machine != MSX2 && machine != SMS)
+                        emit_warning("PLAY INSTRUMENT only allowed for MSX/MSX2/SMS");
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (target == CPU_Z80)
                         cpuz80_2op("LD", "(fm_inst)", "A");
@@ -7008,8 +7011,8 @@ int main(int argc, char *argv[])
     fprintf(output, "MSX:\tequ %d\n", c);
     if (c) {
         fprintf(output, "KONAMI:\tequ %d\n", bank_konami);
-        fprintf(output, "FM_SUPPORT:\tequ %d\n", option_fm);
     }
+    fprintf(output, "FM_SUPPORT:\tequ %d\n", option_fm);
     fprintf(output, "SGM:\tequ %d\n", (machine == COLECOVISION_SGM) ? 1 : 0);
     fprintf(output, "SVI:\tequ %d\n", (machine == SVI) ? 1 : 0);
     fprintf(output, "SORD:\tequ %d\n", (machine == SORD) ? 1 : 0);

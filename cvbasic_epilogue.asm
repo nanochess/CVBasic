@@ -55,9 +55,9 @@ rom_end:
     if MSX
       if FM_SUPPORT
 	;
-	; FM driver 
+	; FM driver for MSX
 	;
-	; by Oscar Toledo G.
+	; by Oscar Toledo G. (nanochess)
 	;
 	; Creation date: Sep/28/2012. For Mecha-9.
 	; Revision date: Mar/07/2026. Adapted for Metro Wars (CVBasic)
@@ -67,10 +67,6 @@ rom_end:
 	FORG $01FD00
 	ORG $BD00
 
-	;
-	; This code cannot be in the area $4000-$7fff
-	;
-
         ; Subroutines from BIOS MSX
 CALSLT:         equ $001c       ; Inter-slot call (disables interruptions)
 ;ENASLT:         equ $0024       ; Enable slot (H=High-byte address, C=Slot)
@@ -78,6 +74,183 @@ CALSLT:         equ $001c       ; Inter-slot call (disables interruptions)
         ; Subroutines from OPLL ROM
 WRTOPL:         equ $4110
 INIOPL:         equ $4113
+
+        ;
+        ; Detects FM (OPLL)
+        ; Carry = Set = FM detected.
+        ;         Clear = No FM detected.
+        ;
+msx_detect_fm:
+        ld bc,$0000
+.1:     push bc
+        ld hl,$fcc1     ; EXPTBL
+        ld a,l
+        add a,c
+        ld l,a
+        ld a,(hl)
+        and $80
+        or c
+        call msx_find_fm    ; Search in subslots.
+        pop bc
+        ret nc          ; Jump if something has been found.
+        inc c
+        bit 2,c         ; Four slots analyzed?
+        jr z,.1         ; No, jump.
+        ret
+
+msx_fm_signature_1:     db "APRLOPLL"   ; Internal MSX-Music.
+msx_fm_signature_2:     db "PAC2OPLL"   ; FM-Pac cartridge.
+
+msx_find_fm:
+        bit 7,a         ; Expanded slot?
+        ld b,1          ; No subslots.
+        jr z,.1         ; No, jump.
+        and $f3
+        ld b,4          ; Ok, four subslots.
+.1:     ld c,a
+.2:     push bc
+        ld h,$40
+        ld a,c
+        call ENASLT
+        ld hl,$4018
+        push hl
+        ld de,msx_fm_signature_1
+        ld b,8
+.4:     ld a,(de)
+        cp (hl)
+        jr nz,.5
+        inc de
+        inc hl
+        djnz .4
+.5:     pop hl
+        jr z,.8         ; Detected? Jump to take note.
+        ld de,msx_fm_signature_2
+        ld b,8
+.6:     ld a,(de)
+        cp (hl)
+        jr nz,.7
+        inc de
+        inc hl
+        djnz .6
+.7:     jr nz,.3        ; Not detected? Jump to next subslot.
+.8:     pop bc
+        ld a,c          ; Take note of slot.
+        ld (fm_slot),a
+        push bc
+        ld a,1          ; Enable FM.
+        ld (fm_enabled),a
+.3:
+        ; Important! The H register should be $40 here.
+        ld a,(cartridge_slot)
+        call ENASLT
+        pop bc
+        ld a,(fm_enabled)
+        or a
+        ret nz
+        ld a,c
+        add a,4
+        ld c,a
+        djnz .2
+        scf
+        ret
+
+        ; Write a FM register
+        ; A = register
+        ; E = data
+write_fm:
+        jp WRTOPL
+
+        ;
+        ; Map FM BIOS 16K in $4000-$7FFF 
+        ;
+fm_rom_switch:
+        di
+        ld a,(fm_slot)
+        ld h,$40
+        jp ENASLT
+
+        ;
+        ; Map cartridge in $4000-$7FFF 
+        ;
+cartridge_rom_switch:
+        ld a,(cartridge_slot)
+        ld h,$40
+        call ENASLT
+        ei
+        ret
+
+      endif
+    endif
+
+    if SMS
+      if FM_SUPPORT
+	;
+	; FM driver for Sega Master System.
+	;
+	; by Oscar Toledo G. (nanochess)
+	;
+	; Creation date: Sep/28/2012. For Mecha-9.
+	FORG $01FD00
+	ORG $7D00
+
+        ;
+        ; Detect FM (OPLL)
+        ;
+sms_detect_fm:
+        ld a,($c000)
+        or $04
+        out ($3e),a
+        ld bc,$0700
+.1:     ld a,b
+        and $01
+        out ($f2),a
+        ld e,a
+        in a,($f2)
+        and $07
+        cp e
+        jr nz,.2
+        inc c
+.2:     djnz .1
+        ld a,c
+        cp $07
+        jr z,.3
+        xor a
+.3:     and 1
+        out ($f2),a
+        ld (fm_enabled),a
+	dec a	; For compatibility.
+        ld (fm_slot),a
+        ld a,($c000)
+        out ($3e),a
+        ret
+
+        ; Write a FM register
+        ; A = register
+        ; E = data
+write_fm:
+        out ($f0),a
+        ld a,e
+        out ($f1),a
+        ex (sp),hl
+        ex (sp),hl
+        ret
+
+fm_rom_switch:
+        di
+	ret
+
+cartridge_rom_switch:
+        ei
+        ret
+
+      endif
+    endif
+
+    if MSX+SMS
+      if FM_SUPPORT
+	;
+	; This code cannot be in the area $4000-$7fff
+	;
 
         ;
         ; Play music for FM
@@ -265,93 +438,16 @@ play_fm:
         ret
 
         ;
-        ; Detects FM (OPLL)
-        ; Carry = Set = FM detected.
-        ;         Clear = No FM detected.
-        ;
-detect_fm:
-        ld bc,$0000
-.1:     push bc
-        ld hl,$fcc1     ; EXPTBL
-        ld a,l
-        add a,c
-        ld l,a
-        ld a,(hl)
-        and $80
-        or c
-        call find_fm    ; Search in subslots.
-        pop bc
-        ret nc          ; Jump if something has been found.
-        inc c
-        bit 2,c         ; Four slots analyzed?
-        jr z,.1         ; No, jump.
-        ret
-
-fm_signature_1:     db "APRLOPLL"   ; Internal MSX-Music.
-fm_signature_2:     db "PAC2OPLL"   ; FM-Pac cartridge.
-
-find_fm:
-        bit 7,a         ; Expanded slot?
-        ld b,1          ; No subslots.
-        jr z,.1         ; No, jump.
-        and $f3
-        ld b,4          ; Ok, four subslots.
-.1:     ld c,a
-.2:     push bc
-        ld h,$40
-        ld a,c
-        call ENASLT
-        ld hl,$4018
-        push hl
-        ld de,fm_signature_1
-        ld b,8
-.4:     ld a,(de)
-        cp (hl)
-        jr nz,.5
-        inc de
-        inc hl
-        djnz .4
-.5:     pop hl
-        jr z,.8         ; Detected? Jump to take note.
-        ld de,fm_signature_2
-        ld b,8
-.6:     ld a,(de)
-        cp (hl)
-        jr nz,.7
-        inc de
-        inc hl
-        djnz .6
-.7:     jr nz,.3        ; Not detected? Jump to next subslot.
-.8:     pop bc
-        ld a,c          ; Take note of slot.
-        ld (fm_slot),a
-        push bc
-        ld a,1          ; Enable FM.
-        ld (fm_enabled),a
-.3:
-        ; Important! The H register should be $40 here.
-        ld a,(cartridge_slot)
-        call ENASLT
-        pop bc
-        ld a,(fm_enabled)
-        or a
-        ret nz
-        ld a,c
-        add a,4
-        ld c,a
-        djnz .2
-        scf
-        ret
-
-        ;
         ; Init FM
         ;
 init_fm:
         push ix
         push iy
         call fm_rom_switch
+    if MSX
         ld hl,$ef00
         call INIOPL
+    endif
         ld hl,.0
         ld b,24
 .1:     ld e,(hl)
@@ -421,31 +517,6 @@ turn_off_fm:
 	CALL cartridge_rom_switch
 	RET
 
-        ; Write a FM register
-        ; A = register
-        ; E = data
-write_fm:
-        jp WRTOPL
-
-        ;
-        ; Map FM BIOS 16K in $4000-$7FFF 
-        ;
-fm_rom_switch:
-        di
-        ld a,(fm_slot)
-        ld h,$40
-        jp ENASLT
-
-        ;
-        ; Map cartridge in $4000-$7FFF 
-        ;
-cartridge_rom_switch:
-        ld a,(cartridge_slot)
-        ld h,$40
-        call ENASLT
-        ei
-        ret
-
 fm_notes:
         ; Silence - 0
         dw 0
@@ -490,7 +561,7 @@ cursor:
 	rb 2
 lfsr:
 	rb 2
-    if MSX
+    if MSX+SMS
 cartridge_slot:
 	rb 1
 fm_slot:

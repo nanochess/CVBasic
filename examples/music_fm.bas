@@ -2,6 +2,7 @@
 	rem Test of IntyBASIC music player
 	rem by Oscar Toledo G. http://nanochess.org
 	rem Aug/26/2014
+	rem Mar/12/2026. For FM synthesis in MSX/MSX2 and Sega Master System.
 	rem
 
 	REM Include useful predefined constants
