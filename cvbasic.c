@@ -33,7 +33,7 @@
 #define DEFAULT_ASM_LIBRARY_PATH ""
 #endif
 
-#define VERSION "v0.9.2 Mar/06/2026"
+#define VERSION "v0.9.2 Mar/12/2026"
 
 #define TEMPORARY_ASSEMBLER "cvbasic_temporary.asm"
 
@@ -445,6 +445,9 @@ void bank_finish(void)
         if (bank_current == 0) {
             fprintf(output, "BANK_0_FREE:\tEQU $7fff-$\n");
             fprintf(output, "\tTIMES $7fff-$ DB $ff\n");
+        } else if (bank_current == 7 && option_fm != 0) {
+            fprintf(output, "BANK_%d_FREE:\tEQU $bd00-$\n", bank_current);
+            fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
         } else {
             fprintf(output, "BANK_%d_FREE:\tEQU $bfff-$\n", bank_current);
             fprintf(output, "\tTIMES $bfff-$ DB $ff\n");
@@ -1643,18 +1646,31 @@ struct node *evaluate_level_7(int *type)
             return tree;
         }
         if (strcmp(name, "MUSIC") == 0) {
+            int c;
+            
             get_lex();
             if (lex != C_PERIOD) {
                 emit_error("missing period in MUSIC");
             } else {
                 get_lex();
             }
-            if (lex != C_NAME || strcmp(name, "PLAYING") != 0) {
-                emit_error("only allowed MUSIC.PLAYING");
+            if (lex != C_NAME) {
+                emit_error("syntax error in MUSIC");
+                c = 0;
+            } else if (strcmp(name, "PLAYING") == 0) {
+                get_lex();
+                c = 0;
+            } else if (strcmp(name, "FM_AVAILABLE") == 0 && (machine == MSX || machine == MSX2)) {
+                get_lex();
+                c = 1;
+            } else if (strcmp(name, "FM_ENABLED") == 0 && (machine == MSX || machine == MSX2)) {
+                get_lex();
+                c = 2;
             } else {
+                emit_error("unhandled variable in MUSIC");
                 get_lex();
             }
-            tree = node_create(N_MUSIC, 0, NULL, NULL);
+            tree = node_create(N_MUSIC, c, NULL, NULL);
             *type = TYPE_8;
             return tree;
         }
@@ -5545,6 +5561,22 @@ void compile_statement(int check_for_else)
                         sprintf(temp, "%d", c);
                         cpuz80_2op("LD", "A", temp);
                         cpuz80_2op("LD", "(music_mode)", "A");
+                    }
+                } else if (strcmp(name, "FM") == 0) {
+                    get_lex();
+                    if (machine != MSX && machine != MSX2)
+                        emit_warning("PLAY FM only allowed for MSX and MSX2");
+                    if (lex == C_NAME && strcmp(name, "ON") == 0) {
+                        get_lex();
+                        cpuz80_2op("LD", "A", "1");
+                        cpuz80_2op("LD", "(fm_enabled)", "A");
+                    } else if (lex == C_NAME && strcmp(name, "OFF") == 0) {
+                        get_lex();
+                        cpuz80_1op("CALL", "turn_off_fm");
+                        cpuz80_1op("XOR", "A");
+                        cpuz80_2op("LD", "(fm_enabled)", "A");
+                    } else {
+                        emit_error("syntax error in PLAY FM");
                     }
                 } else if (strcmp(name, "INSTRUMENT") == 0) {
                     get_lex();

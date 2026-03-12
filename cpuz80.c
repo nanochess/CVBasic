@@ -1009,7 +1009,14 @@ void cpuz80_node_generate(struct node *node, int decision)
             cpuz80_2op("LD", "HL", "(frame)");
             break;
         case N_MUSIC:   /* Read music playing status */
-            cpuz80_2op("LD", "A", "(music_playing)");
+            if (node->value == 0) {
+                cpuz80_2op("LD", "A", "(music_playing)");
+            } else if (node->value == 1) {
+                cpuz80_2op("LD", "A", "(fm_slot)");
+                cpuz80_1op("INC", "A");
+            } else if (node->value == 2) {
+                cpuz80_2op("LD", "A", "(fm_enabled)");
+            }
             break;
         case N_NTSC:    /* Read NTSC flag */
             cpuz80_2op("LD", "A", "(ntsc)");

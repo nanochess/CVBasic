@@ -3077,8 +3077,15 @@ MIX_BASE:	equ $78
 	ld e,MIX_BASE
 	call WRTPSG
       if FM_SUPPORT
+      if KONAMI
+	ld a,14
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
 	ld a,7
 	ld ($7000),a
+      endif
 	ld a,(fm_slot)
 	inc a       
 	call nz,init_fm
@@ -3162,10 +3169,17 @@ music_generate:
 	ld a,(fm_slot)
 	inc a
 	jp z,.fm1
+      if KONAMI
+	ld a,14
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
+	ld a,7
+	ld ($7000),a
+      endif
         ld a,(music_note_counter)
         or a
-	ld a,$07
-	ld ($7000),a
         jp nz,music_generate_fm.6
         ld hl,(music_pointer)
 .fm15:  push hl
@@ -3210,8 +3224,17 @@ music_generate:
         ret
 
 .fm19:  cp -3           ; Repeat music?
-	ld a,$07
+	push af
+      if KONAMI
+	ld a,14
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
+	ld a,7
 	ld ($7000),a
+      endif
+	pop af
         jp nz,music_generate_fm.0
         ld hl,(music_start)
         jr .fm15
@@ -4298,8 +4321,15 @@ WRITE_VRAM:	equ $1fdf
       if FM_SUPPORT
         ld a,$ff        ; FM hasn't been discovered.
         ld (fm_slot),a
+      if KONAMI
+	ld a,14
+	ld ($8000),a
+	inc a
+	ld ($a000),a
+      else
 	ld a,7
 	ld ($7000),a
+      endif
 	call detect_fm
       endif
 	ld a,($002b)

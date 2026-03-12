@@ -22,6 +22,11 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
+v0.9.2 Mar/12/2026  o Added OPTION FM.
+                    o Added PLAY INSTRUMENT.
+                    o Added PLAY FM.
+                    o Added MUSIC.FM_ENABLED and MUSIC.FM_AVAILABLE.
+
 v0.9.1 Feb/17/2026  o Added support for MSX2 using --msx2
                     o MSX2: It supports the PALETTE statement.
                     o MSX2: It supports MODE 4, extended sprites,
@@ -1506,6 +1511,62 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
   MUSIC.PLAYING
     Returns zero if music is not currently playing, returns a non-zero
     value otherwise.
+
+
+>>>>>>>>>>>>>>. FM support for MSX/MSX2
+
+CVBasic supports FM synthesis for MSX / MSX2 computers.
+
+For MSX and MSX2 computers it is needed an external FM cartridge. For MSX2+ computers
+the FM support is built-in.
+
+Any game using FM support must use bank-switching.
+
+The FM library code will be automatically included in the bank 7, and 768 bytes of
+space will be subtracted of the 16K.
+
+  OPTION FM ON
+    This enables the FM support for your game (Yamaha YM2413)
+
+  MUSIC.FM_AVAILABLE
+    This indicates with zero if FM isn't available, or non-zero if it is available.
+
+  MUSIC.FM_ENABLED
+    This indicates with non-zero if the music player is using FM to play music, or
+    zero if it is playing music using the AY-3-8910 chip.
+
+  PLAY FM ON
+  PLAY FM OFF
+    This enables or disables the FM support. Useful for making your game to switch
+    FM support to PSG and vice-versa.
+
+  PLAY INSTRUMENT voice1,voice2,voice3,voice4
+    This selects the FM instruments that will be used for the corresponding
+    instruments of the music player (piano, clarinet, flute, and bass).
+
+    It should be used before playing another song.
+
+    Bits 3-0 contain the volume for the instrument (0 being the maximum volume,
+    and 15 almost silent).
+
+    Bits 7-4 contains the instrument number:
+
+        0 - Programmable (not available currently)
+        1 - Violin
+        2 - Guitar
+        3 - Piano
+        4 - Flute
+        5 - Clarinet
+        6 - Oboe
+        7 - Trumpet
+        8 - Organ
+        9 - Horn
+        a - Synthesizer
+        b - Harpsichord
+        c - Vibraphone
+        d - Synthesizer bass
+        e - Wood bass
+        f - Electric guitar
     
 
 >>>>>>>>>>>>>>  Useful VRAM addresses
