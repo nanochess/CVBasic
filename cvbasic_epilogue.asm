@@ -189,7 +189,9 @@ cartridge_rom_switch:
 	;
 	; by Oscar Toledo G. (nanochess)
 	;
-	; Creation date: Sep/28/2012. For Mecha-9.
+        ; Creation date: Sep/28/2012. For MSX.
+        ; Revision date: Aug/16/2013. Adapted to Sega Master System.
+	; Revision date: Mar/12/2026. Adapted to CVBasic.
 	FORG $01FD00
 	ORG $7D00
 
