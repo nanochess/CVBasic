@@ -1525,6 +1525,8 @@ Any game using FM support must use bank-switching.
 The FM library code will be automatically included in the bank 7, and 768 bytes of
 space will be subtracted of the 16K.
 
+An example is available in the directory examples/music_fm.bas
+
   OPTION FM ON
     This enables the FM support for your game (Yamaha YM2413)
 
