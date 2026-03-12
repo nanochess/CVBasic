@@ -117,7 +117,7 @@ Using CVBasic to compile a Sega SG1000/SC3000 program:
     cvbasic --sg1000 game.bas game.asm
     gasm80 game.asm -o game.rom
 
-Using CVBasic to compile a MSX program for 8K RAM (wider compatibility) and 16K RAM:
+Using CVBasic to compile an MSX program for 8K RAM (wider compatibility) and 16K RAM:
 
     cvbasic --msx game.bas game.asm
     gasm80 game.asm -o game.rom
@@ -130,7 +130,7 @@ Using CVBasic to compile a MSX program for 8K RAM (wider compatibility) and 16K 
     
 For bank-switched programs the default mapper is ASCII16, but you have the option of using a standard Konami 8K mapper using the -konami switch.
 
-Using CVBasic to compile a MSX2 program for 8K RAM (wider compatibility) and 16K RAM:
+Using CVBasic to compile an MSX2 program for 8K RAM (wider compatibility) and 16K RAM:
 
     cvbasic --msx2 game.bas game.asm
     gasm80 game.asm -o game.rom
