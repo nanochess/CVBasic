@@ -1533,8 +1533,11 @@ An example is available in the directory examples/music_fm.bas
     This enables the FM support for your game (Yamaha YM2413)
 
     With FM support, CVBasic will check automatically at startup for the FM chip,
-    and if detected it will enabled it automatically for music playing (a default
-    set of instruments in prepared, compatible with PSG songs)
+    and if detected it will enable it automatically for music playing (default
+    instruments are prepared)
+
+    If no FM is detected, CVBasic will fall gracefully back to the SN76489 or
+    AY-3-8910 music playing.
 
   MUSIC.FM_AVAILABLE
     This indicates with zero if FM isn't available, or non-zero if it is available.
@@ -1548,11 +1551,14 @@ An example is available in the directory examples/music_fm.bas
     This enables or disables the FM support. Useful for making your game to switch
     FM support to PSG and vice-versa.
 
+    Turning on FM without the chip won't cause any effect, and the music playing
+    will be still through the PSG chip.
+
   PLAY INSTRUMENT voice1,voice2,voice3,voice4
     This selects the FM instruments that will be used for the corresponding
     instruments of the music player (piano, clarinet, flute, and bass).
 
-    It should be used before playing another song.
+    It should be used before playing a song.
 
     Bits 3-0 contain the volume for the instrument (0 being the maximum volume,
     and 15 almost silent).
