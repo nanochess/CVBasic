@@ -1532,6 +1532,10 @@ An example is available in the directory examples/music_fm.bas
   OPTION FM ON
     This enables the FM support for your game (Yamaha YM2413)
 
+    With FM support, CVBasic will check automatically at startup for the FM chip,
+    and if detected it will enabled it automatically for music playing (a default
+    set of instruments in prepared, compatible with PSG songs)
+
   MUSIC.FM_AVAILABLE
     This indicates with zero if FM isn't available, or non-zero if it is available.
 
