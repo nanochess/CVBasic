@@ -935,18 +935,30 @@ update_sprite:
 
 	; Fast 16-bit multiplication.
 _mul16:
+	or a
+	sbc hl,de
+	add hl,de
+	jr nc,$+3
+	ex de,hl	; Smallest operand in DE.
+
 	ld b,h
 	ld c,l
-	ld a,16
 	ld hl,0
 .1:
 	srl d
 	rr e
-	jr nc,.2
+	jp nc,$+4
 	add hl,bc
-.2:	sla c
+	sla c
 	rl b
-	dec a
+	srl d
+	rr e
+	jp nc,$+4
+	add hl,bc
+	sla c
+	rl b
+	ld a,d
+	or e
 	jp nz,.1
 	ret
 
