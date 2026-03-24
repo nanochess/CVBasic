@@ -935,31 +935,31 @@ update_sprite:
 
 	; Fast 16-bit multiplication.
 _mul16:
-	or a
-	sbc hl,de
-	add hl,de
-	jr nc,$+3
-	ex de,hl	; Smallest operand in DE.
+	or a		; 5
+	sbc hl,de	; 17
+	add hl,de	; 12
+	jr nc,$+3	; 13/8
+	ex de,hl	; 5 Smallest operand in DE.
 
-	ld b,h
-	ld c,l
-	ld hl,0
+	ld b,h		; 5
+	ld c,l		; 5
+	ld hl,0		; 11
 .1:
-	srl d
-	rr e
-	jp nc,$+4
-	add hl,bc
-	sla c
-	rl b
-	srl d
-	rr e
-	jp nc,$+4
-	add hl,bc
-	sla c
-	rl b
-	ld a,d
-	or e
-	jp nz,.1
+	srl d		; 10
+	rr e		; 10
+	jp nc,$+4	; 11
+	add hl,bc	; 12
+	sla c		; 10
+	rl b		; 10
+	srl d		; 10
+	rr e		; 10
+	jp nc,$+4	; 11
+	add hl,bc	; 12
+	sla c		; 10
+	rl b		; 10
+	ld a,d		; 5
+	or e		; 5
+	jp nz,.1	; 11
 	ret
 
 	; 16-bit signed modulo.

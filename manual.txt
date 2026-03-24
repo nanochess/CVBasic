@@ -27,6 +27,12 @@ v0.9.2 Mar/12/2026  o FM synthesis for MSX, MSX2, and Sega Master System.
                     o Added PLAY INSTRUMENT.
                     o Added PLAY FM.
                     o Added MUSIC.FM_ENABLED and MUSIC.FM_AVAILABLE.
+                    o Z80: Optimization in multiple array access in expressions.
+                    o Z80: Avoid constant reload.
+                    o Z80: Optimization IF with 8-bit AND, and multiplication by 128.
+                    o Z80: Speed up of block copy to screen and VRAM fill.
+                    o Z80: Optimized 16-bit multiplication (before always 1277 cycles,
+                      now minimum of 191 cycles and maximum 1244 cycles)
 
 v0.9.1 Feb/17/2026  o Added support for MSX2 using --msx2
                     o MSX2: It supports the PALETTE statement.
