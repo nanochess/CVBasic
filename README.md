@@ -91,6 +91,7 @@ The following files compose the compiler:
     examples/test2.bas          Arithmetic test.
     examples/test3.bas          Shows usage of SELECT CASE / END CASE
     examples/test3_sms.bas      Shows usage of SELECT CASE / END CASE (Sega Master System)
+    examples/test4.bas          Benchmark and test of multiplication/division
     examples/varptr.bas         VARPTR example for redefining graphics.
     examples/varptr_sms.bas     VARPTR example for redefining graphics (Sega Master System)
     examples/vgm.bas            VGM audio player for SN76489.

@@ -933,7 +933,22 @@ update_sprite:
     endif
 	ret
 
-	; Fast 16-bit multiplication.
+	;
+	; Fast 16-bit multiplication by Oscar Toledo G.
+	; Input:
+	;  HL = Operand 1.
+	;  DE = Operand 2.
+	; Output:
+	;  HL = HL x DE.
+	;
+	; This is a trick I've discovered.
+	; 1. The smallest operand goes into DE.
+	;    The biggest operand goes into BC.
+	;    HL becomes zero.
+	; 2. If D is non-zero, calculate H = D x C with 8-bit arithmetic.
+	;    B can be ignored as this routine doesn't generate a 24-bit result.
+	; 3. Calculate HL = HL + E x BC with early exit as it shifts E to the right.
+	;
 _mul16:
 	or a		; 5
 	sbc hl,de	; 17
@@ -944,23 +959,56 @@ _mul16:
 	ld b,h		; 5
 	ld c,l		; 5
 	ld hl,0		; 11
-.1:
-	srl d		; 10
-	rr e		; 10
+	ld a,d
+	or a		; High-byte is zero?
+	jp z,.2		; Yes, jump.
+	xor a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	add a,a		; 5
+	sla d		; 10
+	jp nc,$+4	; 11
+	add a,c		; 5
+	ld h,a		; 5
+.2:			;
+.3:	srl e		; 10
 	jp nc,$+4	; 11
 	add hl,bc	; 12
+	ret z		; 6/12
 	sla c		; 10
 	rl b		; 10
-	srl d		; 10
-	rr e		; 10
+	srl e		; 10
 	jp nc,$+4	; 11
 	add hl,bc	; 12
+	ret z		; 6/12
 	sla c		; 10
 	rl b		; 10
-	ld a,d		; 5
-	or e		; 5
-	jp nz,.1	; 11
-	ret
+	jp .3		; 11
 
 	; 16-bit signed modulo.
 	; hl = hl % de
@@ -1012,21 +1060,7 @@ _neg16:
 	; Fast 16-bit division.
 	; hl = hl / de
 _div16:
-	ld b,h
-	ld c,l
-	ld hl,0
-	ld a,16
-.1:
-	rl c
-	rl b
-	adc hl,hl
-	sbc hl,de
-	jp nc,.2	
-	add hl,de
-.2:
-	ccf
-	dec a
-	jp nz,.1
+	call _mod16
 	rl c
 	rl b
 	ld h,b
@@ -1038,16 +1072,31 @@ _mod16:
 	ld b,h
 	ld c,l
 	ld hl,0
-	ld a,16
+
+	ld a,b
+	or a
+	ld a,8
+	jr nz,.1
+	rrca
+	ld b,c
+	ld c,0
 .1:
 	rl c
 	rl b
 	adc hl,hl
 	sbc hl,de
-	jp nc,.2	
+	jp nc,$+4
 	add hl,de
-.2:
 	ccf
+
+	rl c
+	rl b
+	adc hl,hl
+	sbc hl,de
+	jp nc,$+4
+	add hl,de
+	ccf
+
 	dec a
 	jp nz,.1
 	ret

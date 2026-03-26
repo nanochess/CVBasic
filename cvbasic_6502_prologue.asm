@@ -14,6 +14,8 @@
 	;                             with flicker flag).
 	; Revision date: Oct/15/2024. Added LDIRMV.
 	; Revision date: Nov/12/2024. Saves the VDP status.
+	; Revision date: Mar/25/2026. Faster _mul16 (using Y in loop) and _div16
+	;                             (avoids update using registers)
 	;
 
 	CPU 6502
@@ -680,7 +682,7 @@ _mul16:
 	PHA
 	LDA #0
 	STA result
-	STA result+1
+	TAY
 	LDX #15
 .1:
 	LSR temp2+1
@@ -690,15 +692,14 @@ _mul16:
 	CLC
 	ADC temp
 	STA result
-	LDA result+1
+	TYA
 	ADC temp+1
-	STA result+1
+	TAY
 .2:	ASL temp
 	ROL temp+1
 	DEX
 	BPL .1
 	LDA result
-	LDY result+1
 	RTS
 
 	; 16-bit signed modulo.
@@ -801,20 +802,13 @@ _div16:
 	LDA result
 	SEC
 	SBC temp
-	STA result
+	TAY
 	LDA result+1
 	SBC temp+1
+	BCC .3
+	STY result
 	STA result+1
-	BCS .3
-	LDA result
-	ADC temp
-	STA result
-	LDA result+1
-	ADC temp+1
-	STA result+1
-	CLC
-.3:
-	DEX
+.3:	DEX
 	BPL .2
 	ROL temp2
 	ROL temp2+1
