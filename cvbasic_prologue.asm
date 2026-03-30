@@ -1073,6 +1073,7 @@ _mod16:
 	ld c,l
 	ld hl,0
 
+	; Save cycles if top byte is zero.
 	ld a,b
 	or a
 	ld a,8

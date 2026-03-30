@@ -16,6 +16,9 @@
 	; Revision date: Nov/12/2024. Saves the VDP status.
 	; Revision date: Mar/25/2026. Faster _mul16 (using Y in loop) and _div16
 	;                             (avoids update using registers)
+	; Revision date: Mar/29/2026. Avoids unwinding stack for _mul16, _div16, _div16s,
+	;                             _mod16, and _mod16s. Optimized _mul16 in two
+	;                             loops (28% speed-up)
 	;
 
 	CPU 6502
@@ -668,25 +671,15 @@ _peek16:
 
 	; 16-bit multiplication.
 _mul16:
-	PLA
-	STA result
-	PLA
-	STA result+1
-	PLA
-	STA temp2+1
-	PLA
 	STA temp2
-	LDA result+1
-	PHA
-	LDA result
-	PHA
+	STY temp2+1
 	LDA #0
 	STA result
 	TAY
-	LDX #15
+	; Shift low-byte of multiplier
+	LDX #7
 .1:
-	LSR temp2+1
-	ROR temp2
+	LSR temp2
 	BCC .2
 	LDA result
 	CLC
@@ -699,23 +692,25 @@ _mul16:
 	ROL temp+1
 	DEX
 	BPL .1
+	; Shift high-byte of multiplier (temp is zero here)
+	TYA
+	LDX #7
+.3:
+	LSR temp2+1
+	BCC .4
+	CLC
+	ADC temp+1
+.4:	ASL temp+1
+	DEX
+	BPL .3
+	TAY
 	LDA result
 	RTS
 
 	; 16-bit signed modulo.
 _mod16s:
-	PLA
-	STA result
-	PLA
-	STA result+1
-	PLA
-	STA temp2+1
-	PLA
 	STA temp2
-	LDA result+1
-	PHA
-	LDA result
-	PHA
+	STY temp2+1
 	LDY temp2+1
 	PHP
 	BPL .1
@@ -740,18 +735,8 @@ _mod16s:
 
 	; 16-bit signed division.
 _div16s:
-	PLA
-	STA result
-	PLA
-	STA result+1
-	PLA
-	STA temp2+1
-	PLA
 	STA temp2
-	LDA result+1
-	PHA
-	LDA result
-	PHA
+	STY temp2+1
 	LDA temp+1
 	EOR temp2+1
 	PHP
@@ -777,18 +762,8 @@ _div16s:
 	RTS
 
 _div16:
-	PLA
-	STA result
-	PLA
-	STA result+1
-	PLA
-	STA temp2+1
-	PLA
 	STA temp2
-	LDA result+1
-	PHA
-	LDA result
-	PHA
+	STY temp2+1
 .1:
 	LDA #0
 	STA result
@@ -817,18 +792,8 @@ _div16:
 	RTS
 
 _mod16:
-	PLA
-	STA result
-	PLA
-	STA result+1
-	PLA
-	STA temp2+1
-	PLA
 	STA temp2
-	LDA result+1
-	PHA
-	LDA result
-	PHA
+	STY temp2+1
 .1:
 	LDA #0
 	STA result

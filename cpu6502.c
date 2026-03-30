@@ -1552,8 +1552,6 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_noop("TYA");
                     cpu6502_noop("PHA");
                     cpu6502_node_generate(node->left, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_1op("STY", "temp+1");
                     stack = 1;
                 }
             } else {
@@ -1579,13 +1577,13 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_noop("TYA");
                     cpu6502_noop("PHA");
                     cpu6502_node_generate(node->right, 0);
-                    cpu6502_1op("STA", "temp");
-                    cpu6502_1op("STY", "temp+1");
                     stack = 1;
                 }
             }
             if (node->type == N_OR16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_1op("ORA", "temp+1");
                     cpu6502_noop("TAY");
@@ -1608,6 +1606,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_XOR16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_1op("EOR", "temp+1");
                     cpu6502_noop("TAY");
@@ -1630,6 +1630,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_AND16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_1op("AND", "temp+1");
                     cpu6502_noop("TAY");
@@ -1652,6 +1654,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_EQUAL16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_noop("TAY");
                     cpu6502_noop("PLA");
@@ -1688,6 +1692,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_NOTEQUAL16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_noop("TAY");
                     cpu6502_noop("PLA");
@@ -1724,6 +1730,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_noop("TAY");
                     cpu6502_noop("PLA");
@@ -1747,6 +1755,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_noop("TAY");
                     cpu6502_noop("PLA");
@@ -1771,6 +1781,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_PLUS16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_noop("TAY");
                     cpu6502_noop("PLA");
@@ -1792,6 +1804,8 @@ void cpu6502_node_generate(struct node *node, int decision)
                 }
             } else if (node->type == N_MINUS16) {
                 if (stack) {
+                    cpu6502_1op("STA", "temp");
+                    cpu6502_1op("STY", "temp+1");
                     cpu6502_noop("PLA");
                     cpu6502_noop("TAY");
                     cpu6502_noop("PLA");
@@ -1812,14 +1826,17 @@ void cpu6502_node_generate(struct node *node, int decision)
                     cpu6502_noop("TXA");
                 }
             } else {
-                if (!stack) {
-                    cpu6502_noop("PHA");
-                    cpu6502_noop("TYA");
-                    cpu6502_noop("PHA");
-                    cpu6502_1op("LDA", temp);
-                    cpu6502_1op("LDY", temp2);
+                if (stack) {
                     cpu6502_1op("STA", "temp");
                     cpu6502_1op("STY", "temp+1");
+                    cpu6502_noop("PLA");
+                    cpu6502_noop("TAY");
+                    cpu6502_noop("PLA");
+                } else {
+                    cpu6502_1op("LDX", temp);
+                    cpu6502_1op("STX", "temp");
+                    cpu6502_1op("LDX", temp2);
+                    cpu6502_1op("STX", "temp+1");
                 }
                 if (node->type == N_MUL16) {
                     cpu6502_1op("JSR", "_mul16");
