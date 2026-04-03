@@ -282,17 +282,27 @@ There are some very good examples of games developed with CVBasic.
 
 * Colecovania demo by Skywaffle. Video at [https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl](https://www.youtube.com/watch?v=ixlAEZ0GSis&ab_channel=MatthewKiehl)
 
+* Crackpots by Eric Damain. Available from [https://forums.atariage.com/topic/388119-crackpots/](https://forums.atariage.com/topic/388119-crackpots/)
+
 * Donkey.BAS by Claus Bækkel. Available for purchase from [https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/](https://forums.atariage.com/topic/366153-donkeybas-game-coded-in-cvbasic-0500/)
 
+* Dragon's Descent by Revontuli. Demo available from [https://forums.atariage.com/topic/388152-dragons-descent-for-the-colecovision/](https://forums.atariage.com/topic/388152-dragons-descent-for-the-colecovision/)
+
 * Duocide by Jess Ragan. Demo available from [https://forums.atariage.com/topic/379738-duocide-the-side-switching-shooter/](https://forums.atariage.com/topic/379738-duocide-the-side-switching-shooter/)
+
+* Eye Brawls by Jess Ragan. Demo available from [https://forums.atariage.com/topic/387711-eye-brawls-the-rev-eye-val/](https://forums.atariage.com/topic/387711-eye-brawls-the-rev-eye-val/)
 
 * Gorilla.BAS by nanochess. Available from [https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/](https://forums.atariage.com/topic/370716-gorillabas-for-colecovision/)
 
 * Gun Fight by Eric Damain. Video at [https://forums.atariage.com/topic/379102-gun-fight-dev-log-cvbasic/](https://forums.atariage.com/topic/379102-gun-fight-dev-log-cvbasic/)
 
+* Hamurabi by Eric Damain. Available from [https://forums.atariage.com/topic/380392-hamurabi-dev-log-cvbasic/](https://forums.atariage.com/topic/380392-hamurabi-dev-log-cvbasic/)
+
 * Jurl by Tonsomo Entertainment. Available from [https://tonsomo.itch.io/jurl-colecovision-edition](https://tonsomo.itch.io/jurl-colecovision-edition)
 
 * Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
+
+* Metro Wars by nanochess (MSX2). ROM available for download from [https://www.msxdev.org/2026/03/08/msxdev25-36-metro-wars/](https://www.msxdev.org/2026/03/08/msxdev25-36-metro-wars/)
 
 * Monkey Moon by nanochess, example from the book **Programming Games for Colecovision**. Available from [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249)
 
@@ -302,11 +312,13 @@ There are some very good examples of games developed with CVBasic.
 
 * Rogue-like Wip by Skywaffle. Available from [https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/](https://forums.atariage.com/topic/372717-colecovision-rogue-like-wip/)
 
-* Shamus by nanochess. Available from [https://forums.atariage.com/topic/383531-shamus-for-colecovision/](https://forums.atariage.com/topic/383531-shamus-for-colecovision/)
-
 * Solar Fox 2 by Jess Ragan. Available from [https://forums.atariage.com/topic/382881-solar-fox-2-is-finished-link-inside/](https://forums.atariage.com/topic/382881-solar-fox-2-is-finished-link-inside/)
 
 * Sub Hunt by Eric Damain. Demo videos [https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/](https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/)
+
+* SWOPEM by chalkyw64 (MSX). Available from [https://forums.atariage.com/topic/387521-swopem-a-simple-match3-game-for-msx-and-colecovision/](https://forums.atariage.com/topic/387521-swopem-a-simple-match3-game-for-msx-and-colecovision/)
+
+* Taz by Eric Damain. Demo available from [https://forums.atariage.com/topic/388119-crackpots/](https://forums.atariage.com/topic/388119-crackpots/)
 
 * Whack'em Smack'em Byron by Jess Ragan. Available from [https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961](https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961)
 
