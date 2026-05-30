@@ -1,4 +1,4 @@
-# CVBasic compiler v0.9.1
+# CVBasic compiler v0.9.2
 *(c) Copyright 2024-2026 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -337,6 +337,15 @@ All the games in the book will compile for **all** the platforms, except Sega Ma
 * [Programming Games for Colecovision, paperback, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/paperback/product-95qvzj8.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, hardcover, 250 pages](https://www.lulu.com/shop/oscar-toledo-gutierrez/programming-games-for-colecovision/hardcover/product-84nm767.html?page=1&pageSize=4)
 * [Programming Games for Colecovision, PDF ebook, 250 pages](https://nanochess.org/store.html)
+
+
+### Toolkits
+
+Several utilities which can be used with CVBasic have emerged for graphics design, music, and sound effects.
+ 
+* Amy's CVPaint Studio [https://amypurple.github.io/AmysCVPaintStudio/](https://amypurple.github.io/AmysCVPaintStudio/)
+
+* Kamshaft's CV Toolkit, including Sprite Tool, Tile Creator, Sound Creator, and Music Tracker [https://cvaddict.com/tools/](https://cvaddict.com/tools/)
 
 
 ### Acknowledgments

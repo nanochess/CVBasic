@@ -1378,7 +1378,7 @@ define_sprite_color:
 	add hl,hl	; x2
 	add hl,hl	; x4
 	add hl,hl	; x8
-	ld h,$40/2
+	ld h,$f8/2
 	add hl,hl	; x16
 	ex de,hl
 	di
@@ -1425,13 +1425,13 @@ mode_4:
 	call vdp_generic_mode
 	ld bc,$000a	; Reg. 10 (high bits of color table)
 	call WRTVDP
-			; The value $84 seems logical but it makes colors
+			; The value $f4 seems logical but it makes colors
 			; for sprites 0-7 replicate in sprites 8-15,
 			; 16-23, and 24-31. Not described in Yamaha docs,
 			; but emulated by OpenMSX and BlueMSX.
-	ld bc,$8705	; $4200 for sprite attribute table...
-	call WRTVDP	; ...so sprite colors appear at $4000-$41ff.
-	ld bc,$000b	; Reg. 11 (high bits of sprite attribute table)
+	ld bc,$f705	; $fa00 for sprite attribute table...
+	call WRTVDP	; ...so sprite colors appear at $f800-$f9ff.
+	ld bc,$010b	; Reg. 11 (high bits of sprite attribute table)
 	call WRTVDP
 	ld hl,($0004)   
 	inc h
@@ -1586,7 +1586,7 @@ vdp_generic_sprites:
 	ld hl,$1b00
 	ld a,$d1
 	jr z,$+6
-	ld h,$42
+	ld h,$fa
 	ld a,$e0
 	ld bc,$0080
 	call FILVRM
@@ -1808,7 +1808,7 @@ nmi_handler:
 	ld hl,$1b00
 	jr z,$+4
 .10:
-	ld h,$42
+	ld h,$fa
 	call SETWRT
 	ld hl,sprites
 .7:

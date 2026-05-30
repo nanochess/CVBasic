@@ -1688,7 +1688,15 @@ CoolCV emulator
 
   https://forums.atariage.com/topic/240800-coolcv-emulator-for-mac-os-x-linux-windows-and-raspberry/
 
+Amy's CVPaint Studio
+
+  https://amypurple.github.io/AmysCVPaintStudio/
+
+Kamshaft's CV Toolkit, including Sprite Tool, Tile Creator, Sound Creator, and Music Tracker
+
+  https://cvaddict.com/tools/
   
+
 >>>>>>>>>>>>>>  Acknowledgments
 
 Thanks to following members of Atariage for contributing valuable suggestions:
