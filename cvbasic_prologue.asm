@@ -60,7 +60,7 @@
 	; * For SMS minimum of 28 cycles between VDP writes (3.58 mhz)
 	; * For MSX2 (V9938) minimum of 23 cycles between VDP writes (3.58 mhz)
 	;
-	; Dependances:
+	; Dependences:
 	; * LDIRVM, assumed to keep DE unchanged (target VRAM address)
 	;   * For speed. Required by CPYBLK and LDIRVM3.
 	;
