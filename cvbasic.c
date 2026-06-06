@@ -5056,8 +5056,8 @@ void compile_statement(int check_for_else)
                 struct node *source;
                 
                 get_lex();
-                if (machine != SMS && machine != NES && machine != MSX2)
-                    emit_error("PALETTE is only available on SMS/NES/Famicom/MSX2");
+                if (machine != SMS && machine != NES && machine != MSX && machine != MSX2)
+                    emit_error("PALETTE is only available on SMS/NES/Famicom/MSX/MSX2");
                 if (lex == C_NAME && strcmp(name, "LOAD") == 0) {
                     get_lex();
                     if (lex != C_NAME) {
@@ -5067,7 +5067,7 @@ void compile_statement(int check_for_else)
                         node_generate(source, 0);
                         node_delete(source);
                     } else {
-                        if (machine == SMS || machine == MSX2) {
+                        if (machine == SMS || machine == MSX2 || machine == MSX) {
                             strcpy(temp, LABEL_PREFIX);
                             strcat(temp, name);
                             cpuz80_2op("LD", "HL", temp);
@@ -5092,7 +5092,7 @@ void compile_statement(int check_for_else)
                     }
                 } else if (lex == C_NAME && strcmp(name, "DEFAULT") == 0) {
                     get_lex();
-                    if (machine != MSX2 && machine != SMS)
+                    if (machine != MSX2 && machine != SMS && machine != MSX)
                         emit_error("PALETTE DEFAULT is only available in MSX2/SMS");
                     generic_call("palette_default");
                 } else {
@@ -5107,10 +5107,15 @@ void compile_statement(int check_for_else)
                         cpu6502_1op("STA", "PPUBUF,X");
                         cpu6502_1op("LDA", "#$7f");
                         cpu6502_1op("STA", "PPUBUF+1,X");
-                    } else if (machine == MSX2) {
+                    } else if (machine == MSX2 || machine == MSX) {
                         generic_interrupt_disable();
                         cpuz80_2op("LD", "B", "A");
                         cpuz80_2op("LD", "C", "$10");
+                        if (machine == MSX) {
+                            cpuz80_2op("LD", "A", "($002d)");
+                            cpuz80_1op("OR", "A");  /* Detect MSX1 and jump to avoid */
+                            cpuz80_2op("JR", "Z", "$+5");
+                        }
                         cpuz80_1op("CALL", "WRTVDP");
                     }
                     if (lex != C_COMMA)
@@ -5128,7 +5133,12 @@ void compile_statement(int check_for_else)
                         cpu6502_noop("INX");
                         cpu6502_noop("INX");
                         cpu6502_1op("STX", "ppu_pointer");
-                    } else if (machine == MSX2) {
+                    } else if (machine == MSX2 || machine == MSX) {
+                        if (machine == MSX) {
+                            cpuz80_2op("LD", "A", "($002d)");
+                            cpuz80_1op("OR", "A");  /* Detect MSX1 and jump to avoid */
+                            cpuz80_2op("JR", "Z", "$+8");
+                        }
                         cpuz80_2op("LD", "A", "L");
                         cpuz80_2op("OUT", "(VDP+2)", "A");
                         cpuz80_2op("LD", "A", "H");

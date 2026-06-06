@@ -579,6 +579,17 @@ mode:
 		; bit 2: No sprite flicker.
 		; bit 3: Single charset mode.
 		; bit 4: MSX2 sprites.
+		; bit 5: MSX2 extended modes (MODE 5-8)
+    if MSX&2
+cls_size:
+	rb 2	; Screen length for CLS
+msx2_mode:
+	rb 1	; Type of color for mode.
+msx2_fg_color:
+	rb 1	; Current foreground color.
+msx2_bk_color:
+	rb 1	; Current background color.
+    endif
 flicker:
 	rb 1
 joy1_data:

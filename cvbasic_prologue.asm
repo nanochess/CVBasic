@@ -46,6 +46,8 @@
 	;                             access.
 	; Revision date: Feb/26/2026. Faster CPYBLK, LDIRVM3, and FILVRM.
 	; Revision date: Mar/09/2026. Corrections on joystick read for MSX.
+	; Revision date: May/30/2026. Modified CLS and DEFINE SPRITE for MSX2
+	;                             extended video modes.
 	;
 
 	;
@@ -571,6 +573,22 @@ LDIRVM3:
 	ret
     endif
 
+	; Fill big buffers in 256-byte increments to avoid music pauses.
+FILVRM2:
+	push af
+	push bc
+	push hl
+	call nmi_off
+	call FILVRM
+	call nmi_on
+	pop hl
+	pop bc
+	pop af
+	inc h
+	dec b
+	jp nz,FILVRM2
+	ret
+
 DISSCR:
 	call nmi_off
 	ld bc,$a201
@@ -668,6 +686,43 @@ cls:
 	ei
 	ret
     else
+      if MSX&2
+	ld a,(mode)
+	and $20
+	jr z,.2
+	ld hl,$0000
+	ld (cursor),hl
+	ld bc,(cls_size)
+	ld a,(msx2_mode)
+	cp 2
+	jp z,FILVRM2
+	dec a
+	ld a,(msx2_bk_color)
+	jp z,.3
+	; Extend 4-bit color to 8-bit.
+	ld b,a
+	rlca
+	rlca
+	rlca
+	rlca
+	or b
+	jp FILVRM2
+	; Extend 2-bit color to 8-bit.
+.3:
+	and $03
+	ld b,a
+	rlca
+	rlca
+	or b
+	ld b,a
+	rlca
+	rlca
+	rlca
+	rlca
+	or b
+	ret
+.2:
+      endif
 	ld hl,$1800
 	ld (cursor),hl
 	ld bc,$0300
@@ -786,6 +841,7 @@ print_char:
 	pop hl
 	ret
 
+	; Support routine for DEFINE CHAR.
 define_char:
 	ex de,hl
 	ld l,a
@@ -827,6 +883,7 @@ define_char:
 	jp nmi_on
     endif
 
+	; Support routine for DEFINE COLOR.
 define_color:
     if SMS
 	ret
@@ -852,6 +909,7 @@ define_color:
 	jp nmi_on
     endif
 
+	; Support routine for DEFINE SPRITE.
 define_sprite:
 	ex de,hl
 	ld l,a
@@ -874,7 +932,15 @@ define_sprite:
     if SMS
 	set 1,h
     else
+      if MSX&2
+	ld a,(mode)
+	and $20		; Extended video modes?
+	ld h,$07	; $3800 for MODE 0-4.
+	jr z,$+4	; No, jump.
+	ld h,$1c	; $f000 for MODE 5-8.
+      else
 	ld h,$07
+      endif
     endif
 	add hl,hl	; x8
 	add hl,hl	; x16
@@ -1347,10 +1413,13 @@ font_bitmaps:
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
     endif
 
-    if MSX&2
+    if MSX
 palette_default:
 	ld hl,msx2_default_palette
 palette_load:
+	ld a,($002d)
+	or a
+	ret z
 	ld bc,$0010
 	di
 	call WRTVDP
@@ -1362,7 +1431,9 @@ palette_load:
 msx2_default_palette:
 	dw $000,$000,$611,$733,$117,$327,$151,$627
 	dw $171,$373,$661,$664,$411,$265,$555,$777
+    endif
 
+    if MSX&2
 define_sprite_color:
 	ex de,hl
 	add a,a		; x2
@@ -1420,6 +1491,9 @@ mode_4:
 	ld hl,mode
 	res 3,(hl)
 	set 4,(hl)
+    if MSX&2
+	res 5,(hl)
+    endif
 	ld bc,$0400	; Normal mode but with enhanced sprites enabled.
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1439,12 +1513,10 @@ mode_4:
 	ld bc,$0300
 	call LDIRVM3
 	call nmi_on
-	call nmi_off
 	ld hl,$2000
 	ld bc,$1800
 	ld a,$f0
-	call FILVRM
-	call nmi_on
+	call FILVRM2
 	call cls
 	jp vdp_generic_sprites
     endif
@@ -1549,6 +1621,9 @@ mode_0:
 	ld hl,mode
 	res 3,(hl)
 	res 4,(hl)
+    if MSX&2
+	res 5,(hl)
+    endif
 	ld bc,$0200
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1572,12 +1647,10 @@ mode_0:
 	ld bc,$0300
 	call LDIRVM3
 	call nmi_on
-	call nmi_off
 	ld hl,$2000
 	ld bc,$1800
 	ld a,$f0
-	call FILVRM
-	call nmi_on
+	call FILVRM2
 	call cls
 vdp_generic_sprites:
 	call nmi_off
@@ -1602,20 +1675,21 @@ mode_1:
 	ld hl,mode
 	res 3,(hl)
 	res 4,(hl)
+    if MSX&2
+	res 5,(hl)
+    endif
 	ld bc,$0200
 	ld de,$ff03	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
+	call nmi_on
 	ld hl,$0000
 	ld bc,$1800
 	xor a
-	call FILVRM
-	call nmi_on
-	call nmi_off
+	call FILVRM2
 	ld hl,$2000
 	ld bc,$1800
 	ld a,$f0
-	call FILVRM
-	call nmi_on
+	call FILVRM2
 	ld hl,$1800
 .1:	call nmi_off
 	ld b,32
@@ -1633,6 +1707,9 @@ mode_2:
 	ld hl,mode
 	set 3,(hl)
 	res 4,(hl)
+    if MSX&2
+	res 5,(hl)
+    endif
 	ld bc,$0000
 	ld de,$8000	; $2000 for color table, $0000 for bitmaps.
 	call vdp_generic_mode
@@ -1656,12 +1733,10 @@ mode_2:
 	ld bc,$0300
 	call LDIRVM
 	call nmi_on
-	call nmi_off
 	ld hl,$2000
 	ld bc,$0020
 	ld a,$f0
-	call FILVRM
-	call nmi_on
+	call FILVRM2
 	call cls
 	jp vdp_generic_sprites
     endif
