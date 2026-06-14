@@ -3814,10 +3814,12 @@ void compile_statement(int check_for_else)
                 generic_call("cls");
             } else if (strcmp(name, "WAIT") == 0) {
                 get_lex();
-                if (machine == SORD || machine == CREATIVISION || machine == NES || machine == EINSTEIN || machine == TI994A)
+                if (machine == SORD || machine == EINSTEIN || machine == CREATIVISION || machine == NES || machine == TI994A) {
                     generic_call("wait");
-                else
-                    cpuz80_noop("HALT");
+                } else {
+                    /*cpuz80_noop("HALT");*/
+                    cpuz80_noop("DB $76+COLECO_SPINNER*$59");
+                }
             } else if (strcmp(name, "OUT") == 0) {
                 struct node *port;
                 struct node *value;

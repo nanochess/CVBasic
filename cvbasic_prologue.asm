@@ -49,7 +49,9 @@
 	; Revision date: May/30/2026. Modified CLS and DEFINE SPRITE for MSX2
 	;                             extended video modes.
 	; Revision date: Jun/14/2026. Corrected bug in SMS button handling for
-	;                             second controller.
+	;                             second controller. Alternate frame wait
+	;                             routine when Colecovision used with
+	;                             spinner.
 	;
 
 	;
@@ -103,7 +105,11 @@ JOY2:   equ $ff-$22*(SG1000+SMS)
 	dw 0
 	dw START
 
+      if COLECO_SPINNER
+	jp wait
+      else
 	jp 0	; rst $08
+      endif
 	jp 0	; rst $10
 	jp 0	; rst $18
 	jp 0	; rst $20
@@ -2048,15 +2054,15 @@ nmi_handler:
 	ld a,$07
 	out ($de),a
 	ld b,$ff
-	in a,(JOY1)
+	in a,(JOY1)	; Port $dc
 	ld h,a
-	in a,(JOY2)
+	in a,(JOY2)	; Port $de
 	ld l,a
 	in a,($de)
-	cp 7
-	jp nz,.sg1000
+	cp 7		; SC3000 keyboard?
+	jp nz,.sg1000	; No, jump.
 
-	ld a,$00
+	ld a,$00	; Row 0
 	out ($de),a
 	in a,($dc)
 	rra
@@ -2066,7 +2072,7 @@ nmi_handler:
 	rra
 	ld c,8
 	jr nc,.sg1
-	ld a,$01
+	ld a,$01	; Row 1
 	out ($de),a
 	in a,($dc)
 	rra
@@ -2076,7 +2082,7 @@ nmi_handler:
 	rra
 	ld c,9
 	jr nc,.sg1
-	ld a,$02
+	ld a,$02	; Row 2
 	out ($de),a
 	in a,($dc)
 	rra
@@ -2086,7 +2092,7 @@ nmi_handler:
 	rra
 	ld c,0
 	jr nc,.sg1
-	ld a,$03
+	ld a,$03	; Row 3
 	out ($de),a
 	in a,($dc)
 	bit 4,a
@@ -2095,13 +2101,13 @@ nmi_handler:
 	rra
 	ld c,4
 	jr nc,.sg1
-	ld a,$04
+	ld a,$04	; Row 4
 	out ($de),a
 	in a,($dc)
 	rra
 	ld c,5
 	jr nc,.sg1
-	ld a,$05
+	ld a,$05	; Row 5
 	out ($de),a
 	in a,($dc)
 	bit 6,a
@@ -2110,7 +2116,7 @@ nmi_handler:
 	rra
 	ld c,6
 	jr nc,.sg1
-	ld a,$06
+	ld a,$06	; Row 6
 	out ($de),a
 	in a,($dc)
 	rra
@@ -2154,22 +2160,22 @@ nmi_handler:
 	jr nz,$+4
 	res 5,h
 .sg1000:
-        bit 0,h
+        bit 0,h		; Port A - Up
         jr nz,$+4
         res 0,b
-        bit 1,h
+        bit 1,h		; Port A - Down
         jr nz,$+4
         res 2,b
-        bit 2,h
+        bit 2,h		; Port A - Left
         jr nz,$+4
         res 3,b
-        bit 3,h
+        bit 3,h		; Port A - Right
         jr nz,$+4
         res 1,b
-        bit 4,h
+        bit 4,h		; Port A - TL
         jr nz,$+4
         res 6,b
-        bit 5,h
+        bit 5,h		; Port A - TR
         jr nz,$+4
         res 7,b
 	ld a,b
@@ -2177,23 +2183,23 @@ nmi_handler:
 	ld (joy1_data),a
 
 	ld a,$ff
-        bit 6,h
+        bit 6,h		; Port B - Up
         jr nz,$+4
         res 0,a
-        bit 7,h
+        bit 7,h		; Port B - Down
         jr nz,$+4
         res 2,a
 
-        bit 0,l
+        bit 0,l		; Port B - Left
         jr nz,$+4
         res 3,a
-        bit 1,l
+        bit 1,l		; Port B - Right
         jr nz,$+4
         res 1,a
-        bit 2,l
+        bit 2,l		; Port B - TL
         jr nz,$+4
         res 6,a
-        bit 3,l
+        bit 3,l		; Port B - TR
         jr nz,$+4
         res 7,a
 	cpl
@@ -3139,13 +3145,13 @@ keyboard_handler:
 	ei
 	reti
     endif
-    if SORD
+    if SORD+(COLECO&COLECO_SPINNER)
 wait:
-	ld de,(frame)
+	ld a,(frame)
+	ld d,a
 .1:
-	ld hl,(frame)
-	or a
-	sbc hl,de
+	ld a,(frame)
+	cp d
 	jr z,.1
 	ret
     endif
@@ -3159,7 +3165,6 @@ wait:
 	ld (vdp_status),a
 	jp nmi_handler
     endif
-
 	;
 	; The music player code comes from my
 	; game Princess Quest for Colecovision (2012)

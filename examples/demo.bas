@@ -2,6 +2,7 @@
 	' Demo of graphics for CVBasic
 	'
 	' by Oscar Toledo G.
+	' https://nanochess.org/
 	'
 	' Creation date: Mar/08/2024.
 	' Revision date: Aug/06/2024. Added endless loop.
