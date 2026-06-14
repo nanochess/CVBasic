@@ -48,6 +48,8 @@
 	; Revision date: Mar/09/2026. Corrections on joystick read for MSX.
 	; Revision date: May/30/2026. Modified CLS and DEFINE SPRITE for MSX2
 	;                             extended video modes.
+	; Revision date: Jun/14/2026. Corrected bug in SMS button handling for
+	;                             second controller.
 	;
 
 	;
@@ -2190,10 +2192,10 @@ nmi_handler:
         res 1,a
         bit 2,l
         jr nz,$+4
-        res 4,a
+        res 6,a
         bit 3,l
         jr nz,$+4
-        res 5,a
+        res 7,a
 	cpl
 	ld (joy2_data),a
 
@@ -4199,9 +4201,11 @@ START:
 	im 1
     endif
     if SMS
+      if FM_SUPPORT
 	ld a,7
 	ld ($fffe),a
 	call sms_detect_fm
+      endif
 	ld a,1
 	ld ($fffe),a
     endif
