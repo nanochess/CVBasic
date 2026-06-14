@@ -3816,9 +3816,10 @@ void compile_statement(int check_for_else)
                 get_lex();
                 if (machine == SORD || machine == EINSTEIN || machine == CREATIVISION || machine == NES || machine == TI994A) {
                     generic_call("wait");
+                } else if (machine == COLECOVISION || machine == COLECOVISION_SGM) {
+                    cpuz80_noop("DB $76+COLECO_SPINNER*$59");   /* HALT or RST $08 */
                 } else {
-                    /*cpuz80_noop("HALT");*/
-                    cpuz80_noop("DB $76+COLECO_SPINNER*$59");
+                    cpuz80_noop("HALT");
                 }
             } else if (strcmp(name, "OUT") == 0) {
                 struct node *port;
