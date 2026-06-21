@@ -96,6 +96,7 @@ The following files compose the compiler:
     examples/varptr_sms.bas     VARPTR example for redefining graphics (Sega Master System)
     examples/vgm.bas            VGM audio player for SN76489.
     examples/vgm_ay.bas         VGM audio player for AY-3-8910.
+    examples/vgm_nes.bas        VGM audio player for NES/Famicom.
     examples/viboritas.bas      Game example.
     examples/viboritas_msx2.bas Game example (MSX2)
     examples/viboritas_nes.bas  Game example (NES/Famicom)
