@@ -5,7 +5,7 @@
                     http://nanochess.org/
 
 First developed: Feb/27/2024
-Last revision: Mar/12/2026
+Last revision: Jun/14/2026
 
 
 >>>>>>>>>>>>>>  Legal notice
@@ -22,18 +22,25 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.2 Mar/12/2026  o FM synthesis for MSX, MSX2, and Sega Master System.
+v0.9.2 Jun/14/2026  o FM synthesis for MSX, MSX2, and Sega Master System.
                     o Added OPTION FM.
                     o Added PLAY INSTRUMENT.
                     o Added PLAY FM.
                     o Added MUSIC.FM_ENABLED and MUSIC.FM_AVAILABLE.
-                    o Allows using PALETTE on MSX games, but only applies on MSX2.
-                    o Z80: Optimization in multiple array access in expressions.
+                    o Allows using PALETTE on MSX games, but only applies
+                      on MSX2.
+                    o Z80: Optimization in multiple array access in
+                      expressions.
                     o Z80: Avoid constant reload.
-                    o Z80: Optimization IF with 8-bit AND, and multiplication by 128.
+                    o Z80: Optimization IF with 8-bit AND, and
+                      multiplication by 128.
                     o Z80: Speed up of block copy to screen and VRAM fill.
-                    o Z80: Optimized 16-bit multiplication (before always 1277 cycles,
-                      now minimum of 191 cycles and maximum 1244 cycles)
+                    o Z80: Optimized 16-bit multiplication (before always
+                      1277 cycles, now minimum of 191 cycles and maximum
+                      1244 cycles)
+                    o SMS: Solved bug reading buttons for 2nd controller.
+                    o Colecovision: Solved bug of faster frame rate when
+                      using spinners.
 
 v0.9.1 Feb/17/2026  o Added support for MSX2 using --msx2
                     o MSX2: It supports the PALETTE statement.
@@ -62,20 +69,21 @@ v0.9.0 Aug/26/2025  o Added support for NES/Famicom using --nes
                     o TI-99/4A: Solved bug in SELECT CASE.
                     o TI-99/4A: Solved bug in DEFINE COLOR PLETTER.
                     o TI-99/4A: Optimizes more operations with constants.
-                    o TI-99/4A: Added more optimization using register labeling,
-                      saves many bytes, and speeds up.
+                    o TI-99/4A: Added more optimization using register
+                      labeling, saves many bytes, and speeds up.
 
 v0.8.0 Apr/26/2025  o Added support for Sega Master System using --sms
                     o Added support for VDP.STATUS (for reading VDP status)
                     o Added SELECT CASE / END SELECT
-                    o Added support for CHR$ in PRINT (for portable printing of
-                      arbitrary characters in the current cursor position)
+                    o Added support for CHR$ in PRINT (for portable printing
+                      of arbitrary characters in the current cursor position)
                     o Added SCROLL statement for Sega Master System.
                     o Added BORDER flags for Sega Master System.
                     o Added PALETTE statement for Sega Master System.
-                    o Adapted BITMAP, SCREEN, and SPRITE for Sega Master System.
-                    o Optimizes code using directly DI/EI instructions in Z80
-                      platforms if possible.
+                    o Adapted BITMAP, SCREEN, and SPRITE for Sega Master
+                      System.
+                    o Optimizes code using directly DI/EI instructions in 
+                      Z80 platforms if possible.
 
 v0.7.1 Oct/15/2024  o Added support for NABU PC using --nabu (with -cpm option)
                     o Added support for USR/CALL with up to 5 arguments (only Z80)
