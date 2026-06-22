@@ -275,6 +275,8 @@ There are some very good examples of games developed with CVBasic.
 
 * Airlock II game by OriginalJohn. Demo available from [https://forums.atariage.com/topic/379104-cvbasic-airlock-ii-in-progress/](https://forums.atariage.com/topic/379104-cvbasic-airlock-ii-in-progress/)
 
+* Akalabeth by nanochess. Video available at [https://www.youtube.com/watch?v=Shry64lalDU](https://www.youtube.com/watch?v=Shry64lalDU)
+
 * astronave by Haranni. Demo available from [https://forums.atariage.com/topic/381647-astronave/](https://forums.atariage.com/topic/381647-astronave/)
 
 * Barbarricade by Jess Ragan. Demo available from [https://forums.atariage.com/topic/390220-barbarricade-the-brick-breaking-game-where-the-bricks-break-you/](https://forums.atariage.com/topic/390220-barbarricade-the-brick-breaking-game-where-the-bricks-break-you/)
