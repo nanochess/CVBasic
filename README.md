@@ -275,6 +275,10 @@ There are some very good examples of games developed with CVBasic.
 
 * Airlock II game by OriginalJohn. Demo available from [https://forums.atariage.com/topic/379104-cvbasic-airlock-ii-in-progress/](https://forums.atariage.com/topic/379104-cvbasic-airlock-ii-in-progress/)
 
+* astronave by Haranni. Demo available from [https://forums.atariage.com/topic/381647-astronave/](https://forums.atariage.com/topic/381647-astronave/)
+
+* Barbarricade by Jess Ragan. Demo available from [https://forums.atariage.com/topic/390220-barbarricade-the-brick-breaking-game-where-the-bricks-break-you/](https://forums.atariage.com/topic/390220-barbarricade-the-brick-breaking-game-where-the-bricks-break-you/)
+
 * Beachhead by Eric Damain. Demo screenshots [https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/](https://forums.atariage.com/topic/373822-beach-head-dev-log-cvbasic/)
 
 * Boom by Atarius Maximus for NES/Famicom. Also in the _contrib_ directory. [https://forums.atariage.com/topic/384096-colecovision-fantalicious-basic-compiler-cvbasic-v090-now-with-nesfamicom-support/page/2/#findComment-5769427](https://forums.atariage.com/topic/384096-colecovision-fantalicious-basic-compiler-cvbasic-v090-now-with-nesfamicom-support/page/2/#findComment-5769427)
@@ -299,6 +303,8 @@ There are some very good examples of games developed with CVBasic.
 
 * Hamurabi by Eric Damain. Available from [https://forums.atariage.com/topic/380392-hamurabi-dev-log-cvbasic/](https://forums.atariage.com/topic/380392-hamurabi-dev-log-cvbasic/)
 
+* Jewels by DannyVdH. Available from [https://forums.atariage.com/topic/390921-jewels-game-build-in-adam-emulator-plugin-tools-cvbasic-new-graphics-editor/](https://forums.atariage.com/topic/390921-jewels-game-build-in-adam-emulator-plugin-tools-cvbasic-new-graphics-editor/)
+
 * Jurl by Tonsomo Entertainment. Available from [https://tonsomo.itch.io/jurl-colecovision-edition](https://tonsomo.itch.io/jurl-colecovision-edition)
 
 * Manhole by Eric Damain. Available from [https://electric-dreams.itch.io/manhole-for-colecovision](https://electric-dreams.itch.io/manhole-for-colecovision)
@@ -306,6 +312,8 @@ There are some very good examples of games developed with CVBasic.
 * Metro Wars by nanochess (MSX2). ROM available for download from [https://www.msxdev.org/2026/03/08/msxdev25-36-metro-wars/](https://www.msxdev.org/2026/03/08/msxdev25-36-metro-wars/)
 
 * Monkey Moon by nanochess, example from the book **Programming Games for Colecovision**. Available from [https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249](https://forums.atariage.com/topic/365456-the-mystery-of-monkey-moon/#findComment-5478249)
+
+* Oil Panic by Eric Damain. Availabel from [https://forums.atariage.com/topic/390270-another-gw-adaptation-oil-panic/](https://forums.atariage.com/topic/390270-another-gw-adaptation-oil-panic/)
 
 * Operation Hibernation by Jess Ragan. Available from [https://forums.atariage.com/topic/383365-operation-hibernation-nearing-completion/](https://forums.atariage.com/topic/383365-operation-hibernation-nearing-completion/)
 
@@ -315,11 +323,15 @@ There are some very good examples of games developed with CVBasic.
 
 * Solar Fox 2 by Jess Ragan. Available from [https://forums.atariage.com/topic/382881-solar-fox-2-is-finished-link-inside/](https://forums.atariage.com/topic/382881-solar-fox-2-is-finished-link-inside/)
 
+* Space Taxi by Eric Damain. Available from [https://forums.atariage.com/topic/388538-hey-taxi/](https://forums.atariage.com/topic/388538-hey-taxi/)
+
 * Sub Hunt by Eric Damain. Demo videos [https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/](https://forums.atariage.com/topic/374259-sub-hunt-dev-log-cvbasic/)
 
 * SWOPEM by chalkyw64 (MSX). Available from [https://forums.atariage.com/topic/387521-swopem-a-simple-match3-game-for-msx-and-colecovision/](https://forums.atariage.com/topic/387521-swopem-a-simple-match3-game-for-msx-and-colecovision/)
 
-* Taz by Eric Damain. Demo available from [https://forums.atariage.com/topic/388119-crackpots/](https://forums.atariage.com/topic/388119-crackpots/)
+* Taz by Eric Damain. Demo available from [https://electric-dreams.itch.io/taz](https://electric-dreams.itch.io/taz)
+
+* Warren Cave by Eric Damain. Demo available from [https://forums.atariage.com/topic/389458-a-text-adventure-game-test-cvbasic/](https://forums.atariage.com/topic/389458-a-text-adventure-game-test-cvbasic/)
 
 * Whack'em Smack'em Byron by Jess Ragan. Available from [https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961](https://forums.atariage.com/topic/364885-whack-em-smack-em-byron-dev-log/page/3/#findComment-5483961)
 
