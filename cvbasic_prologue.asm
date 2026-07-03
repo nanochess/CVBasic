@@ -1744,7 +1744,7 @@ mode_2:
 	ld hl,$2000
 	ld bc,$0020
 	ld a,$f0
-	call FILVRM2
+	call FILVRM
 	call cls
 	jp vdp_generic_sprites
     endif
