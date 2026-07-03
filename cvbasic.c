@@ -5125,7 +5125,7 @@ void compile_statement(int check_for_else)
                         emit_error("missing comma in PALETTE");
                     else
                         get_lex();
-                    type = evaluate_expression(1, (machine == MSX2 ? TYPE_16 : TYPE_8), 0);
+                    type = evaluate_expression(1, ((machine == MSX2 || machine == MSX) ? TYPE_16 : TYPE_8), 0);
                     if (machine == SMS) {
                         cpuz80_2op("OUT", "(VDP)", "A");
                         generic_interrupt_enable();
@@ -6790,10 +6790,10 @@ int main(int argc, char *argv[])
         fprintf(stderr, "\n");
         fprintf(stderr, "    It will return a zero error code if compilation was\n");
         fprintf(stderr, "    successful, or non-zero otherwise.\n\n");
-        fprintf(stderr, "Many thanks to acadiel, Albert, abeker, aotta, artrag, atari2600land,\n");
-        fprintf(stderr, "carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan,\n");
-        fprintf(stderr, "Kamshaft, Kiwi, MADrigal, pixelboy, Revontuli, SiRioKD, Tarzilla,\n");
-        fprintf(stderr, "Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
+        fprintf(stderr, "Many thanks to acadiel, Albert, abeker, an3ss, aotta, artrag,\n");
+        fprintf(stderr, "atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic,\n");
+        fprintf(stderr, "Jess Ragan, Kamshaft, Kiwi, MADrigal, pixelboy, Revontuli, SiRioKD,\n");
+        fprintf(stderr, "Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
         fprintf(stderr, "\n");
         exit(EXIT_FAILURE);
     }

@@ -1264,7 +1264,7 @@ The following statements are available:
                            is not specified thereafter.
                            
                            Notice that the instrument waveforms can be altered
-                           by modifying the cvbasic_epilogue.asm file for your
+                           by modifying the cvbasic_prologue.asm file for your
                            program.
 
                            Notice the bass instrument reduces two octaves your
