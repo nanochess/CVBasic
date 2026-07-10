@@ -427,6 +427,13 @@ void emit_warning(char *string)
 }
 
 /*
+ ** Emit info
+ */
+void emit_info(char *string)
+{
+    fprintf(stderr, "INFO: %s at line %d (%s)\n", string, current_line, current_file);
+}
+/*
  ** Finish a bank
  */
 void bank_finish(void)
@@ -626,7 +633,13 @@ struct constant *constant_add(char *name)
     }
     new_one->value = 0;
     strcpy(new_one->name, name);
-    previous = &constant_hash[label_hash_value(name)];
+    char *c = new_one->name;
+    while (*c)
+    {
+        if (isalpha(*c)) *c = toupper(*c);
+        c++;
+    }
+    previous = &constant_hash[label_hash_value(new_one->name)];
     new_one->next = *previous;
     *previous = new_one;
     return new_one;
@@ -6456,7 +6469,8 @@ void compile_basic(void)
     struct label *label;
     int label_exists;
     char *p;
-
+    int skip = 0;
+    int ppcDepth = 0;
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
@@ -6478,6 +6492,88 @@ void compile_basic(void)
         label_exists = 0;
         label = NULL;
         get_lex();
+
+        /* pre-processor #IF, #ELSE, #ENDIF
+         * currently supports a single level
+         */
+        if (lex == C_NAME && name[0] == '#') {
+            int inv = 0;
+            if ((strcmp(name, "#IF") == 0) ||
+                (strcmp(name, "#ELIF") == 0)) {
+                if (name[1] == 'I') /* #IF */
+                {
+                    if (ppcDepth) {
+                        emit_error("Nested #IF not supported");
+                    }
+                } else { /* #ELIF */
+                    if (!ppcDepth) {
+                        emit_error("#ELIF without matching #IF");
+                    }
+                    if (ppcDepth < 0 || !skip) {
+                        ppcDepth = -1;
+                        skip = 1;
+                        continue;
+                    }
+                }
+                get_lex();
+                if (lex == C_NAME) {
+                    if (strcmp(name, "NOT") == 0) {
+                        get_lex();
+                        inv = -1;
+                    }
+                }
+                ppcDepth = 1;
+                if (lex == C_NAME) {
+                    struct constant *c = constant_search(name);
+                    skip = (!c || (c->value == 0));
+                } else if (lex == C_NUM) {
+                    skip = (value == 0);
+                }
+                get_lex();
+                if (lex != C_END) {
+                    emit_error("Extra characters");            
+                }
+            } else if (strcmp(name, "#ENDIF") == 0) {
+                if (!ppcDepth) {
+                    emit_error("#ENDIF without matching #IF");
+                }
+                ppcDepth = 0;
+                skip = 0;
+            continue;
+            } else if (strcmp(name, "#ELSE") == 0) {
+                if (ppcDepth > 0) {
+                    skip = !skip;
+                } else if (ppcDepth < 0) {
+                    skip = 1;
+                } else {
+                    emit_error("Unexpected #ELSE. No matching #IF");
+                }
+                continue;
+            }
+
+            if (inv) skip = !skip;
+            
+        }
+
+        if (skip) continue;
+
+        if (lex == C_NAME && name[0] == '#') {
+            if (strcmp(name, "#INFO") == 0) {
+                get_lex();
+                emit_info(name);
+                continue;
+            } else if (strcmp(name, "#WARN") == 0) {
+                get_lex();
+                emit_warning(name);
+                continue;
+            } else if (strcmp(name, "#ERROR") == 0) {
+                get_lex();
+                emit_error(name);
+                continue;
+            }            
+        }
+
+
         if (lex == C_LABEL) {
             if (value == 0)
                 strcpy(global_label, name);
@@ -6833,7 +6929,13 @@ int main(int argc, char *argv[])
         pencil = 0;
     }
     bytes_used = 0;
-    
+
+    /* adding machine constants*/
+    {
+        struct constant *mnc = constant_add(consoles[machine].name);
+        mnc->value = 1;
+    }
+
     /*
      ** Extra options.
      */
