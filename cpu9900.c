@@ -1209,12 +1209,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jeq", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_NOTEQUAL8) {
                 cpu9900_2op("cb", temp, "r0");
@@ -1227,12 +1228,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jne", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_LESS8 || node->type == N_GREATER8) {
                 cpu9900_2op("cb", "r0", temp);
@@ -1245,12 +1247,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jl", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_LESSEQUAL8 || node->type == N_GREATEREQUAL8) {
                 cpu9900_2op("cb", "r0", temp);
@@ -1263,12 +1266,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jhe", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);  /* Cannot be $+4 */
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);  /* To avoid optimizing seto r0 -> r1 */
                 }
             } else if (node->type == N_PLUS8) {
                 cpu9900_2op("ab", temp, "r0");
@@ -1415,12 +1419,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                         cpu9900_label(temp + 100);
                     } else {
                         sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                        sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                         cpu9900_1op((node->type == N_EQUAL16 ? "jeq" : "jne"), temp);
                         cpu9900_1op("clr", "r0");
-                        cpu9900_1op("jmp", "$+4");
+                        cpu9900_1op("jmp", temp + 100);
                         cpu9900_label(temp);
                         cpu9900_1op("seto", "r0");
-                        cpu9900_empty();
+                        cpu9900_label(temp + 100);
                     }
                     break;
                 }
@@ -1445,15 +1450,16 @@ void cpu9900_node_generate(struct node *node, int decision)
                         cpu9900_label(temp + 100);
                     } else {
                         sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                        sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                         if (node->type == N_LESS16)
                             cpu9900_1op("jl", temp);
                         else if (node->type == N_GREATER16)
                             cpu9900_1op("jh", temp);
                         cpu9900_1op("clr", "r0");
-                        cpu9900_1op("jmp", "$+4");
+                        cpu9900_1op("jmp", temp + 100);
                         cpu9900_label(temp);
                         cpu9900_1op("seto", "r0");
-                        cpu9900_empty();
+                        cpu9900_label(temp + 100);
                     }
                     break;
                 }
@@ -1648,12 +1654,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jeq", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_NOTEQUAL16) {
                 cpu9900_2op("c", "r0", temp);
@@ -1666,12 +1673,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jne", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_LESS16 || node->type == N_GREATER16) {
                 cpu9900_2op("c", "r0", temp);
@@ -1684,12 +1692,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jl", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_LESSEQUAL16 || node->type == N_GREATEREQUAL16) {
                 cpu9900_2op("c", "r0", temp);
@@ -1702,12 +1711,13 @@ void cpu9900_node_generate(struct node *node, int decision)
                     cpu9900_label(temp + 100);
                 } else {
                     sprintf(temp, INTERNAL_PREFIX "%d", next_local++);
+                    sprintf(temp + 100, INTERNAL_PREFIX "%d", next_local++);
                     cpu9900_1op("jhe", temp);
                     cpu9900_1op("clr", "r0");
-                    cpu9900_1op("jmp", "$+4");
+                    cpu9900_1op("jmp", temp + 100);
                     cpu9900_label(temp);
                     cpu9900_1op("seto", "r0");
-                    cpu9900_empty();
+                    cpu9900_label(temp + 100);
                 }
             } else if (node->type == N_PLUS16) {
                 cpu9900_2op("a", temp, "r0");

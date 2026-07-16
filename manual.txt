@@ -1584,7 +1584,7 @@ An example is available in the directory examples/music_fm.bas
 
     Bits 7-4 contains the instrument number:
 
-        0 - Programmable (not available currently)
+        0 - Programmable (see PLAY INSTRUMENT VARPTR)
         1 - Violin
         2 - Guitar
         3 - Piano
@@ -1601,6 +1601,15 @@ An example is available in the directory examples/music_fm.bas
         e - Wood bass
         f - Electric guitar
     
+
+  PLAY INSTRUMENT VARPTR fm_data(0)
+    This loads the only programmable instrument.
+
+    For example:
+
+        fm_data:
+            DATA BYTE $31,$11,$0e,$20,$d9,$b2,$11,$f4	' Piano 1
+
 
 >>>>>>>>>>>>>>  Useful VRAM addresses
 

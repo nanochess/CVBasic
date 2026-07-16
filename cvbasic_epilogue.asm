@@ -22,6 +22,7 @@
 	; Revision date: Feb/03/2025. Round final ROM size to 8K multiples.
 	; Revision date: Feb/05/2026. Added support for spinners and roller controller
 	;                             (Colecovision).
+	; Revision date: Jul/14/2026. Added program_fm.
 	;
 
 rom_end:
@@ -439,6 +440,31 @@ play_fm:
         pop bc
         ret
 
+	;
+	; Program FM instrument
+	;
+program_fm:
+	push ix
+	push iy
+	ld de,fm_data
+	ld bc,8
+	ldir
+        call fm_rom_switch
+	ld hl,fm_data
+	xor a
+.1:	push af
+	ld e,(hl)
+	call write_fm
+	inc hl
+	pop af
+	inc a
+	cp $08
+	jr nz,.1
+        call cartridge_rom_switch
+	pop iy
+	pop ix
+	ret
+
         ;
         ; Init FM
         ;
@@ -572,6 +598,8 @@ fm_enabled:
 	rb 1
 fm_inst:
 	rb 4
+fm_data:
+	rb 8
     endif
 mode:
 	rb 1	; bit 0: NMI disabled.

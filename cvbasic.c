@@ -5598,30 +5598,39 @@ void compile_statement(int check_for_else)
                     get_lex();
                     if (machine != MSX && machine != MSX2 && machine != SMS)
                         emit_warning("PLAY INSTRUMENT only allowed for MSX/MSX2/SMS");
-                    type = evaluate_expression(1, TYPE_8, 0);
-                    if (target == CPU_Z80)
-                        cpuz80_2op("LD", "(fm_inst)", "A");
-                    if (lex != C_COMMA)
-                        emit_error("missing comma");
-                    else
-                        get_lex();
-                    type = evaluate_expression(1, TYPE_8, 0);
-                    if (target == CPU_Z80)
-                        cpuz80_2op("LD", "(fm_inst+1)", "A");
-                    if (lex != C_COMMA)
-                        emit_error("missing comma");
-                    else
-                        get_lex();
-                    type = evaluate_expression(1, TYPE_8, 0);
-                    if (target == CPU_Z80)
-                        cpuz80_2op("LD", "(fm_inst+2)", "A");
-                    if (lex != C_COMMA)
-                        emit_error("missing comma");
-                    else
-                        get_lex();
-                    type = evaluate_expression(1, TYPE_8, 0);
-                    if (target == CPU_Z80)
-                        cpuz80_2op("LD", "(fm_inst+3)", "A");
+                    if (lex == C_NAME && strcmp(name, "VARPTR") == 0) {
+                        struct node *source = NULL;
+
+                        source = evaluate_save_expression(1, TYPE_16);  /* CPU address (variable) */
+                        node_generate(source, 0);
+                        cpuz80_1op("CALL", "program_fm");
+                        node_delete(source);
+                    } else {
+                        type = evaluate_expression(1, TYPE_8, 0);
+                        if (target == CPU_Z80)
+                            cpuz80_2op("LD", "(fm_inst)", "A");
+                        if (lex != C_COMMA)
+                            emit_error("missing comma");
+                        else
+                            get_lex();
+                        type = evaluate_expression(1, TYPE_8, 0);
+                        if (target == CPU_Z80)
+                            cpuz80_2op("LD", "(fm_inst+1)", "A");
+                        if (lex != C_COMMA)
+                            emit_error("missing comma");
+                        else
+                            get_lex();
+                        type = evaluate_expression(1, TYPE_8, 0);
+                        if (target == CPU_Z80)
+                            cpuz80_2op("LD", "(fm_inst+2)", "A");
+                        if (lex != C_COMMA)
+                            emit_error("missing comma");
+                        else
+                            get_lex();
+                        type = evaluate_expression(1, TYPE_8, 0);
+                        if (target == CPU_Z80)
+                            cpuz80_2op("LD", "(fm_inst+3)", "A");
+                    }
                 } else {
                     struct label *label;
                     
