@@ -23,6 +23,7 @@
 	; Revision date: Feb/05/2026. Added support for spinners and roller controller
 	;                             (Colecovision).
 	; Revision date: Jul/14/2026. Added program_fm.
+	; Revision date: Jul/20/2026. Moved program_fm to cvbasic_prologue.asm.
 	;
 
 rom_end:
@@ -158,6 +159,8 @@ msx_find_fm:
         ; Write a FM register
         ; A = register
         ; E = data
+write_fm_zero:
+	ld e,0
 write_fm:
         jp WRTOPL
 
@@ -268,6 +271,22 @@ music_generate_fm:
 	push bc
 	push de
         call fm_rom_switch
+	ld a,(fm_new)
+	or a		; New programmed instrument.
+	jr z,.8
+	xor a
+	ld (fm_new),a
+	ld hl,fm_data
+	xor a
+.10:	push af
+	ld e,(hl)
+	call write_fm
+	inc hl
+	pop af
+	inc a
+	cp $08
+	jr nz,.10
+.8:
 	pop de
 	pop bc
         ld a,b
@@ -381,9 +400,8 @@ play_fm:
         push de
         ld c,a          ; Saves base register.
         add a,$10
-        ld e,$00	; Turn off voice if it was turned on.
         push bc
-        call write_fm
+        call write_fm_zero	; Turn off voice if it was turned on.
         pop bc
         ld a,b          ; Read instrument (bits 7-6)
 	and $c0
@@ -440,31 +458,6 @@ play_fm:
         pop bc
         ret
 
-	;
-	; Program FM instrument
-	;
-program_fm:
-	push ix
-	push iy
-	ld de,fm_data
-	ld bc,8
-	ldir
-        call fm_rom_switch
-	ld hl,fm_data
-	xor a
-.1:	push af
-	ld e,(hl)
-	call write_fm
-	inc hl
-	pop af
-	inc a
-	cp $08
-	jr nz,.1
-        call cartridge_rom_switch
-	pop iy
-	pop ix
-	ret
-
         ;
         ; Init FM
         ;
@@ -485,14 +478,10 @@ init_fm:
         call write_fm
         djnz .1
         call cartridge_rom_switch
-	ld a,$30	; Piano
-	ld (fm_inst),a
-	ld a,$50	; Clarinet
-	ld (fm_inst+1),a
-	ld a,$40	; Flute
-	ld (fm_inst+2),a
-	ld a,$e0	; Acoustic bass
-	ld (fm_inst+3),a
+	ld hl,.2
+	ld de,fm_inst
+	ld bc,4
+	ldir
         pop iy
         pop ix
         ret
@@ -522,6 +511,12 @@ init_fm:
         dw $3720        ; Hihat / Snare Drum
         dw $3800        ; Tom   / Top Cymbal
 
+.2:
+	db $30	; Piano.
+	db $50	; Clarinet.
+	db $40	; Flute.
+	db $e0	; Clarinet bass.
+
 	;
 	; Turn off FM
 	;
@@ -534,14 +529,11 @@ turn_off_fm:
 	ret z
         call fm_rom_switch
 	LD A,$10+$10
-	LD E,$00
-	CALL write_fm
+	CALL write_fm_zero
 	LD A,$11+$10
-	LD E,$00
-	CALL write_fm
+	CALL write_fm_zero
 	LD A,$12+$10
-	LD E,$00
-	CALL write_fm
+	CALL write_fm_zero
 	CALL cartridge_rom_switch
 	RET
 
@@ -598,6 +590,8 @@ fm_enabled:
 	rb 1
 fm_inst:
 	rb 4
+fm_new:
+	rb 1
 fm_data:
 	rb 8
     endif

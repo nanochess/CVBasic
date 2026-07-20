@@ -1421,6 +1421,22 @@ font_bitmaps:
         db $70,$70,$20,$f8,$20,$70,$50,$00      ; $7f
     endif
 
+    if MSX+SMS
+      if FM_SUPPORT
+	;
+	; Program FM instrument
+	;
+program_fm:
+	ld de,fm_data
+	ld bc,8
+	ldir
+	ld a,1
+	ld (fm_new),a
+	; Cannot load instrument here, as it could imply bank switching.
+	ret
+      endif
+    endif
+
     if MSX
 palette_default:
 	ld hl,msx2_default_palette
