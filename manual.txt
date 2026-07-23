@@ -22,11 +22,12 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.2 Jun/20/2026  o FM synthesis for MSX, MSX2, and Sega Master System.
+v0.9.2 Jul/23/2026  o FM synthesis for MSX, MSX2, and Sega Master System.
                     o Added OPTION FM.
                     o Added PLAY INSTRUMENT.
                     o Added PLAY FM.
                     o Added MUSIC.FM_ENABLED and MUSIC.FM_AVAILABLE.
+                    o Added C-style preprocessor (contributed by visrealm)
                     o Allows using PALETTE on MSX games, but only applies
                       on MSX2.
                     o Z80: Optimization in multiple array access in
@@ -1534,10 +1535,10 @@ The expression parser will take advantage of 8-bit variables and numbers to opti
 
 >>>>>>>>>>>>>>  Preprocessor
 
-The preprocessor can be used to confitionnaly include or exclude
+The preprocessor can be used to conditionaly include or exclude
 CVBasic code from being compiled. This can be useful for including
-platform-dependant user instructions or to enable or disable
-diagnostics displays.
+platform-dependent code or to enable and disable diagnostics
+displays.
 
   #IF [NOT] constant
     [statement]
@@ -1548,7 +1549,7 @@ diagnostics displays.
   #ENDIF
 
 Unlike regular IF-THEN-ELSE statements, the excluded code is not
-compiled at all so will not take up additional space in your compiled
+compiled at all so it won't take up additional space in your compiled
 rom image.
 
 One of the following pre-defined constants will be available and
@@ -1571,11 +1572,12 @@ Compile-time logging:
   #INFO string
     Output an information message at compile time.
 
-  #WARN string
+  #WARNING string
     Output a warning message at compile time.
 
   #ERROR string
     Output an error message and halt compilation at compile time.
+
 
 >>>>>>>>>>>>>>. FM support for MSX/MSX2/SMS
 
