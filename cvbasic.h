@@ -59,6 +59,7 @@ struct console {
     char *options;      /* Options */
     char *description;  /* Description (for usage guide) */
     char *canonical;    /* Canonical name */
+    char *constant;     /* CONST name */
     int base_ram;       /* Where the RAM starts */
     int stack;          /* Where the stack will start */
     int memory_size;    /* Memory available */

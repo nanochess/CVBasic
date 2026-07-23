@@ -57,56 +57,56 @@ enum cpu_target target;
 struct console consoles[TOTAL_TARGETS] = {
     /*  RAM   STACK    Size  VDP R   VDP W  PSG */
     {"colecovision","",     "Standard Colecovision (1K RAM)",
-        "Colecovision",
+        "Colecovision", "COLECOVISION",
         0x7000, 0x7400, 0x0400,  0xbe,   0xbe, 0xff, 0, CPU_Z80},
     {"sg1000",  "",         "Sega SG-1000/SC-3000 (1K RAM)",
-        "Sega SG-1000/SC-3000",
+        "Sega SG-1000/SC-3000", "SG1000",
         0xc000, 0xc400, 0x0400,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
     {"msx",     "-ram16",   "MSX (8K RAM), use -ram16 for 16K of RAM,\n        use -konami for Konami mapper instead of ASCII16",
-        "MSX",
+        "MSX", "MSX",
         0xe000, 0xf380, 0x1380,  0x98,   0x98, 0,    1, CPU_Z80},
     {"sgm",     "",         "Colecovision with Opcode's Super Game Module",
-        "Colecovision with SGM",
+        "Colecovision with SGM", "SGM",
         0x7c00, 0x8000, 0x5c00,  0xbe,   0xbe, 0xff, 0, CPU_Z80}, /* Note: Real RAM at 0x2000 */
     {"svi",     "",         "Spectravideo SVI-318/328 (16K of RAM)",
-        "Spectravideo SVI-318/328",
+        "Spectravideo SVI-318/328", "SVI",
         0xc000, 0xf000, 0x3000,  0x80,   0x84, 0,    1, CPU_Z80},
     {"sord",    "",         "Sord M5 (1K RAM)",
-        "Sord M5",
+        "Sord M5", "SORD",
         0x7080, 0x7080, 0x0380,  0x10,   0x10, 0x20, 1, CPU_Z80},
     {"memotech","-cpm",     "Memotech MTX (64K RAM), generates .run files, use -cpm for .com files",
-        "Memotech MTX",
+        "Memotech MTX", "MEMOTECH",
         0,      0xa000, 0,       0x01,   0x01, 0x06, 1, CPU_Z80},
     {"creativision","-rom16","Vtech Creativision (Dick Smith's Wizzard/Laser 2001), 6502+1K RAM.",
-        "Creativision/Wizzard",
+        "Creativision/Wizzard", "CREATIVISION",
         0x0050, 0x017f, 0x0400,  0,      0,    0,    1, CPU_6502},
     {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
-        "Soundic Pencil II",
+        "Soundic Pencil II", "PENCIL",
         0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, 0, CPU_Z80},
     {"einstein","",         "Tatung Einstein, generates .com files",
-        "Tatung Einstein",
+        "Tatung Einstein", "EINSTEIN",
         0,      0xa000, 0,       0x08,   0x08, 0,    0, CPU_Z80},
     {"pv2000",  "",         "Casio PV-2000",
-        "Casio PV-2000",
+        "Casio PV-2000", "PV2000",
         0x7600, 0x8000, 0x0a00,0x4000, 0x4000, 0x40, 0, CPU_Z80},
     {"ti994a",  "",         "Texas Instruments TI-99/4A (32K RAM). Support by tursilion",
-        "TI-99/4A (support by tursilion)",
+        "TI-99/4A (support by tursilion)", "TI994A",
         0x2080, 0x4000, 0x1f80, 0x8800, 0x8c00,0xff, 1, CPU_9900},
     {"nabu",    "-cpm",     "NABU PC (64K RAM)",
-        "Nabu PC",
+        "Nabu PC", "NABU",
         0,      0xe000, 0,       0xa0,   0xa0, 0,    1, CPU_Z80},
     /*
     ** For Sega Master System the stack cannot start at $e000, because
     ** when using Bank Switching writing to $fffd-$ffff destroys $dffd-$dfff
     */
     {"sms",     "",         "Sega Master System (8K RAM)",
-        "Sega Master System",
+        "Sega Master System", "SMS",
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
     {"nes",     "",         "NES/Famicom (2K RAM)",
-        "NES/Famicom",
+        "NES/Famicom", "NES",
         0x0050, 0x01ff, 0x0800,  0,      0,    0,    1, CPU_6502},
     {"msx2",    "-ram16",   "MSX2 (8K RAM), use -ram16 for 16K of RAM,\n        use -konami for Konami mapper instead of ASCII16",
-        "MSX2",
+        "MSX2", "MSX2",
         0xe000, 0xf380, 0x1380,  0x98,   0x98, 0,    1, CPU_Z80},
 };
 
@@ -633,12 +633,6 @@ struct constant *constant_add(char *name)
     }
     new_one->value = 0;
     strcpy(new_one->name, name);
-    char *c = new_one->name;
-    while (*c)
-    {
-        if (isalpha(*c)) *c = toupper(*c);
-        c++;
-    }
     previous = &constant_hash[label_hash_value(new_one->name)];
     new_one->next = *previous;
     *previous = new_one;
@@ -6479,7 +6473,8 @@ void compile_basic(void)
     int label_exists;
     char *p;
     int skip = 0;
-    int ppcDepth = 0;
+    int if_depth = 0;
+    
     current_line = 0;
     while (fgets(line, sizeof(line) - 1, input)) {
         current_line++;
@@ -6502,24 +6497,24 @@ void compile_basic(void)
         label = NULL;
         get_lex();
 
-        /* pre-processor #IF, #ELSE, #ENDIF
-         * currently supports a single level
+        /*
+         ** C-style preprocessor #IF, #ELSE, #ENDIF
+         ** Currently supports a single nesting level.
          */
         if (lex == C_NAME && name[0] == '#') {
             int inv = 0;
-            if ((strcmp(name, "#IF") == 0) ||
-                (strcmp(name, "#ELIF") == 0)) {
-                if (name[1] == 'I') /* #IF */
-                {
-                    if (ppcDepth) {
+            
+            if (strcmp(name, "#IF") == 0 || strcmp(name, "#ELIF") == 0) {
+                if (name[1] == 'I') {  /* #IF */
+                    if (if_depth) {
                         emit_error("Nested #IF not supported");
                     }
                 } else { /* #ELIF */
-                    if (!ppcDepth) {
+                    if (!if_depth) {
                         emit_error("#ELIF without matching #IF");
                     }
-                    if (ppcDepth < 0 || !skip) {
-                        ppcDepth = -1;
+                    if (if_depth < 0 || !skip) {
+                        if_depth = -1;
                         skip = 1;
                         continue;
                     }
@@ -6531,9 +6526,10 @@ void compile_basic(void)
                         inv = -1;
                     }
                 }
-                ppcDepth = 1;
+                if_depth = 1;
                 if (lex == C_NAME) {
                     struct constant *c = constant_search(name);
+                    
                     skip = (!c || (c->value == 0));
                 } else if (lex == C_NUM) {
                     skip = (value == 0);
@@ -6543,35 +6539,35 @@ void compile_basic(void)
                     emit_error("Extra characters");            
                 }
             } else if (strcmp(name, "#ENDIF") == 0) {
-                if (!ppcDepth) {
+                if (!if_depth) {
                     emit_error("#ENDIF without matching #IF");
                 }
-                ppcDepth = 0;
+                if_depth = 0;
                 skip = 0;
-            continue;
+                continue;
             } else if (strcmp(name, "#ELSE") == 0) {
-                if (ppcDepth > 0) {
+                if (if_depth > 0) {
                     skip = !skip;
-                } else if (ppcDepth < 0) {
+                } else if (if_depth < 0) {
                     skip = 1;
                 } else {
                     emit_error("Unexpected #ELSE. No matching #IF");
                 }
                 continue;
             }
-
-            if (inv) skip = !skip;
-            
+            if (inv)
+                skip = !skip;
         }
 
-        if (skip) continue;
+        if (skip)
+            continue;
 
         if (lex == C_NAME && name[0] == '#') {
             if (strcmp(name, "#INFO") == 0) {
                 get_lex();
                 emit_info(name);
                 continue;
-            } else if (strcmp(name, "#WARN") == 0) {
+            } else if (strcmp(name, "#WARNING") == 0) {
                 get_lex();
                 emit_warning(name);
                 continue;
@@ -6863,6 +6859,7 @@ int main(int argc, char *argv[])
     int cpm_option;
     int pencil;
     char hex;
+    struct constant *machine_constant;
     
     actual = time(0);
     date = localtime(&actual);
@@ -6898,7 +6895,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Many thanks to acadiel, Albert, abeker, an3ss, aotta, artrag,\n");
         fprintf(stderr, "atari2600land, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic,\n");
         fprintf(stderr, "Jess Ragan, Kamshaft, Kiwi, MADrigal, pixelboy, Revontuli, SiRioKD,\n");
-        fprintf(stderr, "Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.\n");
+        fprintf(stderr, "Tarzilla, Tony Cruise, tursilion, unhuman, visrealm, wavemotion,\n");
+        fprintf(stderr, "and youki.\n");
         fprintf(stderr, "\n");
         exit(EXIT_FAILURE);
     }
@@ -6939,12 +6937,6 @@ int main(int argc, char *argv[])
     }
     bytes_used = 0;
 
-    /* adding machine constants*/
-    {
-        struct constant *mnc = constant_add(consoles[machine].name);
-        mnc->value = 1;
-    }
-
     /*
      ** Extra options.
      */
@@ -6957,7 +6949,7 @@ int main(int argc, char *argv[])
             extra_ram = 8192;
         } else {
             fprintf(stderr, "-ram16 option only applies to MSX/MSX2.\n");
-            exit(EXIT_FAILURE+1);
+            exit(EXIT_FAILURE + 1);
         }
     }
     bank_konami = 0;
@@ -6969,7 +6961,7 @@ int main(int argc, char *argv[])
             bank_konami = 1;
         } else {
             fprintf(stderr, "-konami option only applies to MSX/MSX2.\n");
-            exit(EXIT_FAILURE+1);
+            exit(EXIT_FAILURE + 1);
         }
     }
     cpm_option = 0;
@@ -6982,7 +6974,7 @@ int main(int argc, char *argv[])
             cpm_option = 1;
         } else {
             fprintf(stderr, "-cpm option only applies to Memotech or NABU.\n");
-            exit(EXIT_FAILURE+1);
+            exit(EXIT_FAILURE + 1);
         }
     }
     small_rom = 0;
@@ -6994,9 +6986,15 @@ int main(int argc, char *argv[])
             small_rom = 1;
         } else {
             fprintf(stderr, "-rom16 option only applies to Creativision.\n");
-            exit(EXIT_FAILURE+1);
+            exit(EXIT_FAILURE + 1);
         }
     }
+
+    /*
+     ** Create machine constant
+     */
+    machine_constant = constant_add(consoles[machine].constant);;
+    machine_constant->value = 1;
 
     /*
      ** Passed-in constants
@@ -7013,7 +7011,7 @@ int main(int argc, char *argv[])
                 break;
             if (!isalnum(ch) && ch != '_' && ch != '#' && ch != '=') {
                 fprintf(stderr, "%s name includes invalid characters.\n", argv[c]);
-                exit(EXIT_FAILURE+1);
+                exit(EXIT_FAILURE + 1);
             }
             if (ch == '=') {
                 *p = '\0';
@@ -7032,7 +7030,7 @@ int main(int argc, char *argv[])
         }
         if (d == NULL) {
             fprintf(stderr, "%s missing assignment. Syntax: -DCONST=123 -D#BIGCONST=12345\n", argv[c]);
-            exit(EXIT_FAILURE+1);
+            exit(EXIT_FAILURE + 1);
         }
         c++;
     }
@@ -7045,14 +7043,14 @@ int main(int argc, char *argv[])
     input = fopen(current_file, "r");
     if (input == NULL) {
         fprintf(stderr, "Couldn't open '%s' source file.\n", current_file);
-        exit(EXIT_FAILURE+1);
+        exit(EXIT_FAILURE + 1);
     }
     c++;
 
     output = fopen(TEMPORARY_ASSEMBLER, "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' temporary file.\n", TEMPORARY_ASSEMBLER);
-        exit(EXIT_FAILURE+1);
+        exit(EXIT_FAILURE + 1);
     }
     bank_switching = 0;
     option_explicit = 0;
@@ -7087,7 +7085,7 @@ int main(int argc, char *argv[])
     output = fopen(argv[c], "w");
     if (output == NULL) {
         fprintf(stderr, "Couldn't open '%s' output file.\n", argv[2]);
-        exit(EXIT_FAILURE+1);
+        exit(EXIT_FAILURE + 1);
     }
     c++;
     
@@ -7200,7 +7198,7 @@ int main(int argc, char *argv[])
     prologue = fopen(path, "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open '%s'.\n", path);
-        exit(EXIT_FAILURE+1);
+        exit(EXIT_FAILURE + 1);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
         p = line;
@@ -7242,7 +7240,7 @@ int main(int argc, char *argv[])
     input = fopen(TEMPORARY_ASSEMBLER, "r");
     if (input == NULL) {
         fprintf(stderr, "Unable to reopen '%s'.\n", TEMPORARY_ASSEMBLER);
-        exit(EXIT_FAILURE+1);
+        exit(EXIT_FAILURE + 1);
     }
     while (fgets(line, sizeof(line) - 1, input)) {
         fputs(line, output);
@@ -7262,7 +7260,7 @@ int main(int argc, char *argv[])
     prologue = fopen(path, "r");
     if (prologue == NULL) {
         fprintf(stderr, "Unable to open '%s'.\n", path);
-        exit(EXIT_FAILURE+1);
+        exit(EXIT_FAILURE + 1);
     }
     while (fgets(line, sizeof(line) - 1, prologue)) {
         fputs(line, output);

@@ -92,6 +92,7 @@ The following files compose the compiler:
     examples/test3.bas          Shows usage of SELECT CASE / END CASE
     examples/test3_sms.bas      Shows usage of SELECT CASE / END CASE (Sega Master System)
     examples/test4.bas          Benchmark and test of multiplication/division
+    examples/test5.bas          Example of using the preprocessor
     examples/varptr.bas         VARPTR example for redefining graphics.
     examples/varptr_sms.bas     VARPTR example for redefining graphics (Sega Master System)
     examples/vgm.bas            VGM audio player for SN76489.
@@ -365,4 +366,5 @@ Several utilities which can be used with CVBasic have emerged for graphics desig
 
 ### Acknowledgments
 
-Thanks to the following members of Atariage for contributing valuable suggestions: abeker, acadiel, aotta, ARTRAG, atari2600land, Atarius Maximus, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, Revontuli, SiRioKD, Tarzilla, Tony Cruise, tursilion, visrealm, wavemotion, and youki.
+Thanks to the following members of Atariage for contributing valuable suggestions: abeker, acadiel, aotta, ARTRAG, atari2600land, Atarius Maximus, carlsson, chalkyw64, CrazyBoss, drfloyd, gemintronic, Jess Ragan, Kamshaft, Kiwi, pixelboy, Revontuli, SiRioKD, Tarzilla, Tony Cruise, tursilion, unhuman,
+    visrealm, wavemotion, and youki.
