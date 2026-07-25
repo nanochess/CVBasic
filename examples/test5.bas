@@ -25,4 +25,11 @@
 	PRINT AT 97,"This isn't a Colecovision"
 #endif
 
+#if COLECOVISION
+	PRINT AT 129,"Yep! It is a Colecovision"
+#elif SGM
+	PRINT AT 129,"Yep! It is a SGM"
+#else
+	PRINT AT 129,"Yep! It is another thing"
+#endif
 	WHILE 1: WEND

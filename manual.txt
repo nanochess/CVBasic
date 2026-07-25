@@ -1548,6 +1548,14 @@ displays.
     [statement]
   #ENDIF
 
+  #IF [NOT] constant
+    [statement]
+    [statement]
+  #ELIF [NOT] constant
+    [statement]
+    [statement]
+  #ENDIF
+
 Unlike regular IF-THEN-ELSE statements, the excluded code is not
 compiled at all so it won't take up additional space in your compiled
 rom image.
