@@ -6432,11 +6432,12 @@ void compile_statement(int check_for_else)
                     /* Simpler to do inline */
                     sprintf(temp, "%d   ; %d*256+0x8000", vdp_reg*256+0x8000, vdp_reg);
                     cpu9900_2op("li", "r1", temp);
+                    generic_interrupt_disable();
                     cpu9900_2op("movb", "r0", "@VDPWADR");
                     cpu9900_2op("movb", "r1", "@VDPWADR");
+                    generic_interrupt_enable();
                     /*
-                     ** only timing critical in scratchpad with register indirect addressing,
-                     ** even then probably safe on the 99/4A
+                     ** register writes have no risk of overrun
                      */
                 } else {
                     cpuz80_2op("LD", "B", "A");
