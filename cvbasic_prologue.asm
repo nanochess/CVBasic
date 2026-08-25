@@ -4410,7 +4410,7 @@ Z80_CTC:	equ $28
       if PENCIL
         bit 3,d		; 2K of RAM
       endif
-      if COLECO+SG1000+SORD
+      if COLECO+SG1000+SORD-PENCIL
 	bit 2,d		; 1K of RAM
       endif
 	jp z,$-4
