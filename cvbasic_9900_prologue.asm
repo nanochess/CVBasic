@@ -1769,12 +1769,10 @@ unpack
 !getbit
     clr r3              ; ldy #0
     movb *r2+,r3        ; lda (temp),y / inc temp / bne $+4 / inc temp+1
-    joc !gb1
     sla r3,1            ; rol a with no carry
-    b *r11
-!gb1
-    sla r3,1
+    jnc !gb0
     ori r3,>0100        ; rol a with carry
+!gb0
     b *r11
 
 !modes
