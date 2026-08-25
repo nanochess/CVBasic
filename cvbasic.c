@@ -80,9 +80,9 @@ struct console consoles[TOTAL_TARGETS] = {
     {"creativision","-rom16","Vtech Creativision (Dick Smith's Wizzard/Laser 2001), 6502+1K RAM.",
         "Creativision/Wizzard", "CREATIVISION",
         0x0050, 0x017f, 0x0400,  0,      0,    0,    1, CPU_6502},
-    {"pencil",  "",         "Soundic/Hanimex Pencil II (2K RAM)",
+    {"pencil",  "-ram16",         "Soundic/Hanimex Pencil II (2K RAM), use -ram16 for 18K of RAM",
         "Soundic Pencil II", "PENCIL",
-        0x7000, 0x7800, 0x0800,  0xbe,   0xbe, 0xff, 0, CPU_Z80},
+        0x6000, 0x6800, 0x0800,  0xbe,   0xbe, 0xff, 0, CPU_Z80},
     {"einstein","",         "Tatung Einstein, generates .com files",
         "Tatung Einstein", "EINSTEIN",
         0,      0xa000, 0,       0x08,   0x08, 0,    0, CPU_Z80},
@@ -405,7 +405,7 @@ void accumulated_push(enum lexical_component, int, char *);
 void compile_assignment(int);
 void compile_statement(int);
 void compile_basic(void);
-int process_variables(void);
+int process_variables(int);
 
 /*
  ** Emit an error
@@ -6697,16 +6697,16 @@ void compile_basic(void)
 
 /*
  ** Process variables
+ **
+ ** The address is only used in Creativision, NES, and TI994A.
  */
-int process_variables(void)
+int process_variables(int address)
 {
     struct label *label;
     int c;
     int bytes_used;
     int size;
-    int address;
     
-    address = consoles[machine].base_ram; /* Only Creativision, NES and TI994A */
     bytes_used = 0;
     for (c = 0; c < HASH_PRIME; c++) {
         label = label_hash[c];
@@ -6861,6 +6861,9 @@ int main(int argc, char *argv[])
     int pencil;
     char hex;
     struct constant *machine_constant;
+    int base_ram;
+    int memory_size;
+    int stack;
     
     actual = time(0);
     date = localtime(&actual);
@@ -6929,14 +6932,6 @@ int main(int argc, char *argv[])
         machine = COLECOVISION;
         target = CPU_Z80;
     }
-    if (machine == PENCIL) {
-        machine = COLECOVISION;
-        target = CPU_Z80;
-        pencil = 1;
-    } else {
-        pencil = 0;
-    }
-    bytes_used = 0;
 
     /*
      ** Extra options.
@@ -6948,11 +6943,28 @@ int main(int argc, char *argv[])
         c++;
         if (machine == MSX || machine == MSX2) {
             extra_ram = 8192;
+        } else if (machine == PENCIL) {
+            extra_ram = 16384;
         } else {
-            fprintf(stderr, "-ram16 option only applies to MSX/MSX2.\n");
+            fprintf(stderr, "-ram16 option only applies to MSX/MSX2/Pencil II.\n");
             exit(EXIT_FAILURE + 1);
         }
     }
+
+    base_ram = consoles[machine].base_ram;
+    memory_size = consoles[machine].memory_size;
+    stack = consoles[machine].stack;
+
+    /* Convert Pencil II into a Colecovision */
+    if (machine == PENCIL) {
+        machine = COLECOVISION;
+        target = CPU_Z80;
+        pencil = 1;
+    } else {
+        pencil = 0;
+    }
+    bytes_used = 0;
+
     bank_konami = 0;
     if (argv[c][0] == '-' && tolower(argv[c][1]) == 'k' && tolower(argv[c][2]) == 'o' &&
         tolower(argv[c][3]) == 'n' && tolower(argv[c][4]) == 'a' && tolower(argv[c][5]) == 'm' && tolower(argv[c][6]) == 'i' &&
@@ -7162,12 +7174,12 @@ int main(int argc, char *argv[])
     fprintf(output, "CVBASIC_BANK_ROM_SIZE:\tequ %d\n", bank_rom_size);
     fprintf(output, "COLECO_SPINNER:\tequ %d\n", spinner_used);
     fprintf(output, "\n");
-    fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].base_ram - extra_ram);
-    fprintf(output, "RAM_SIZE:\tequ %c%04x\t; Base of RAM\n", hex, consoles[machine].memory_size + extra_ram);
+    fprintf(output, "BASE_RAM:\tequ %c%04x\t; Base of RAM\n", hex, base_ram - extra_ram);
+    fprintf(output, "RAM_SIZE:\tequ %c%04x\t; RAM size\n", hex, memory_size + extra_ram);
     if ((machine == MEMOTECH || machine == EINSTEIN) && cpm_option != 0)
         fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, 0xe000);
     else
-        fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, consoles[machine].stack);
+        fprintf(output, "STACK:\tequ %c%04x\t; Base stack pointer\n", hex, stack);
     fprintf(output, "VDP:\tequ %c%02x\t; VDP port (write)\n", hex, consoles[machine].vdp_port_write);
     fprintf(output, "VDPR:\tequ %c%02x\t; VDP port (read)\n", hex, consoles[machine].vdp_port_read);
     if (machine != TI994A) {
@@ -7235,7 +7247,7 @@ int main(int argc, char *argv[])
     fclose(prologue);
     
     if (target == CPU_6502) {
-        bytes_used = process_variables();
+        bytes_used = process_variables(base_ram);
     }
     
     input = fopen(TEMPORARY_ASSEMBLER, "r");
@@ -7269,7 +7281,7 @@ int main(int argc, char *argv[])
     fclose(prologue);
     
     if (target == CPU_Z80 || target == CPU_9900) {
-        bytes_used = process_variables();
+        bytes_used = process_variables(base_ram);
     }
     
     /*
@@ -7305,7 +7317,7 @@ int main(int argc, char *argv[])
     if (machine == MEMOTECH || machine == EINSTEIN || machine == NABU) {
         fprintf(stderr, "%d RAM bytes used for variables.\n", bytes_used);
     } else {
-        available_bytes = consoles[machine].memory_size + extra_ram;
+        available_bytes = memory_size + extra_ram;
         if (machine == SORD)    /* Because stack is set apart */
             available_bytes -= (music_used ? 33 : 0) + 146;
         else if (machine != COLECOVISION_SGM)
