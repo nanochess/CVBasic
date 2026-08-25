@@ -52,6 +52,8 @@
 	;                             second controller. Alternate frame wait
 	;                             routine when Colecovision used with
 	;                             spinner.
+	; Revision date: Aug/24/2026. Corrected LDIRMV for SVI-318/328 because
+	;                             separated read port for VDP.
 	;
 
 	;
@@ -520,7 +522,7 @@ LDIRMV:
 	ex (sp),hl
 	ex (sp),hl
 .1:
-	in a,(VDP)
+	in a,(VDPR)
 	ld (de),a
     if SORD+SMS
 	nop	
