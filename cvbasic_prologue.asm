@@ -962,7 +962,6 @@ define_sprite:
 	call nmi_off
 	call LDIRVM
 	jp nmi_on
-    endif
 	
 update_sprite:
     if SMS
