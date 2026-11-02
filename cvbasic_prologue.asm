@@ -56,7 +56,8 @@
 	;                             separated read port for VDP.
 	; Revision date: Nov/02/2026. Added conditional compilation of certain
 	;                             modules that can remain unused for some
-	;                             applications or games.
+	;                             applications or games. Added support for
+	;                             Sega Game Gear palette.
 	;
 
 	;
@@ -1588,7 +1589,11 @@ palette_load:
 	ld hl,$c000
 	call SETWRT
 	pop hl
+      if GAMEGEAR
+	ld bc,64*256+VDP
+      else
 	ld bc,32*256+VDP
+      endif
 	outi
 	jp nz,$-2
 	ei
@@ -1596,8 +1601,15 @@ palette_load:
 
 	; TMS9118-alike palette
 sms_default_palette:
+      if GAMEGEAR
+	dw $000,$000,$4c2,$7d5,$e55,$f77,$45d,$fe4
+	dw $55f,$77f,$5cd,$8ce,$3b2,$b5c,$ccc,$fff
+	dw $000,$000,$4c2,$7d5,$e55,$f77,$45d,$fe4
+	dw $55f,$77f,$5cd,$8ce,$3b2,$b5c,$ccc,$fff
+      else
 	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
 	db $00,$00,$0c,$2e,$20,$30,$02,$3c,$17,$2B,$0f,$2f,$08,$33,$2a,$3f
+      endif
 
 mode_4:
 	di

@@ -102,6 +102,9 @@ struct console consoles[TOTAL_TARGETS] = {
     {"sms",     "",         "Sega Master System (8K RAM)",
         "Sega Master System", "SMS",
         0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
+    {"gamegear","",         "Sega Game Gear (8K RAM)",
+        "Sega Game Gear", "GAMEGEAR",
+        0xc000, 0xdff0, 0x1ff0,  0xbe,   0xbe, 0x7f, 1, CPU_Z80},
     {"nes",     "",         "NES/Famicom (2K RAM)",
         "NES/Famicom", "NES",
         0x0050, 0x01ff, 0x0800,  0,      0,    0,    1, CPU_6502},
@@ -128,6 +131,7 @@ static int bank_switching;
 static int bank_rom_size;
 static int bank_current;
 static int bank_konami;
+static int game_gear;           /* Suboption for SMS */
 
 static char current_file[MAX_LINE_SIZE];
 static int current_line;
@@ -5083,7 +5087,7 @@ void compile_statement(int check_for_else)
                 
                 get_lex();
                 if (machine != SMS && machine != NES && machine != MSX && machine != MSX2)
-                    emit_error("PALETTE is only available on SMS/NES/Famicom/MSX/MSX2");
+                    emit_error("PALETTE is only available on SMS/GG/NES/Famicom/MSX/MSX2");
                 if (lex == C_NAME && strcmp(name, "LOAD") == 0) {
                     get_lex();
                     if (lex != C_NAME) {
@@ -5119,12 +5123,14 @@ void compile_statement(int check_for_else)
                 } else if (lex == C_NAME && strcmp(name, "DEFAULT") == 0) {
                     get_lex();
                     if (machine != MSX2 && machine != SMS && machine != MSX)
-                        emit_error("PALETTE DEFAULT is only available in MSX2/SMS");
+                        emit_error("PALETTE DEFAULT is only available in MSX2/SMS/GG");
                     generic_call("palette_default");
                 } else {
                     type = evaluate_expression(1, TYPE_8, 0);
                     if (machine == SMS) {
                         generic_interrupt_disable();
+                        if (game_gear == 1) /* Palette entries are 2 bytes */
+                            cpuz80_2op("ADD", "A", "A");
                         cpuz80_2op("LD", "L", "A");
                         cpuz80_2op("LD", "H", "$C0");
                         cpuz80_1op("CALL", "SETWRT");
@@ -5148,9 +5154,16 @@ void compile_statement(int check_for_else)
                         emit_error("missing comma in PALETTE");
                     else
                         get_lex();
-                    type = evaluate_expression(1, ((machine == MSX2 || machine == MSX) ? TYPE_16 : TYPE_8), 0);
+                    type = evaluate_expression(1, ((machine == MSX2 || machine == MSX || (machine == SMS && game_gear != 0)) ? TYPE_16 : TYPE_8), 0);
                     if (machine == SMS) {
-                        cpuz80_2op("OUT", "(VDP)", "A");
+                        if (game_gear) {
+                            cpuz80_2op("LD", "A", "L");
+                            cpuz80_2op("OUT", "(VDP)", "A");
+                            cpuz80_2op("LD", "A", "H");
+                            cpuz80_2op("OUT", "(VDP)", "A");
+                        } else {
+                            cpuz80_2op("OUT", "(VDP)", "A");
+                        }
                         generic_interrupt_enable();
                     } else if (machine == NES) {
                         cpu6502_1op("LDX", "ppu_pointer");
@@ -6986,6 +6999,16 @@ int main(int argc, char *argv[])
     } else {
         pencil = 0;
     }
+    
+    /* Convert Game Gear into a SMS */
+    if (machine == GAMEGEAR) {
+        machine = SMS;
+        target = CPU_Z80;
+        game_gear = 1;
+    } else {
+        game_gear = 0;
+        
+    }
     bytes_used = 0;
 
     bank_konami = 0;
@@ -7184,6 +7207,7 @@ int main(int argc, char *argv[])
     fprintf(output, "TI99:\tequ %d\n", (machine == TI994A) ? 1 : 0);
     fprintf(output, "NABU:\tequ %d\n", (machine == NABU) ? 1 : 0);
     fprintf(output, "SMS:\tequ %d\n", (machine == SMS) ? 1 : 0);
+    fprintf(output, "GAMEGEAR:\tequ %d\n", (game_gear == 1) ? 1 : 0);
     if (machine == NES) {
         if (bank_switching)
             fprintf(output, "NES_PRG_BANKS:\tequ %d\t; Each one 16K.\n", bank_rom_size / 16);

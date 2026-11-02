@@ -22,7 +22,8 @@ All trademarks are property of their respective owners.
 
 >>>>>>>>>>>>>>  Changes in this version
 
-v0.9.3 Nov/02/2026  o Added support for 16K RAM expansion in Pencil II.
+v0.9.3 Nov/02/2026  o Added support for Sega Game Gear.
+                    o Added support for 16K RAM expansion in Pencil II.
                     o Added modules for Z80 assembler prologue. This
                       saves up to 603 bytes removing unused modules from
                       the output (for example, fast multiplication, 
@@ -142,7 +143,7 @@ v0.5.1 Jun/25/2024  o Added SIGNED and UNSIGNED keywords to tag variables
 
 >>>>>>>>>>>>>>. Description
 
-CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, Creativision, Soundic Pencil II, Tatung Einstein, Casio PV-2000, TI-99/4A, NABU PC, Sega Master System, and NES/Famicom.
+CVBasic is an integer BASIC compiler for Colecovision, MSX, Sega SG1000, Spectravideo SVI-318/328, Sord M5, Memotech MTX, Creativision, Soundic Pencil II, Tatung Einstein, Casio PV-2000, TI-99/4A, NABU PC, Sega Master System, Sega Game Gear, and NES/Famicom.
 
 It works as a cross-compiler over a PC and generates assembler code that can be processed by Gasm80.
 
@@ -174,6 +175,7 @@ Usage:
   cvbasic --ti994a in.bas output.a99
   cvbasic --nabu in.bas output.asm
   cvbasic --sms in.bas output.asm
+  cvbasic --gamegear in.bas output.asm
   cvbasic --nes in.bas output.asm
 
 You can pass constants to your compiled program. This is useful for conditional compilation.
@@ -193,6 +195,8 @@ Afterwards, you should assemble your program using the included Gasm80 assembler
 
   gasm80 output.asm -o output.rom
   gasm80 output.asm -o output.rom -l output.lst
+
+For Sega Master System and Sega Game Gear, you should add the option -sms to gasm80, so it generates a valid ROM checksum.
 
 For Memotech you should use the .run extension or .com extension (if used -cpm option)
 
@@ -999,6 +1003,23 @@ The following statements are available:
 
      Alternatively, you can load a full 32 entries palette using PALETTE LOAD.
      The array should be specified with DATA BYTE.
+
+     You can restore the palette to TMS9118 colors by using PALETTE DEFAULT.
+
+     It is recommended to update the palette only in the vertical blanking
+     to avoid glitches on the display.
+
+     For the Sega Game Gear:
+
+     Sets a single palette register (0-31) to the color (0-4095). Color bits
+     are specified in a word as 0000BBBBGGGGRRRR (four bits for red, green,
+     and blue).
+
+     The registers 0-15 are for background tiles, and the registers 16-31 are
+     for sprites. The tiles can request to use the sprite colors.
+
+     Alternatively, you can load a full 32 entries palette using PALETTE LOAD.
+     The array should be specified with DATA.
 
      You can restore the palette to TMS9118 colors by using PALETTE DEFAULT.
 

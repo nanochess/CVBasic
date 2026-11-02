@@ -17,6 +17,7 @@ CVBasic is a BASIC language cross-compiler with a syntax alike to QBasic. It sup
 * Hanimex/Soundic Pencil II.
 * NABU PC.
 * Sega Master System (supporting bank switching with Sega mapper)
+* Sega Game Gear (supporting bank switching with Sega mapper)
 * NES/Famicom (supporting bank switching using mapper 30 - UNROM 512)
 
 The CVBasic compiler can create programs up to 1 MB using the BANK statements (using 16K bank switching on most platforms, 8k on TI-99/4A). 
@@ -25,7 +26,7 @@ One of the advantages of using CVBasic is that all the programs can be compiled 
 
 Porting to MSX2 is relatively easy. You only need to use MODE 4 for enabling the extended video mode, and create 16-byte color tables for sprites, and use these with DEFINE SPRITE COLOR.
 
-Currently, Sega Master System and NES/Famicom are the most different in video terms, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS and NES/Famicom versions for every game so you can see the required changes.
+Currently, Sega Master System, Sega Game Gear and NES/Famicom are the most different in video terms, although the compiler shares the core, the sprites are 8x16 and each pixel can have a different color, so the games aren't directly portable, but very easily translated. The examples include SMS and NES/Famicom versions for every game so you can see the required changes.
 
 The following files compose the compiler:
 
@@ -221,6 +222,13 @@ Using CVBasic to compile a Sega Master System program:
 
     cvbasic --sms game.bas game.asm
     gasm80 game.asm -o game.sms -sms
+    
+The -sms option of gasm80 will generate automatically a valid checksum so the game can run on a real console.
+
+Using CVBasic to compile a Sega Game Gear program:
+
+    cvbasic --gamegear game.bas game.asm
+    gasm80 game.asm -o game.gg -sms
     
 The -sms option of gasm80 will generate automatically a valid checksum so the game can run on a real console.
 

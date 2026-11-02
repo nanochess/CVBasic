@@ -33,6 +33,7 @@ enum supported_machine {
     TI994A,
     NABU,
     SMS,
+    GAMEGEAR,
     NES,
     MSX2,
     TOTAL_TARGETS
