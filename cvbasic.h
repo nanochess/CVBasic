@@ -72,6 +72,28 @@ struct console {
 
 extern struct console consoles[TOTAL_TARGETS];
 
+struct modules {
+    int sn76489;        /* SN76489 routines */
+    int keypad;         /* keypad routines */
+    int _mul16;         /* _mul16 */
+    int _div16;         /* _div16 */
+    int _div16s;        /* _div16s */
+    int _mod16s;        /* _mod16s */
+    int _sgn16;         /* _sgn16 */
+    int random;         /* random */
+    int mode_1;         /* mode_1 */
+    int mode_2;         /* mode_2 */
+    int print_number;   /* print_number */
+    int print_char;     /* print_char */
+    int cpyblk;         /* CPYBLK */
+    int define_char;    /* define_char */
+    int define_color;   /* define_color */
+    int define_sprite;  /* define_sprite */
+    int update_sprite;  /* update_sprite */
+};
+
+extern struct modules module;
+
 extern char temp[MAX_LINE_SIZE];
 extern int optimized;
 extern FILE *output;

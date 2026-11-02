@@ -1,4 +1,4 @@
-# CVBasic compiler v0.9.2
+# CVBasic compiler v0.9.3
 *(c) Copyright 2024-2026 Óscar Toledo Gutiérrez*
 *https://nanochess.org/*
 
@@ -74,6 +74,7 @@ The following files compose the compiler:
     examples/happy_face.bas     Bouncing face.
     examples/happy_face_nes.bas Bouncing face (NES/Famicom).
     examples/happy_face_sms.bas Bouncing face (Sega Master System).
+    examples/hello_world.bas    Hello World example.
     examples/music.bas          Music example.
     examples/oscar_compressed.bas  High-resolution graphics example compressed with Pletter.
     examples/oscar_compressed_sms.bas  High-resolution graphics example compressed with Pletter (Sega Master System)
@@ -231,7 +232,7 @@ Using CVBasic to compile a NES/Famicom program:
 
 ### Notes
 
-The current official version is v0.9.0.
+The current official version is v0.9.2.
 
 All platforms have been tested in emulation.
 

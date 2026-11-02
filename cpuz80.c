@@ -826,6 +826,7 @@ void cpuz80_node_generate(struct node *node, int decision)
             break;
         case N_SGN16:   /* Get sign of 16-bit value */
             cpuz80_node_generate(node->left, 0);
+            module._sgn16 = 1;
             cpuz80_1op("CALL", "_sgn16");
             break;
         case N_POS:     /* Get screen cursor position */
@@ -979,9 +980,11 @@ void cpuz80_node_generate(struct node *node, int decision)
             cpuz80_2op("LD", "A", "(joy2_data)");
             break;
         case N_KEY1:    /* Read keypad 1 */
+            module.keypad = 1;
             cpuz80_2op("LD", "A", "(key1_data)");
             break;
         case N_KEY2:    /* Read keypad 2 */
+            module.keypad = 1;
             cpuz80_2op("LD", "A", "(key2_data)");
             break;
         case N_SPINNER1:    /* Read spinner 1 */
@@ -1003,6 +1006,7 @@ void cpuz80_node_generate(struct node *node, int decision)
             cpuz80_noop("EI");
             break;
         case N_RANDOM:  /* Read pseudorandom generator */
+            module.random = 1;
             cpuz80_1op("CALL", "random");
             break;
         case N_FRAME:   /* Read current frame number */
@@ -1044,6 +1048,7 @@ void cpuz80_node_generate(struct node *node, int decision)
                 break;
             }
             if (node->type == N_AND8 && node->left->type == N_KEY1 && node->right->type == N_KEY2) {
+                module.keypad = 1;
                 cpuz80_2op("LD", "HL", "(key1_data)");
                 cpuz80_2op("LD", "A", "H");
                 cpuz80_1op("AND", "L");
@@ -1861,14 +1866,19 @@ void cpuz80_node_generate(struct node *node, int decision)
                 cpuz80_2op("SBC", "HL", "DE");
             } else if (node->type == N_MUL16) {
                 cpuz80_1op("CALL", "_mul16");
+                module._mul16 = 1;
             } else if (node->type == N_DIV16) {
                 cpuz80_1op("CALL", "_div16");
+                module._div16 = 1;
             } else if (node->type == N_MOD16) {
                 cpuz80_1op("CALL", "_mod16");
+                module._div16 = 1;
             } else if (node->type == N_DIV16S) {
                 cpuz80_1op("CALL", "_div16s");
+                module._div16s = 1;
             } else if (node->type == N_MOD16S) {
                 cpuz80_1op("CALL", "_mod16s");
+                module._mod16s = 1;
             }
             break;
     }

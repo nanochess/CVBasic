@@ -54,6 +54,9 @@
 	;                             spinner.
 	; Revision date: Aug/24/2026. Corrected LDIRMV for SVI-318/328 because
 	;                             separated read port for VDP.
+	; Revision date: Nov/02/2026. Added conditional compilation of certain
+	;                             modules that can remain unused for some
+	;                             applications or games.
 	;
 
 	;
@@ -611,6 +614,7 @@ ENASCR:
 	call WRTVDP
 	jp nmi_on
 
+    if MODULE_CPYBLK
 CPYBLK:
 	pop hl
 	ex af,af'
@@ -642,7 +646,8 @@ CPYBLK:
 	pop bc
 	djnz .1
 	jp nmi_on
-	
+    endif
+
 nmi_off:
     if COLECO+PV2000
 	push hl
@@ -673,9 +678,11 @@ nmi_on:
 	ret
 
     if COLECO
+      if MODULE_KEYPAD
 keypad_table:
         db $0f,$08,$04,$05,$0c,$07,$0b,$02
         db $0d,$0a,$00,$09,$03,$01,$06,$0f
+      endif
     endif
 
 cls:
@@ -786,6 +793,7 @@ print_string:
 	ld (cursor),hl
 	ret
 
+    if MODULE_PRINT_NUMBER
 print_number:
 	ld b,0
 	call nmi_off
@@ -826,7 +834,9 @@ print_digit:
 .4:
 	ld a,$30
 .3:	ld b,1
+    endif
 
+    if MODULE_PRINT_CHAR
 print_char:
 	push hl
 	ld hl,(cursor)
@@ -850,7 +860,9 @@ print_char:
 	ld (cursor),hl
 	pop hl
 	ret
+    endif
 
+    if MODULE_DEFINE_CHAR
 	; Support routine for DEFINE CHAR.
 define_char:
 	ex de,hl
@@ -892,7 +904,9 @@ define_char:
 .1:	call LDIRVM
 	jp nmi_on
     endif
+    endif
 
+    if MODULE_DEFINE_COLOR
 	; Support routine for DEFINE COLOR.
 define_color:
     if SMS
@@ -918,7 +932,9 @@ define_color:
 	call LDIRVM3
 	jp nmi_on
     endif
+    endif
 
+    if MODULE_DEFINE_SPRITE
 	; Support routine for DEFINE SPRITE.
 define_sprite:
 	ex de,hl
@@ -962,7 +978,9 @@ define_sprite:
 	call nmi_off
 	call LDIRVM
 	jp nmi_on
-	
+    endif
+
+    if MODULE_UPDATE_SPRITE
 update_sprite:
     if SMS
 	pop bc		; Pop return address.
@@ -1007,7 +1025,9 @@ update_sprite:
 	ldi
     endif
 	ret
+    endif
 
+    if MODULE_MUL16
 	;
 	; Fast 16-bit multiplication by Oscar Toledo G.
 	; Input:
@@ -1084,7 +1104,9 @@ _mul16:
 	sla c		; 10
 	rl b		; 10
 	jp .3		; 11
+   endif
 
+   if MODULE_MOD16S
 	; 16-bit signed modulo.
 	; hl = hl % de
 _mod16s:
@@ -1101,7 +1123,9 @@ _mod16s:
 	pop af
 	ret p
 	jp _neg16
+    endif
 
+    if MODULE_DIV16S
 	; 16-bit signed division.
 	; hl = hl / de
 _div16s:
@@ -1118,6 +1142,7 @@ _div16s:
 	pop af
 	ret p
 	jp _neg16
+    endif
 
 _abs16:
 	bit 7,h
@@ -1132,6 +1157,7 @@ _neg16:
 	inc hl
 	ret
 
+    if MODULE_DIV16
 	; Fast 16-bit division.
 	; hl = hl / de
 _div16:
@@ -1176,7 +1202,9 @@ _mod16:
 	dec a
 	jp nz,.1
 	ret
+    endif
 
+    if MODULE_SGN16
 _sgn16:
 	ld a,h
 	or l
@@ -1187,7 +1215,9 @@ _sgn16:
 	inc hl
 	inc hl
 	ret
+    endif
 
+    if MODULE_RANDOM
 	; Random number generator.
 	; From my game Mecha Eight.
 random:
@@ -1220,7 +1250,9 @@ random:
         rr l
         ld (lfsr),hl
         ret
+    endif
 
+    if MODULE_SN76489
 sn76489_freq:
     if COLECO+SG1000+SMS+SORD+MEMOTECH+PV2000
 	ld b,a
@@ -1266,6 +1298,7 @@ sn76489_control:
       endif
     endif
 	ret
+    endif
 
 ay3_reg:
     if COLECO
@@ -1696,6 +1729,7 @@ vdp_generic_sprites:
 	call nmi_on
 	jp ENASCR
 
+    if MODULE_MODE_1
 mode_1:
 	ld hl,mode
 	res 3,(hl)
@@ -1727,7 +1761,9 @@ mode_1:
 	cp $1b
 	jp nz,.1
 	jp vdp_generic_sprites
+    endif
 
+    if MODULE_MODE_2
 mode_2:
 	ld hl,mode
 	set 3,(hl)
@@ -1764,6 +1800,8 @@ mode_2:
 	call FILVRM
 	call cls
 	jp vdp_generic_sprites
+    endif
+
     endif
 
     if MSX
@@ -2050,22 +2088,24 @@ nmi_handler:
 	cpl
 	ld (joy2_data),a
 
+      if MODULE_KEYPAD
 	ld a,d
 	and $0f
-	ld c,a
-	ld b,0
-	ld hl,keypad_table
+	ld l,a
+	ld h,0
+	ld bc,keypad_table
 	add hl,bc
 	ld a,(hl)
 	ld (key1_data),a
 
 	ld a,e
 	and $0f
-	ld c,a
-	ld hl,keypad_table
+	ld l,a
+	ld h,0
 	add hl,bc
 	ld a,(hl)
 	ld (key2_data),a
+      endif
     endif
     if SG1000+SMS
 	ld a,$07
